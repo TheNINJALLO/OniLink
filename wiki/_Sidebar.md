@@ -2,8 +2,10 @@
 
 - [[Home]]
 - [[Getting Started]]
+- [[Installation Guide]]
 - [[Native BDS Setup]]
 - [[Geyser Java Setup]]
+- [[Pterodactyl Setup]]
 - [[Configuration]]
 - [[Architecture and Security]]
 - [[Compatibility and Testing]]

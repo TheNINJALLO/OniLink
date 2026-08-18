@@ -68,7 +68,7 @@ OniLink preserves the authenticated name, XUID, UUID, and observed client addres
 3. Generate a unique 32-byte-or-stronger secret for each backend and expose it through an environment variable—not a committed configuration file.
 4. Configure matching backend name, bridge ID, key ID, and secret environment variable on both sides.
 5. Keep the backend listener private and restrict its trusted proxy CIDRs to OniLink.
-6. Follow the [quick-start guide](docs/QUICKSTART.md), then complete the [acceptance checklist](docs/TESTING.md).
+6. Choose a ready-to-copy [deployment example](examples/README.md), follow the [complete installation guide](docs/INSTALLATION.md), then complete the [acceptance checklist](docs/TESTING.md).
 
 Download the current candidate with GitHub CLI:
 
@@ -109,6 +109,7 @@ Exact executable hashes, profile IDs, and remaining gates are maintained in [Com
 | [Documentation hub](docs/README.md) | [Configuration](docs/CONFIGURATION.md) | [Architecture](docs/ARCHITECTURE.md) |
 | [Quick start](docs/QUICKSTART.md) | [Linux](docs/LINUX.md) | [Identity flow](docs/IDENTITY_FLOW.md) |
 | [Installation](docs/INSTALLATION.md) | [Geyser](docs/GEYSER.md) | [OniForward protocol](docs/ONIFORWARD_PROTOCOL.md) |
+| [Deployment examples](examples/README.md) | [Windows status](docs/WINDOWS.md) | [Compatibility](docs/COMPATIBILITY.md) |
 | [Troubleshooting](docs/TROUBLESHOOTING.md) | [Pterodactyl](docs/PTERODACTYL.md) | [Building](docs/BUILDING.md) |
 | [GitHub Wiki](https://github.com/TheNINJALLO/OniLink/wiki) | [Migration](docs/MIGRATION.md) | [Source audit](docs/SOURCE_AUDIT.md) |
 

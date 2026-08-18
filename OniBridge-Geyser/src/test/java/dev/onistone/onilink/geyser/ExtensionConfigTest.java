@@ -49,6 +49,21 @@ class ExtensionConfigTest {
                 () -> ExtensionConfig.load(write(base + "unknown=true\n"), ignored -> null));
     }
 
+    @Test
+    void mixedDeploymentExampleLoadsThroughTheStrictParser() throws Exception {
+        Path example = Path.of(
+                "..", "examples", "mixed-bds-geyser", "onibridge-geyser.properties");
+        String secret = Base64.getEncoder().encodeToString(new byte[32]);
+
+        ExtensionConfig loaded = ExtensionConfig.load(
+                example,
+                name -> name.equals("ONIBRIDGE_JAVA_SECRET") ? secret : null);
+
+        assertEquals("java-main", loaded.bridgeId());
+        assertEquals("java", loaded.backendName());
+        assertEquals(10_000, loaded.maximumLifetimeMs());
+    }
+
     private Path write(String value) throws Exception {
         Path file = temporary.resolve("config-" + System.nanoTime() + ".properties");
         Files.writeString(file, value);

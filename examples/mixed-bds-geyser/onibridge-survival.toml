@@ -1,0 +1,37 @@
+bridge_id = "survival-main"
+backend_name = "survival"
+trusted_proxy_cidrs = ["10.10.0.10/32"]
+shutdown_on_hook_failure = true
+reject_direct_joins = true
+
+[forwarding]
+protocol = 2
+active_key_id = "key-2026-01"
+active_secret_env = "ONIBRIDGE_SURVIVAL_SECRET"
+active_secret_file = ""
+previous_key_id = ""
+previous_secret_env = ""
+previous_secret_file = ""
+maximum_token_size = 4096
+maximum_lifetime_ms = 10000
+allowed_clock_skew_ms = 2000
+replay_cache_max_entries = 10000
+
+[identity]
+uuid_mode = "preserve_backend"
+verify_post_login_xuid = true
+store_verified_identities = true
+
+[commands]
+register_native_commands = true
+command_namespace = "onibridge"
+interfere_with_backend_commands = false
+
+[compatibility]
+required_profile = "bds-1.26.44.3-linux-x86_64-06effdd00067f1ae"
+allow_unreviewed_profile = true
+allow_unknown_bds = false
+allow_unknown_endstone = false
+
+[legacy_verification]
+enabled = false

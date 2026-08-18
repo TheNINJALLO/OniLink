@@ -71,6 +71,43 @@ class ProxyConfigTest {
     }
 
     /**
+     * The operator examples are intended to be copied directly into a deployment. Keep them under
+     * the real parser so a renamed key, malformed value, reused secret source, or inline comment
+     * fails CI instead of failing on an operator's server.
+     */
+    @Test
+    void deploymentExampleConfigsLoadWithTheDocumentedTopology() throws Exception {
+        ProxyConfig single = loadDeploymentExample(
+                Path.of("..", "examples", "single-bds", "onilink.properties"));
+        assertEquals(1, single.backends().size());
+        assertTrue(single.backends().containsKey("survival"));
+
+        ProxyConfig mixed = loadDeploymentExample(
+                Path.of("..", "examples", "mixed-bds-geyser", "onilink.properties"));
+        assertEquals(2, mixed.backends().size());
+        assertTrue(mixed.backends().containsKey("survival"));
+        assertTrue(mixed.backends().containsKey("java"));
+        assertTrue(mixed.backends().get("java").dropSubChunkRequests());
+        assertEquals("ONIBRIDGE_SURVIVAL_SECRET",
+                mixed.backends().get("survival").forwarding().activeSecretEnv());
+        assertEquals("ONIBRIDGE_JAVA_SECRET",
+                mixed.backends().get("java").forwarding().activeSecretEnv());
+    }
+
+    private static ProxyConfig loadDeploymentExample(Path example) throws Exception {
+        assertTrue(Files.exists(example), "missing deployment example: " + example);
+        Properties properties = new Properties();
+        try (var reader = Files.newBufferedReader(example)) {
+            properties.load(reader);
+        }
+        for (String key : properties.stringPropertyNames()) {
+            assertFalse(properties.getProperty(key).contains("#"),
+                    "'" + key + "' has a trailing inline comment in " + example);
+        }
+        return ProxyConfig.from(properties, example.toAbsolutePath().getParent());
+    }
+
+    /**
      * The config an operator actually gets. Only the jar is uploaded, so {@code loadOrCreate} writing
      * the documented template — not a {@link Properties#store} dump in hash order — is the only thing
      * that puts any configuration documentation on a production box at all.

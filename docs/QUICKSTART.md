@@ -2,6 +2,8 @@
 
 This guide brings up one OniLink proxy in front of one BDS `1.26.44.3` + Endstone `0.11.9` backend for controlled acceptance testing. It does not promote the candidate to production.
 
+For service setup, firewalls, secret files, full configuration references, Pterodactyl, key rotation, and rollback, use the [complete installation guide](INSTALLATION.md). Ready-to-copy configurations are in the [single-BDS example](../examples/single-bds/README.md).
+
 ## 1. Prepare the hosts
 
 You need:

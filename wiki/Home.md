@@ -22,8 +22,10 @@ OniLink is a Java 21 Bedrock proxy with two fail-closed backend identity validat
 | Goal | Page |
 | --- | --- |
 | Understand prerequisites and choose a backend | [[Getting Started]] |
+| Follow the complete install sequence | [[Installation Guide]] |
 | Test Linux BDS + Endstone | [[Native BDS Setup]] |
 | Connect Geyser to a Java server | [[Geyser Java Setup]] |
+| Deploy in Pterodactyl | [[Pterodactyl Setup]] |
 | Align IDs, keys, secrets, and CIDRs | [[Configuration]] |
 | Understand the trust model | [[Architecture and Security]] |
 | See exact versions and remaining gates | [[Compatibility and Testing]] |
