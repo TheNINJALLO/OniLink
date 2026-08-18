@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "onibridge-sdkgen"
+version = "0.1.0"
+description = "Minimal BDS ABI and hook-profile validation tools"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+dependencies = ["capstone>=5.0.6,<6"]
+
+[project.scripts]
+sdkgen = "sdkgen.cli:main"
+
+[tool.setuptools]
+packages = ["sdkgen"]

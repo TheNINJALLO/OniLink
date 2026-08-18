@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "status": "partial-live-lifecycle-passed",
+  "tested_at_utc": "2026-08-18T02:31:56Z",
+  "platform": "windows-x86_64",
+  "bds_version": "1.26.44.3",
+  "bds_executable_sha256": "2d6518ddd25211aa51155fc015cd0393b29b2af74551a378b16f9a724ed771bd",
+  "endstone_version": "0.11.9",
+  "online_mode": false,
+  "server_started": true,
+  "plugin_loaded": true,
+  "hook_installed": true,
+  "graceful_hook_uninstall": true,
+  "process_exit_code": 0,
+  "forced_termination": false,
+  "client_join_tested": false,
+  "identity_rejection_tested": false,
+  "storage_continuity_tested": false,
+  "command_compatibility_tested": false
+}

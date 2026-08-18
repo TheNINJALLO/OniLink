@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "validation_rva": 10976368,
+  "validation_size": 5212,
+  "call_rva": 10980098,
+  "helper_rva": 10985520,
+  "helper_size": 725,
+  "authentication_size": 384,
+  "string_size": 32,
+  "masked_byte_signature": "E8 29 15 00 00 E9 99 01 00 00",
+  "login_json_string_xrefs": {
+    "auth": 10976806,
+    "uuid": 10977786,
+    "xid": 10978205,
+    "realms": 10980628
+  }
+}

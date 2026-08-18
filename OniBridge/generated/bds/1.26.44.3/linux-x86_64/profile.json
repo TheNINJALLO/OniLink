@@ -1,0 +1,91 @@
+{
+  "abi": "sysv-amd64",
+  "architecture": "x86_64",
+  "bds_version": "1.26.44.3",
+  "calling_convention": "sysv-amd64",
+  "candidate_symbol_name": "ServerNetworkHandler::_validateLoginPacket / unique authentication-result move helper",
+  "direct_helper_callers": [
+    139384998
+  ],
+  "evidence": {
+    "abi_layout_validated": true,
+    "calling_convention_validated": true,
+    "control_flow_validated": true,
+    "cross_references_validated": true,
+    "endstone_chain_compatible": true,
+    "existing_detour_checked": true,
+    "function_boundary_validated": true,
+    "hook_harness_passed": false,
+    "human_reviewed": false,
+    "instruction_decode_validated": true,
+    "live_tested": false,
+    "trampoline_relocation_validated": true
+  },
+  "executable_sha256": "06effdd00067f1ae0951ee7a732398dde721728e6b18ea149b138b8e2aececa7",
+  "executable_size": 243725608,
+  "expected_prologue_bytes": "e8 55 07 00 00",
+  "expected_target_bytes": "e8 55 07 00 00 80 bc 24 80 00 00 00 00",
+  "generation_time_utc": "2026-08-18T02:14:06.657907Z",
+  "generator_version": "0.1.0",
+  "helper_function_size": 457,
+  "human_review_status": "required",
+  "known_endstone_hook_interaction": "inside the original BDS validation call, before Endstone post-validation bans",
+  "live_test_status": "required",
+  "login_json_string_xrefs": {
+    "auth": {
+      "instruction_rva": 139380193,
+      "string_rva": 19543204
+    },
+    "realms": {
+      "instruction_rva": 139383073,
+      "string_rva": 19975831
+    },
+    "uuid": {
+      "instruction_rva": 139380532,
+      "string_rva": 18735090
+    },
+    "xid": {
+      "instruction_rva": 139381402,
+      "string_rva": 18533963
+    }
+  },
+  "masked_byte_signature": "E8 55 07 00 00 80 BC 24 80 00 00 00 00",
+  "minimum_patch_length": 5,
+  "operating_system": "linux",
+  "patch_model": "replace one direct CALL with a near W^X relay; helper and Endstone detours remain unmodified",
+  "register_contract": {
+    "login_packet": "r12",
+    "network_identifier": "r15",
+    "optional_result": "rbx",
+    "this": "r14"
+  },
+  "release_blockers": [
+    "hook_harness_passed",
+    "human_reviewed",
+    "live_tested"
+  ],
+  "required_field_offsets": {
+    "PlayerAuthenticationInfo.authenticated_uuid": 272,
+    "PlayerAuthenticationInfo.best_display_name": 216,
+    "PlayerAuthenticationInfo.is_host": 288,
+    "PlayerAuthenticationInfo.is_local": 289,
+    "PlayerAuthenticationInfo.permissions": 240,
+    "PlayerAuthenticationInfo.public_key": 248,
+    "PlayerAuthenticationInfo.xbox_live_name": 144,
+    "PlayerAuthenticationInfo.xuid": 0,
+    "optional<PlayerAuthenticationInfo>.engaged": 296
+  },
+  "required_structure_sizes": {
+    "PlayerAuthenticationInfo": 296,
+    "std::string": 24
+  },
+  "schema": 1,
+  "signature_match_count": 1,
+  "target_call_destination_rva": 139386880,
+  "target_function_role": "successful PlayerAuthenticationInfo move call before Endstone player-ban and BDS storage selection",
+  "target_owner_function_rva": 139379920,
+  "target_owner_function_size": 5958,
+  "target_rva": 139384998,
+  "target_section": ".text",
+  "validation_status": "candidate"
+}

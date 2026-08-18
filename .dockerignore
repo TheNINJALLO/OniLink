@@ -1,0 +1,16 @@
+.git
+.github
+.upstream
+.cache
+**/.gradle
+**/build
+**/dist
+dist
+*.zip
+*.pdb
+*.dmp
+bedrock_server
+bedrock_server.exe
+__pycache__
+.pytest_cache
+.venv

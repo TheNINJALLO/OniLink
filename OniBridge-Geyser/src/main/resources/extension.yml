@@ -1,0 +1,6 @@
+id: onibridge-geyser
+name: OniBridge-Geyser
+main: dev.onistone.onilink.geyser.OniBridgeGeyserExtension
+api: 2.11.0
+version: ${version}
+authors: [Onistone]

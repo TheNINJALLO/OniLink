@@ -1,0 +1,23 @@
+{
+  "bds_version": "1.26.44.3",
+  "executable_sha256": "06effdd00067f1ae0951ee7a732398dde721728e6b18ea149b138b8e2aececa7",
+  "platform": "linux-x86_64",
+  "schema": 1,
+  "symbols": {
+    "PlayerAuthenticationInfo optional move helper": {
+      "direct_callers": [
+        139384998
+      ],
+      "rva": 139386880,
+      "size": 457
+    },
+    "ServerNetworkHandler::_validateLoginPacket": {
+      "rva": 139379920,
+      "size": 5958
+    },
+    "successful authentication move call": {
+      "rva": 139384998,
+      "size": 5
+    }
+  }
+}

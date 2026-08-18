@@ -1,0 +1,8 @@
+OniBridge
+Copyright 2026 Onistone contributors
+
+The Endstone public C++ plugin API is consumed under Apache License 2.0. Source
+inspection and compatibility analysis are attributed in ../docs/SOURCE_AUDIT.md.
+No Mojang/Microsoft binary, disassembly, debug symbol, or proprietary SDK is
+distributed with this project.
+

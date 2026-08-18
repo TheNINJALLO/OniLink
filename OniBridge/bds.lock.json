@@ -1,0 +1,38 @@
+{
+  "channel": "stable",
+  "paired_version": true,
+  "platforms": {
+    "linux-x86_64": {
+      "architecture": "x86_64",
+      "archive_sha256": "a6d85efb2d72588b725afc12588bb1aab57547252ff1f84e7f9c3646816438c1",
+      "archive_size": 104052093,
+      "download_time_utc": "2026-08-18T01:05:14.792355Z",
+      "download_type": "serverBedrockLinux",
+      "download_url": "https://www.minecraft.net/bedrockdedicatedserver/bin-linux/bedrock-server-1.26.44.3.zip",
+      "executable": "bedrock_server",
+      "executable_sha256": "06effdd00067f1ae0951ee7a732398dde721728e6b18ea149b138b8e2aececa7",
+      "executable_size": 243725608,
+      "file_format": "ELF64",
+      "original_filename": "bedrock-server-1.26.44.3.zip",
+      "package_file_list_hash": "eb3a6603f74a07cfa53ee289ebc4403f1d52717b7194e3da353aeb125d3c7383",
+      "version": "1.26.44.3"
+    },
+    "windows-x86_64": {
+      "architecture": "x86_64",
+      "archive_sha256": "1c02222f32256a8b44ad27720c8e1e1d15abf6705adf945b62ed48e7480bef8b",
+      "archive_size": 94996851,
+      "download_time_utc": "2026-08-18T01:04:57.384927Z",
+      "download_type": "serverBedrockWindows",
+      "download_url": "https://www.minecraft.net/bedrockdedicatedserver/bin-win/bedrock-server-1.26.44.3.zip",
+      "executable": "bedrock_server.exe",
+      "executable_sha256": "2d6518ddd25211aa51155fc015cd0393b29b2af74551a378b16f9a724ed771bd",
+      "executable_size": 219385160,
+      "file_format": "PE32+",
+      "original_filename": "bedrock-server-1.26.44.3.zip",
+      "package_file_list_hash": "6d9fac5829cde43be99e931d16f75b1fa8c41c5df865fc4223ffef77bf761128",
+      "version": "1.26.44.3"
+    }
+  },
+  "resolved_at_utc": "2026-08-18T01:04:39.088463Z",
+  "schema": 1
+}

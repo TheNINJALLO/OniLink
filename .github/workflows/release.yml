@@ -1,0 +1,123 @@
+name: Release
+on:
+  workflow_dispatch:
+    inputs:
+      version: {description: OniBridge version, required: true}
+      bds_version: {description: Exact locked BDS version, required: true}
+permissions:
+  contents: read
+jobs:
+  validate-lock:
+    environment: bds-profile-generation
+    runs-on: self-hosted
+    env:
+      MINECRAFT_EULA_ACCEPTED: ${{ vars.MINECRAFT_EULA_ACCEPTED }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: python -m pip install -e OniBridge/tools/bdsctl -e OniBridge/tools/sdkgen
+      - run: python -m bdsctl fetch --lock OniBridge/bds.lock.json
+      - run: python -m bdsctl verify --lock OniBridge/bds.lock.json
+      - run: sh scripts/validate-release-profiles.sh
+      - if: always()
+        run: python -m bdsctl clean && rm -rf .cache/bds build/bds-analysis
+  java:
+    needs: validate-lock
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: "21"}
+      - run: ./gradlew test standaloneJar --no-daemon
+        working-directory: OniLink
+      - uses: actions/upload-artifact@v4
+        with:
+          name: onilink-java
+          path: OniLink/dist/OniLink.jar
+          if-no-files-found: error
+  geyser:
+    needs: validate-lock
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: {distribution: temurin, java-version: "21"}
+      - run: ./OniLink/gradlew -p OniBridge-Geyser test jar --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: onibridge-geyser
+          path: OniBridge-Geyser/dist/OniBridge-Geyser.jar
+          if-no-files-found: error
+  native:
+    needs: validate-lock
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            platform: linux-x86_64
+            adapter: OniBridge/generated/bds/${{ inputs.bds_version }}/linux-x86_64/adapter.cpp
+          - os: windows-2022
+            platform: windows-x86_64
+            adapter: OniBridge/generated/bds/${{ inputs.bds_version }}/windows-x86_64/adapter.cpp
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: lukka/get-cmake@latest
+      - name: Configure exact profile-specific build
+        shell: bash
+        env:
+          ONIBRIDGE_RELEASE_VERSION: ${{ inputs.version }}
+          ONIBRIDGE_ADAPTER: ${{ matrix.adapter }}
+        run: >-
+          cmake -S OniBridge -B OniBridge/build/release
+          "-DONIBRIDGE_VERSION=${ONIBRIDGE_RELEASE_VERSION}"
+          -DONIBRIDGE_BUILD_PLUGIN=ON
+          -DONIBRIDGE_BUILD_TESTS=ON
+          "-DONIBRIDGE_GENERATED_ADAPTER=${ONIBRIDGE_ADAPTER}"
+      - run: cmake --build OniBridge/build/release --config Release --parallel
+      - run: ctest --test-dir OniBridge/build/release -C Release --output-on-failure
+      - name: Stage Linux plugin
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p artifact
+          cp OniBridge/build/release/onibridge.so artifact/onibridge.so
+      - name: Stage Windows plugin
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: New-Item -ItemType Directory -Path artifact -Force | Out-Null; Copy-Item OniBridge/build/release/Release/onibridge.dll artifact/onibridge.dll
+      - uses: actions/upload-artifact@v4
+        with:
+          name: onibridge-${{ matrix.platform }}
+          path: artifact
+          if-no-files-found: error
+  package:
+    needs: [validate-lock, java, geyser, native]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: onilink-java
+          path: OniLink/dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: onibridge-geyser
+          path: OniBridge-Geyser/dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: onibridge-linux-x86_64
+          path: OniBridge/build/linux-release
+      - uses: actions/download-artifact@v4
+        with:
+          name: onibridge-windows-x86_64
+          path: OniBridge/build/windows-release
+      - name: Assemble checked release
+        env:
+          ONIBRIDGE_RELEASE_VERSION: ${{ inputs.version }}
+          ONIBRIDGE_BDS_VERSION: ${{ inputs.bds_version }}
+        run: python tools/package_release.py --version "$ONIBRIDGE_RELEASE_VERSION" --bds-version "$ONIBRIDGE_BDS_VERSION"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: onilink-${{ inputs.version }}-bds-${{ inputs.bds_version }}
+          path: dist
+          if-no-files-found: error

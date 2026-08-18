@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "onibridge-bdsctl"
+version = "0.1.0"
+description = "EULA-gated, reproducible Bedrock Dedicated Server artifact manager"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+
+[project.scripts]
+bdsctl = "bdsctl.cli:main"
+
+[tool.setuptools]
+packages = ["bdsctl"]
+

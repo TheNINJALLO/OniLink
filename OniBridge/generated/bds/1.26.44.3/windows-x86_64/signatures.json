@@ -1,0 +1,14 @@
+{
+  "bds_version": "1.26.44.3",
+  "executable_sha256": "2d6518ddd25211aa51155fc015cd0393b29b2af74551a378b16f9a724ed771bd",
+  "platform": "windows-x86_64",
+  "schema": 1,
+  "signatures": [
+    {
+      "match_count": 1,
+      "pattern": "E8 29 15 00 00 E9 99 01 00 00",
+      "role": "successful PlayerAuthenticationInfo move call before Endstone player-ban and BDS storage selection",
+      "target_rva": 10980098
+    }
+  ]
+}

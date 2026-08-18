@@ -1,0 +1,41 @@
+name: Linux Candidate Artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Candidate version
+        required: true
+        default: 0.1.0
+  push:
+    branches: [main]
+    paths:
+      - "OniLink/**"
+      - "OniBridge/**"
+      - "OniBridge-Geyser/**"
+      - "scripts/build-linux.sh"
+      - "tools/package_linux.py"
+      - ".github/workflows/linux-artifacts.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: lukka/get-cmake@latest
+      - name: Build and package Linux candidates
+        env:
+          ONILINK_RELEASE_VERSION: ${{ inputs.version || '0.1.0' }}
+        run: scripts/build-linux.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: onilink-linux-${{ inputs.version || '0.1.0' }}
+          path: dist/linux
+          if-no-files-found: error

@@ -1,0 +1,17 @@
+.upstream/
+.cache/
+build/
+dist/
+**/.gradle/
+*.class
+*.zip
+*.pdb
+*.dmp
+bedrock_server
+bedrock_server.exe
+__pycache__/
+.pytest_cache/
+.venv/
+.idea/
+.vscode/
+*.log
