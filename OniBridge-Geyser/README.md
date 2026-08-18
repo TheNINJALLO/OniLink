@@ -1,8 +1,20 @@
+<p align="center">
+  <img src="../docs/assets/banner.svg" width="100%" alt="OniLink and OniBridge">
+</p>
+
+<p align="center">
+  <img alt="Java 21" src="https://img.shields.io/badge/Java-21-ED8B00?style=flat-square&amp;logo=openjdk&amp;logoColor=white">
+  <img alt="Geyser 2.11" src="https://img.shields.io/badge/Geyser-2.11-63b8ff?style=flat-square">
+  <img alt="Local verification" src="https://img.shields.io/badge/Verification-Local%20Only-52b7a8?style=flat-square">
+</p>
+
 # OniBridge-Geyser
 
 OniBridge-Geyser is the Geyser extension for an OniLink backend that leads to a Minecraft Java server. It consumes the signed `OniForward` claim already embedded in OniLink's forged Bedrock login, verifies it locally, rejects direct or replayed joins, and restores the signed client address before Geyser opens the Java connection.
 
 There is no HTTP verifier and no network call in the login check.
+
+For the complete operator procedure, use the [Geyser integration guide](../docs/GEYSER.md). The remainder of this page documents the component build and its exact fail-closed configuration.
 
 ## Build
 

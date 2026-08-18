@@ -42,6 +42,6 @@ cmake --build OniBridge/build/windows-release --config Release
 ctest --test-dir OniBridge/build/windows-release -C Release --output-on-failure
 ```
 
-On Linux, use the equivalent Linux adapter with the `linux-release` preset and pass the two cache variables on the configure command. ASan/UBSan presets exercise the shared core without loading BDS. Normal CI uses generated fixtures and does not download BDS.
+On Linux, use the equivalent Linux adapter with the `linux-release` build directory and pass the profile-specific adapter on the configure command. ASan/UBSan presets exercise the shared core without loading BDS. Normal CI uses generated fixtures and does not download BDS.
 
-The local `onibridge.so` was cross-compiled with Zig 0.16's Clang driver for `x86_64-linux-gnu.2.35` because this host has no Linux runtime. That proves compilation/ELF shape, not Linux loading or execution.
+The release `.so` is built natively by the Ubuntu 24.04 GitHub workflow with Clang, libc++, and libc++abi. The workflow runs CTest before packaging. This proves a native Linux build and synthetic harness execution; it does not replace live BDS/Endstone acceptance or human profile review.
