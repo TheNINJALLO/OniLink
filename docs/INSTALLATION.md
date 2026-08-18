@@ -597,6 +597,10 @@ Create `/etc/onilink/survival.env` with mode `0600`, reload systemd, and restart
 
 Use separate Pterodactyl servers for OniLink and each backend.
 
+Import the released [`egg-onilink.json`](../packaging/pterodactyl/egg-onilink.json) through **Admin Panel → Nests → Import Egg**, create an OniLink server using its Java 21 image, and give it one public UDP allocation. The egg verifies its bootstrap JAR, updater, and template against `SHA256SUMS`, preserves an existing configuration on reinstall, and maps the primary allocation to `listener.port`. On every container start, it checks the newest published OniLink release and atomically installs the JAR only after checksum validation; a failed check falls back to the existing JAR.
+
+Set the egg's backend host/port to the private allocation reachable through Wings. Before first start, an administrator must fill the non-user-viewable `ONIBRIDGE_FORWARDING_SECRET` variable with standard Base64 for at least 32 random bytes and set the same value on the backend validator.
+
 ### Allocations
 
 | Pterodactyl server | Allocation | Exposure |
@@ -607,7 +611,7 @@ Use separate Pterodactyl servers for OniLink and each backend.
 
 ### Variables
 
-Add the same masked secret variable to the two containers that need it:
+Add the same administrator-only secret variable to the two containers that need it:
 
 | Container | Variable |
 | --- | --- |

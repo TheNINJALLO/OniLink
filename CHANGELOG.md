@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added a self-updating, checksum-verifying PTDL v2 OniLink egg, release packaging, operator documentation, and egg regression tests.
 - Added OniBridge-Geyser with local OniForward verification, strict source/XUID/context binding, replay protection, and mandatory real-address restoration.
 - Added a complete Linux candidate build script, export-only Docker build, GitHub Actions artifact workflow, checked Linux manifest, and configuration bundle.
 - Added Geyser and Linux packaging to normal CI and release assembly.

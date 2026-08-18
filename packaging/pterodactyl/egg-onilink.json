@@ -1,0 +1,136 @@
+{
+    "_comment": "DO NOT EDIT: FILE GENERATED FOR PTERODACTYL PANEL - PTERODACTYL.IO",
+    "meta": {
+        "version": "PTDL_v2",
+        "update_url": "https://raw.githubusercontent.com/TheNINJALLO/OniLink/main/packaging/pterodactyl/egg-onilink.json"
+    },
+    "exported_at": "2026-08-18T18:30:00-04:00",
+    "name": "OniLink Bedrock Proxy",
+    "author": "TheNINJALLO@users.noreply.github.com",
+    "description": "OniLink is a Java 21 Bedrock proxy with fail-closed OniForward identity forwarding for native BDS/Endstone and Geyser-backed Java servers. This egg verifies its bootstrap release and automatically installs the newest checksum-verified OniLink JAR on every container start.",
+    "features": [
+        "java_version",
+        "pid_limit"
+    ],
+    "docker_images": {
+        "Java 21": "ghcr.io/ptero-eggs/yolks:java_21",
+        "Java 21 (legacy registry)": "ghcr.io/pterodactyl/yolks:java_21"
+    },
+    "file_denylist": [],
+    "startup": "bash ./start-onilink.sh",
+    "config": {
+        "files": "{\n    \"config.properties\": {\n        \"parser\": \"properties\",\n        \"find\": {\n            \"listener.host\": \"0.0.0.0\",\n            \"listener.port\": \"{{server.build.default.port}}\",\n            \"backend.host\": \"{{env.BACKEND_HOST}}\",\n            \"backend.port\": \"{{env.BACKEND_PORT}}\",\n            \"backend.default.host\": \"{{env.BACKEND_HOST}}\",\n            \"backend.default.port\": \"{{env.BACKEND_PORT}}\",\n            \"motd\": \"{{env.SERVER_MOTD}}\",\n            \"maxPlayers\": \"{{env.MAX_PLAYERS}}\"\n        }\n    }\n}",
+        "startup": "{\n    \"done\": \"OniLink listening on\"\n}",
+        "logs": "{}",
+        "stop": "stop"
+    },
+    "scripts": {
+        "installation": {
+            "script": "#!/bin/bash\nset -euo pipefail\n\ninstall_root=/mnt/server\nmkdir -p \"${install_root}\"\ncd \"${install_root}\"\n\ncase \"${ONILINK_VERSION}\" in\n    *[!A-Za-z0-9._-]*|'')\n        echo \"Invalid ONILINK_VERSION: ${ONILINK_VERSION}\" >&2\n        exit 2\n        ;;\nesac\n\nbase_url=\"https://github.com/TheNINJALLO/OniLink/releases/download/${ONILINK_VERSION}\"\n\ndownload() {\n    asset=$1\n    destination=$2\n    echo \"Downloading ${asset} from ${ONILINK_VERSION}...\"\n    curl -fL --retry 3 --retry-delay 2 --connect-timeout 15 \\\n        \"${base_url}/${asset}\" -o \"${destination}\"\n}\n\nrm -f OniLink.jar.download onilink.properties.example.download start-onilink.sh.download SHA256SUMS.download\ndownload OniLink.jar OniLink.jar.download\ndownload onilink.properties.example onilink.properties.example.download\ndownload start-onilink.sh start-onilink.sh.download\ndownload SHA256SUMS SHA256SUMS.download\n\njar_sha=$(awk '$2 == \"OniLink.jar\" { print $1 }' SHA256SUMS.download)\nconfig_sha=$(awk '$2 == \"onilink.properties.example\" { print $1 }' SHA256SUMS.download)\nstartup_sha=$(awk '$2 == \"start-onilink.sh\" { print $1 }' SHA256SUMS.download)\nif [[ ! \"${jar_sha}\" =~ ^[0-9a-fA-F]{64}$ ]] || [[ ! \"${config_sha}\" =~ ^[0-9a-fA-F]{64}$ ]] || [[ ! \"${startup_sha}\" =~ ^[0-9a-fA-F]{64}$ ]]; then\n    echo \"Release checksum entries are missing or malformed.\" >&2\n    exit 3\nfi\nprintf '%s  %s\\n' \"${jar_sha}\" OniLink.jar.download | sha256sum -c -\nprintf '%s  %s\\n' \"${config_sha}\" onilink.properties.example.download | sha256sum -c -\nprintf '%s  %s\\n' \"${startup_sha}\" start-onilink.sh.download | sha256sum -c -\n\nmv OniLink.jar.download \"${SERVER_JARFILE}\"\nmv onilink.properties.example.download onilink.properties.example\nmv start-onilink.sh.download start-onilink.sh\nmv SHA256SUMS.download SHA256SUMS\nchmod 0755 start-onilink.sh\n\nif [[ ! -f \"${CONFIG_FILE}\" ]]; then\n    cp onilink.properties.example \"${CONFIG_FILE}\"\n    echo \"Created ${CONFIG_FILE} from the release template.\"\nelse\n    echo \"Preserved existing ${CONFIG_FILE}. Compare it with onilink.properties.example after upgrades.\"\nfi\n\nmkdir -p cache logs plugins resource-packs\necho \"OniLink bootstrap ${ONILINK_VERSION} installed and verified.\"\necho \"Each container start now checks for the newest published OniLink JAR.\"\necho \"Set the admin-only ONIBRIDGE_FORWARDING_SECRET before starting the proxy.\"",
+            "container": "ghcr.io/ptero-eggs/installers:debian",
+            "entrypoint": "bash"
+        }
+    },
+    "variables": [
+        {
+            "name": "OniLink bootstrap release tag",
+            "description": "Exact public GitHub release used only during create/reinstall. Normal starts then update the JAR to the newest published release, including prereleases.",
+            "env_variable": "ONILINK_VERSION",
+            "default_value": "v0.1.0-candidate.1",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|max:64|regex:/^[A-Za-z0-9][A-Za-z0-9._-]*$/",
+            "field_type": "text"
+        },
+        {
+            "name": "Server jar file",
+            "description": "Fixed runtime JAR name used by the verified installer and automatic startup updater.",
+            "env_variable": "SERVER_JARFILE",
+            "default_value": "OniLink.jar",
+            "user_viewable": false,
+            "user_editable": false,
+            "rules": "required|string|in:OniLink.jar",
+            "field_type": "text"
+        },
+        {
+            "name": "Configuration file",
+            "description": "Fixed OniLink configuration path. Existing configuration is preserved on reinstall.",
+            "env_variable": "CONFIG_FILE",
+            "default_value": "config.properties",
+            "user_viewable": false,
+            "user_editable": false,
+            "rules": "required|string|in:config.properties",
+            "field_type": "text"
+        },
+        {
+            "name": "Default backend host",
+            "description": "Private hostname or IP reachable from the OniLink container. Do not use a public player address.",
+            "env_variable": "BACKEND_HOST",
+            "default_value": "127.0.0.1",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|max:253",
+            "field_type": "text"
+        },
+        {
+            "name": "Default backend UDP port",
+            "description": "Private Bedrock UDP allocation of the default BDS or Geyser backend.",
+            "env_variable": "BACKEND_PORT",
+            "default_value": "19133",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|integer|between:1,65535",
+            "field_type": "text"
+        },
+        {
+            "name": "Server list MOTD",
+            "description": "First line shown in the Bedrock server list.",
+            "env_variable": "SERVER_MOTD",
+            "default_value": "OniLink Network",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|max:59",
+            "field_type": "text"
+        },
+        {
+            "name": "Advertised player limit",
+            "description": "Player count advertised by OniLink. This is presentation, not an enforcement limit.",
+            "env_variable": "MAX_PLAYERS",
+            "default_value": "20",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|integer|between:1,100000",
+            "field_type": "text"
+        },
+        {
+            "name": "Default OniForward secret",
+            "description": "ADMIN ONLY. Standard Base64 for at least 32 random bytes. Must equal the default backend validator secret. Never include this value in an exported egg.",
+            "env_variable": "ONIBRIDGE_FORWARDING_SECRET",
+            "default_value": "",
+            "user_viewable": false,
+            "user_editable": false,
+            "rules": "required|string|min:43|max:512|regex:/^[A-Za-z0-9+\\/]+={0,2}$/",
+            "field_type": "text"
+        },
+        {
+            "name": "Survival backend OniForward secret",
+            "description": "ADMIN ONLY. Optional secret for configurations using ONIBRIDGE_SURVIVAL_SECRET. It must differ from every other backend secret.",
+            "env_variable": "ONIBRIDGE_SURVIVAL_SECRET",
+            "default_value": "",
+            "user_viewable": false,
+            "user_editable": false,
+            "rules": "nullable|string|min:43|max:512|regex:/^[A-Za-z0-9+\\/]+={0,2}$/",
+            "field_type": "text"
+        },
+        {
+            "name": "Java backend OniForward secret",
+            "description": "ADMIN ONLY. Optional secret for configurations using ONIBRIDGE_JAVA_SECRET. It must differ from every other backend secret.",
+            "env_variable": "ONIBRIDGE_JAVA_SECRET",
+            "default_value": "",
+            "user_viewable": false,
+            "user_editable": false,
+            "rules": "nullable|string|min:43|max:512|regex:/^[A-Za-z0-9+\\/]+={0,2}$/",
+            "field_type": "text"
+        }
+    ]
+}

@@ -17,6 +17,7 @@ Use this page as the canonical map for operators, testers, and contributors. The
 | Test the current Linux candidate | [Quick start](QUICKSTART.md) |
 | Install and configure the complete network | [Installation](INSTALLATION.md) |
 | Copy a complete working configuration | [Deployment examples](../examples/README.md) |
+| Import the OniLink Pterodactyl egg | [Pterodactyl](PTERODACTYL.md) |
 | Connect a Geyser-backed Java server | [Geyser integration](GEYSER.md) |
 | Resolve a failed startup or rejected join | [Troubleshooting](TROUBLESHOOTING.md) |
 

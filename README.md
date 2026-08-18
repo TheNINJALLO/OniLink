@@ -78,6 +78,8 @@ gh release download v0.1.0-candidate.1 \
   --dir onilink-candidate
 ```
 
+Pterodactyl administrators can import [`egg-onilink.json`](packaging/pterodactyl/egg-onilink.json) from the same release. The egg verifies its bootstrap files, preserves the live proxy configuration during reinstall, and checks for the newest published OniLink JAR on every container start.
+
 ## Choose a backend path
 
 ### Native BDS + Endstone

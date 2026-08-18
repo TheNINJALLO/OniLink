@@ -13,8 +13,10 @@ on:
       - "OniLink/**"
       - "OniBridge/**"
       - "OniBridge-Geyser/**"
+      - "packaging/pterodactyl/**"
       - "scripts/build-linux.sh"
       - "tools/package_linux.py"
+      - "tools/test_pterodactyl_egg.py"
       - ".github/workflows/linux-artifacts.yml"
 
 permissions:

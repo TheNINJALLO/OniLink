@@ -108,6 +108,8 @@ def main() -> int:
     expected = {
         "OniLink.jar": Path("OniLink/dist/OniLink.jar"),
         "OniBridge-Geyser.jar": Path("OniBridge-Geyser/dist/OniBridge-Geyser.jar"),
+        "egg-onilink.json": Path("packaging/pterodactyl/egg-onilink.json"),
+        "start-onilink.sh": Path("packaging/pterodactyl/start-onilink.sh"),
         f"onibridge-{args.version}-bds-{args.bds_version}-linux-x86_64.so": Path("OniBridge/build/linux-release/onibridge.so"),
         f"onibridge-{args.version}-bds-{args.bds_version}-windows-x86_64.dll": Path("OniBridge/build/windows-release/onibridge.dll"),
     }
