@@ -47,10 +47,11 @@ def main() -> int:
         inputs[f"onibridge-{args.version}-bds-{args.bds_version}-linux-x86_64.so"],
         MAXIMUM_GLIBC,
     )
-    if not native_abi["glibc_policy_passed"]:
+    if not native_abi["glibc_policy_passed"] or not native_abi["cxx_runtime_policy_passed"]:
         raise ValueError(
-            "Linux plugin exceeds the release GLIBC policy: "
-            f"requires {native_abi['glibc_highest_required']}, maximum is {MAXIMUM_GLIBC}"
+            "Linux plugin violates the native runtime policy: "
+            f"GLIBC requires {native_abi['glibc_highest_required']} (maximum {MAXIMUM_GLIBC}), "
+            f"C++ runtime passed={native_abi['cxx_runtime_policy_passed']}"
         )
 
     args.dist.mkdir(parents=True, exist_ok=True)

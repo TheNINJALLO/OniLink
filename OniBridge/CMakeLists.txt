@@ -36,6 +36,14 @@ else()
     target_compile_options(onibridge_core PRIVATE -Wall -Wextra -Wpedantic -Wconversion)
 endif()
 
+# Endstone's Linux ABI uses LLVM libc++. Keep the shared core and every target that consumes it on
+# that same C++ runtime. Mixing clang's default libstdc++ into the static core leaves unresolved
+# std::__cxx11 symbols in the final plugin even though the plugin target itself selects libc++.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    target_compile_options(onibridge_core PUBLIC -stdlib=libc++)
+    target_link_options(onibridge_core INTERFACE -stdlib=libc++)
+endif()
+
 if(ONIBRIDGE_BUILD_TESTS)
     enable_testing()
     add_executable(onibridge_tests tests/unit/forwarding_tests.cpp)

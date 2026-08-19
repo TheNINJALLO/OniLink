@@ -135,10 +135,11 @@ def main() -> int:
         expected[f"onibridge-{args.version}-bds-{args.bds_version}-linux-x86_64.so"],
         MAXIMUM_GLIBC,
     )
-    if not linux_native_abi["glibc_policy_passed"]:
+    if not linux_native_abi["glibc_policy_passed"] or not linux_native_abi["cxx_runtime_policy_passed"]:
         raise ValueError(
-            "Linux plugin exceeds the release GLIBC policy: "
-            f"requires {linux_native_abi['glibc_highest_required']}, maximum is {MAXIMUM_GLIBC}"
+            "Linux plugin violates the native runtime policy: "
+            f"GLIBC requires {linux_native_abi['glibc_highest_required']} (maximum {MAXIMUM_GLIBC}), "
+            f"C++ runtime passed={linux_native_abi['cxx_runtime_policy_passed']}"
         )
     compatibility = []
     for platform, profile in profiles.items():

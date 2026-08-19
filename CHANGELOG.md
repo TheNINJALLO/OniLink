@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Fixed the Linux native core to compile and link consistently with Endstone's libc++ ABI, and expanded the ELF release gate to reject mixed libstdc++ dependencies and unresolved `std::__cxx11` symbols.
 - Lowered the published Linux native build baseline to Ubuntu 22.04 while retaining LLVM/libc++ 18, capped imported symbols at `GLIBC_2.35`, embedded the ABI result in the Linux manifest, and added a regression gate for older Pterodactyl runtimes.
 - Added an embedded, responsive OniLink operations dashboard with first-run ownership, PBKDF2 accounts, roles, TOTP, expiring sessions, audit records, live runtime/player/backend views, safe operator actions, redacted configuration editing with validation/rollback, metrics, logs, and support bundles.
 - Integrated dashboard TCP exposure and persistence into the self-updating Pterodactyl egg, with complete standalone, HTTPS, panel, backup, and recovery documentation.

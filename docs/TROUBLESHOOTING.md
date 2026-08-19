@@ -30,6 +30,10 @@ readelf --version-info plugins/onibridge-*.so | grep -o 'GLIBC_[0-9.]*' | sort -
 
 The first command must report glibc 2.35 or newer, and the second must not report anything newer than `GLIBC_2.35`. If the image is older than 2.35, select a maintained Debian 12/Ubuntu 22.04-or-newer image for the BDS container.
 
+### Undefined `std::__cxx11` symbol while loading `onibridge.so`
+
+This means the plugin mixed GCC `libstdc++` objects with Endstone's LLVM `libc++` ABI. Do not add `libstdc++.so.6` as a workaround; a process using two C++ standard libraries can fail at allocation, exception, stream, or object-lifetime boundaries. Install a candidate whose compatibility manifest reports `cxx_runtime_policy_passed=true`. Current release automation rejects `libstdc++` dependencies and unresolved `__cxx11` symbols.
+
 Never turn off `shutdown_on_hook_failure` to make an incompatible server stay online.
 
 ## Every proxied login is rejected

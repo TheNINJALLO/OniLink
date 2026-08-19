@@ -2,7 +2,12 @@ from __future__ import annotations
 
 import unittest
 
-from check_linux_abi import glibc_versions, version_tuple
+from check_linux_abi import (
+    forbidden_libstdcxx_symbols,
+    glibc_versions,
+    needed_libraries,
+    version_tuple,
+)
 
 
 class LinuxAbiTests(unittest.TestCase):
@@ -19,6 +24,26 @@ class LinuxAbiTests(unittest.TestCase):
     def test_rejects_invalid_version(self) -> None:
         with self.assertRaisesRegex(ValueError, "invalid version"):
             version_tuple("2.35-rc1")
+
+    def test_extracts_needed_cxx_runtime_libraries(self) -> None:
+        output = """
+ 0x0000000000000001 (NEEDED) Shared library: [libc++.so.1]
+ 0x0000000000000001 (NEEDED) Shared library: [libc.so.6]
+"""
+        self.assertEqual(needed_libraries(output), ["libc++.so.1", "libc.so.6"])
+
+    def test_detects_unresolved_libstdcxx_abi_symbol(self) -> None:
+        output = """
+  108: 0000000000000000     0 NOTYPE  GLOBAL DEFAULT  UND _ZTVNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEEE
+"""
+        self.assertEqual(
+            forbidden_libstdcxx_symbols(output),
+            ["_ZTVNSt7__cxx1115basic_stringbufIcSt11char_traitsIcESaIcEEE"],
+        )
+
+    def test_ignores_normal_libcxx_undefined_symbols(self) -> None:
+        output = "  108: 0000000000000000 0 NOTYPE GLOBAL DEFAULT UND _ZNSt3__16localeD1Ev"
+        self.assertEqual(forbidden_libstdcxx_symbols(output), [])
 
 
 if __name__ == "__main__":
