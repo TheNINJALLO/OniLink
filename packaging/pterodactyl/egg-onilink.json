@@ -4,10 +4,10 @@
         "version": "PTDL_v2",
         "update_url": "https://raw.githubusercontent.com/TheNINJALLO/OniLink/main/packaging/pterodactyl/egg-onilink.json"
     },
-    "exported_at": "2026-08-18T18:30:00-04:00",
+    "exported_at": "2026-08-19T23:30:00-04:00",
     "name": "OniLink Bedrock Proxy",
     "author": "TheNINJALLO@users.noreply.github.com",
-    "description": "OniLink is a Java 21 Bedrock proxy with fail-closed OniForward identity forwarding and an authenticated operations dashboard. This egg verifies its bootstrap release, automatically installs the newest checksum-verified JAR, and serves Bedrock UDP plus dashboard TCP on the primary allocation.",
+    "description": "OniLink is a Java 21 Bedrock proxy with fail-closed OniForward identity forwarding, an authenticated XUID allowlist, and an operations dashboard. This egg verifies its bootstrap release, checks GitHub's latest stable release on every start, and atomically installs checksum-verified runtime updates.",
     "features": [
         "java_version",
         "pid_limit"
@@ -19,7 +19,7 @@
     "file_denylist": [],
     "startup": "bash ./start-onilink.sh",
     "config": {
-        "files": "{\n    \"config.properties\": {\n        \"parser\": \"properties\",\n        \"find\": {\n            \"listener.host\": \"0.0.0.0\",\n            \"listener.port\": \"{{server.build.default.port}}\",\n            \"dashboard.enabled\": \"{{env.DASHBOARD_ENABLED}}\",\n            \"dashboard.host\": \"0.0.0.0\",\n            \"dashboard.port\": \"{{server.build.default.port}}\",\n            \"backend.host\": \"{{env.BACKEND_HOST}}\",\n            \"backend.port\": \"{{env.BACKEND_PORT}}\",\n            \"backend.default.host\": \"{{env.BACKEND_HOST}}\",\n            \"backend.default.port\": \"{{env.BACKEND_PORT}}\",\n            \"motd\": \"{{env.SERVER_MOTD}}\",\n            \"maxPlayers\": \"{{env.MAX_PLAYERS}}\"\n        }\n    }\n}",
+        "files": "{\n    \"config.properties\": {\n        \"parser\": \"properties\",\n        \"find\": {\n            \"listener.host\": \"0.0.0.0\",\n            \"listener.port\": \"{{server.build.default.port}}\",\n            \"dashboard.enabled\": \"{{env.DASHBOARD_ENABLED}}\",\n            \"dashboard.host\": \"0.0.0.0\",\n            \"dashboard.port\": \"{{server.build.default.port}}\",\n            \"allowlist.enabled\": \"{{env.ALLOWLIST_ENABLED}}\",\n            \"backend.host\": \"{{env.BACKEND_HOST}}\",\n            \"backend.port\": \"{{env.BACKEND_PORT}}\",\n            \"backend.default.host\": \"{{env.BACKEND_HOST}}\",\n            \"backend.default.port\": \"{{env.BACKEND_PORT}}\",\n            \"motd\": \"{{env.SERVER_MOTD}}\",\n            \"maxPlayers\": \"{{env.MAX_PLAYERS}}\"\n        }\n    }\n}",
         "startup": "{\n    \"done\": \"OniLink listening on\"\n}",
         "logs": "{}",
         "stop": "stop"
@@ -34,9 +34,9 @@
     "variables": [
         {
             "name": "OniLink bootstrap release tag",
-            "description": "Exact public GitHub release used only during create/reinstall. Normal starts then update the JAR to the newest published release, including prereleases.",
+            "description": "Exact public GitHub release used only during create/reinstall. Normal starts query GitHub's latest stable non-prerelease release and install its checksum-verified runtime files.",
             "env_variable": "ONILINK_VERSION",
-            "default_value": "v0.1.1",
+            "default_value": "v0.1.2",
             "user_viewable": true,
             "user_editable": true,
             "rules": "required|string|max:64|regex:/^[A-Za-z0-9][A-Za-z0-9._-]*$/",
@@ -67,6 +67,16 @@
             "description": "Serves the authenticated dashboard over TCP on the same numeric primary allocation used by Bedrock UDP. Disable it if dashboard access is provided another way.",
             "env_variable": "DASHBOARD_ENABLED",
             "default_value": "true",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "Enable authenticated XUID allowlist",
+            "description": "Rejects Xbox-authenticated players whose XUID is not in allowlist.properties. Add your own XUID from the dashboard or console before enabling this setting.",
+            "env_variable": "ALLOWLIST_ENABLED",
+            "default_value": "false",
             "user_viewable": true,
             "user_editable": true,
             "rules": "required|boolean",

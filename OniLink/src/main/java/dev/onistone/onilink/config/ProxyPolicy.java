@@ -12,6 +12,7 @@ public record ProxyPolicy(
         FailoverConfig failover,
         BackendSwitchConfig backendSwitch,
         PermissionsConfig permissions,
+        AllowlistConfig allowlist,
         SecurityConfig security,
         ForcedHostsConfig forcedHosts,
         JoinConfig join,
@@ -26,6 +27,9 @@ public record ProxyPolicy(
         }
         if (permissions == null) {
             throw new IllegalArgumentException("permissions cannot be null");
+        }
+        if (allowlist == null) {
+            throw new IllegalArgumentException("allowlist cannot be null");
         }
         if (security == null) {
             throw new IllegalArgumentException("security cannot be null");
@@ -46,6 +50,7 @@ public record ProxyPolicy(
                 FailoverConfig.disabled(),
                 BackendSwitchConfig.defaults(),
                 PermissionsConfig.defaults(),
+                AllowlistConfig.defaults(),
                 SecurityConfig.defaults(),
                 ForcedHostsConfig.empty(),
                 JoinConfig.defaults(),

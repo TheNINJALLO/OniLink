@@ -1,5 +1,6 @@
 package dev.onistone.onilink.command;
 
+import dev.onistone.onilink.allowlist.ProxyAllowlist;
 import dev.onistone.onilink.backend.BackendDirectory;
 import dev.onistone.onilink.backend.BackendSwitcher;
 import dev.onistone.onilink.backend.ProxyConnection;
@@ -7,6 +8,7 @@ import dev.onistone.onilink.config.BackendConfig;
 import dev.onistone.onilink.permissions.ProxyPermissions;
 import dev.onistone.onilink.session.ConnectedPlayerRegistry;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -27,6 +29,7 @@ public final class NetworkCommands {
     private final BackendDirectory backendDirectory;
     private final BackendSwitcher switcher;
     private final ProxyPermissions permissions;
+    private final ProxyAllowlist allowlist;
     private final ProxyCommandRegistry commandRegistry;
     private final Runnable onPermissionsChanged;
 
@@ -38,10 +41,24 @@ public final class NetworkCommands {
             ProxyCommandRegistry commandRegistry,
             Runnable onPermissionsChanged
     ) {
+        this(connectedPlayers, backendDirectory, switcher, permissions, ProxyAllowlist.disabled(),
+                commandRegistry, onPermissionsChanged);
+    }
+
+    public NetworkCommands(
+            ConnectedPlayerRegistry connectedPlayers,
+            BackendDirectory backendDirectory,
+            BackendSwitcher switcher,
+            ProxyPermissions permissions,
+            ProxyAllowlist allowlist,
+            ProxyCommandRegistry commandRegistry,
+            Runnable onPermissionsChanged
+    ) {
         this.connectedPlayers = connectedPlayers;
         this.backendDirectory = backendDirectory;
         this.switcher = switcher;
         this.permissions = permissions;
+        this.allowlist = allowlist == null ? ProxyAllowlist.disabled() : allowlist;
         this.commandRegistry = commandRegistry;
         this.onPermissionsChanged = onPermissionsChanged == null ? () -> {
         } : onPermissionsChanged;
@@ -272,6 +289,110 @@ public final class NetworkCommands {
 
     public List<String> knownNodes() {
         return ProxyPermissions.knownNodes(commandNames(), backendNames());
+    }
+
+    // --------------------------------------------------------------- allowlist
+
+    public void allowlist(CommandSender sender, List<String> arguments) {
+        String action = arguments.isEmpty() ? "status" : arguments.get(0).toLowerCase(Locale.ROOT);
+        switch (action) {
+            case "status" -> sender.sendMessage(String.format(
+                    "Allowlist is %s with %d XUID(s). File: %s",
+                    allowlist.enabled() ? "enabled" : "disabled",
+                    allowlist.entries().size(),
+                    allowlist.config().file()
+            ));
+            case "list" -> {
+                List<ProxyAllowlist.Entry> entries = allowlist.entries();
+                if (entries.isEmpty()) {
+                    sender.sendMessage("The proxy allowlist is empty.");
+                } else {
+                    entries.forEach(entry -> sender.sendMessage(entry.xuid()
+                            + (entry.name().isBlank() ? "" : " - " + entry.name())));
+                }
+            }
+            case "add" -> {
+                if (arguments.size() < 2) {
+                    sender.sendMessage("Usage: /onilink allowlist add <online-player|XUID> [label]");
+                    return;
+                }
+                AllowlistSubject subject = resolveAllowlistSubject(arguments.get(1), true);
+                String label = arguments.size() > 2
+                        ? String.join(" ", arguments.subList(2, arguments.size()))
+                        : subject.name();
+                try {
+                    boolean changed = allowlist.add(subject.xuid(), label);
+                    sender.sendMessage(changed
+                            ? "Allow-listed XUID " + subject.xuid() + labelSuffix(label) + "."
+                            : "XUID " + subject.xuid() + " is already allow-listed with that label.");
+                    if (changed) {
+                        System.out.printf("%s allow-listed XUID %s%s.%n",
+                                sender.name(), subject.xuid(), labelSuffix(label));
+                    }
+                } catch (IOException exception) {
+                    throw new IllegalStateException("Could not save the allowlist: " + exception.getMessage(), exception);
+                }
+            }
+            case "remove", "delete" -> {
+                if (arguments.size() < 2) {
+                    sender.sendMessage("Usage: /onilink allowlist remove <online-player|XUID>");
+                    return;
+                }
+                AllowlistSubject subject = resolveAllowlistSubject(arguments.get(1), false);
+                try {
+                    if (!allowlist.remove(subject.xuid())) {
+                        sender.sendMessage("XUID " + subject.xuid() + " is not allow-listed.");
+                        return;
+                    }
+                } catch (IOException exception) {
+                    throw new IllegalStateException("Could not save the allowlist: " + exception.getMessage(), exception);
+                }
+                sender.sendMessage("Removed XUID " + subject.xuid() + " from the allowlist.");
+                System.out.printf("%s removed XUID %s from the allowlist.%n", sender.name(), subject.xuid());
+                disconnectRemoved(subject.xuid());
+            }
+            default -> sender.sendMessage(
+                    "Usage: /onilink allowlist status|list|add <online-player|XUID> [label]|remove <online-player|XUID>");
+        }
+    }
+
+    private AllowlistSubject resolveAllowlistSubject(String value, boolean adding) {
+        String subject = value == null ? "" : value.trim();
+        if (subject.chars().allMatch(character -> character >= '0' && character <= '9') && !subject.isEmpty()) {
+            String connectedName = connectedPlayers == null ? "" : connectedPlayers.connections().stream()
+                    .filter(connection -> subject.equals(connection.clientLogin().authData().xuid()))
+                    .map(connection -> connection.clientLogin().authData().displayName())
+                    .findFirst().orElse("");
+            return new AllowlistSubject(subject, connectedName);
+        }
+        if (connectedPlayers != null) {
+            ProxyConnection connection = connectedPlayers.findByName(subject).orElse(null);
+            if (connection != null) {
+                return new AllowlistSubject(
+                        connection.clientLogin().authData().xuid(),
+                        connection.clientLogin().authData().displayName());
+            }
+        }
+        if (!adding) {
+            String knownXuid = allowlist.xuidForLabel(subject);
+            if (!knownXuid.isEmpty()) return new AllowlistSubject(knownXuid, subject);
+        }
+        throw new IllegalArgumentException("Use an authenticated XUID, or the name of a player currently online");
+    }
+
+    private void disconnectRemoved(String xuid) {
+        if (!allowlist.enabled() || !allowlist.config().disconnectOnRemoval() || connectedPlayers == null) return;
+        connectedPlayers.connections().stream()
+                .filter(connection -> xuid.equals(connection.clientLogin().authData().xuid()))
+                .findFirst()
+                .ifPresent(connection -> connection.client().disconnect(allowlist.config().kickMessage()));
+    }
+
+    private static String labelSuffix(String label) {
+        return label == null || label.isBlank() ? "" : " (" + label.trim() + ")";
+    }
+
+    private record AllowlistSubject(String xuid, String name) {
     }
 
     private List<String> commandNames() {

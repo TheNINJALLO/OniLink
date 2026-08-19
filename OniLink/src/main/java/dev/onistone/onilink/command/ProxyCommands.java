@@ -14,7 +14,8 @@ public final class ProxyCommands {
                 new ProxyCommand("glist", "List every player on the network and where they are"),
                 new ProxyCommand("send", "Move another player to a backend server"),
                 new ProxyCommand("alert", "Broadcast a message to every player on the network"),
-                new ProxyCommand("perm", "Grant or revoke proxy permissions")
+                new ProxyCommand("perm", "Grant or revoke proxy permissions"),
+                new ProxyCommand("allowlist", "Manage authenticated XUID access to the proxy")
         );
     }
 }

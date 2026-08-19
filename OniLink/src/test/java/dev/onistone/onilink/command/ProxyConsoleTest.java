@@ -1,6 +1,8 @@
 package dev.onistone.onilink.command;
 
+import dev.onistone.onilink.allowlist.ProxyAllowlist;
 import dev.onistone.onilink.backend.BackendDirectory;
+import dev.onistone.onilink.config.AllowlistConfig;
 import dev.onistone.onilink.config.BackendConfig;
 import dev.onistone.onilink.config.PermissionsConfig;
 import dev.onistone.onilink.permissions.ProxyPermissions;
@@ -10,10 +12,12 @@ import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -184,5 +188,22 @@ class ProxyConsoleTest {
         assertFalse(restricted.mayJoinBackend("999", "Steve", "staff"));
         restricted.grant("Steve", "server.staff");
         assertTrue(restricted.mayJoinBackend("999", "Steve", "staff"));
+    }
+
+    @Test
+    void consoleManagesTheAuthenticatedXuidAllowlist() {
+        ProxyAllowlist allowlist = ProxyAllowlist.inMemory(new AllowlistConfig(
+                true, Path.of("allowlist.properties"), "Not allowed", true));
+        NetworkCommands commands = new NetworkCommands(
+                null, directory(), null, permissions, allowlist, ProxyCommandRegistry.defaults(), null);
+        ProxyConsole console = new ProxyConsole(commands, () -> {
+        }, null);
+
+        console.execute("allowlist add 2533274790000001 ExamplePlayer");
+        assertTrue(allowlist.allows("2533274790000001"));
+        assertEquals("ExamplePlayer", allowlist.entries().getFirst().name());
+
+        console.execute("allowlist remove 2533274790000001");
+        assertFalse(allowlist.allows("2533274790000001"));
     }
 }

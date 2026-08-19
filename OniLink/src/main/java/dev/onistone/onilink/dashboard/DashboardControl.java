@@ -11,6 +11,18 @@ interface DashboardControl extends AutoCloseable {
 
     List<Map<String, Object>> backends(boolean includeAddresses);
 
+    default Map<String, Object> allowlist() {
+        return Map.of("enabled", false, "count", 0, "entries", List.of());
+    }
+
+    default ActionResult allowlistAdd(String xuid, String name) {
+        return new ActionResult(false, "Allowlist management is unavailable");
+    }
+
+    default ActionResult allowlistRemove(String xuid) {
+        return new ActionResult(false, "Allowlist management is unavailable");
+    }
+
     ActionResult transfer(String player, String backend);
 
     ActionResult disconnect(String player, String reason);

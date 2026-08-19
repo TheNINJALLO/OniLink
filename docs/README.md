@@ -7,7 +7,7 @@
 Use this page as the canonical map for operators, testers, and contributors. The [GitHub Wiki](https://github.com/TheNINJALLO/OniLink/wiki) provides a shorter task-oriented copy of the operator guidance.
 
 > [!IMPORTANT]
-> `v0.1.1` is the current production release. Its exact Linux BDS `1.26.44.3` + Endstone `0.11.9` profile is production-approved; other platforms and profiles retain separate compatibility gates.
+> `v0.1.2` is the current production release. Its exact Linux BDS `1.26.44.3` + Endstone `0.11.9` profile is production-approved; other platforms and profiles retain separate compatibility gates.
 
 ## Start here
 
@@ -17,7 +17,7 @@ Use this page as the canonical map for operators, testers, and contributors. The
 | Install the current Linux release | [Quick start](QUICKSTART.md) |
 | Install and configure the complete network | [Installation](INSTALLATION.md) |
 | Add another BDS server automatically | [Adding a BDS backend](ADDING_BACKEND.md) |
-| Review the current changes and upgrade steps | [v0.1.1 release notes](releases/v0.1.1.md) |
+| Review the current changes and upgrade steps | [v0.1.2 release notes](releases/v0.1.2.md) |
 | Copy a complete working configuration | [Deployment examples](../examples/README.md) |
 | Import the OniLink Pterodactyl egg | [Pterodactyl](PTERODACTYL.md) |
 | Configure and secure the operations UI | [Dashboard](DASHBOARD.md) |
@@ -58,7 +58,7 @@ Use this page as the canonical map for operators, testers, and contributors. The
 
 | Item | Current value |
 | --- | --- |
-| Application release | `v0.1.1` |
+| Application release | `v0.1.2` |
 | Locked BDS | `1.26.44.3` |
 | Endstone | `0.11.9` |
 | Public proxy runtime | Java 21 |

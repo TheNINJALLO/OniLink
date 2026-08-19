@@ -63,6 +63,7 @@ public final class BackendCommandRouter {
             case "send" -> networkCommands.send(sender, arguments);
             case "alert" -> networkCommands.alert(sender, CommandArguments.remainder(command.originalCommandLine()));
             case "perm" -> networkCommands.permission(sender, arguments);
+            case "allowlist" -> networkCommands.allowlist(sender, arguments);
             default -> sender.sendMessage("Unknown proxy command: " + name);
         }
     }

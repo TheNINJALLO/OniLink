@@ -4,11 +4,13 @@ Run OniLink and every backend as separate Pterodactyl servers.
 
 ## Import the released egg
 
-Download [`egg-onilink.json`](https://github.com/TheNINJALLO/OniLink/releases/download/v0.1.1/egg-onilink.json), then open **Admin Panel → Nests → Import Egg**.
+Download [`egg-onilink.json`](https://github.com/TheNINJALLO/OniLink/releases/download/v0.1.2/egg-onilink.json), then open **Admin Panel → Nests → Import Egg**.
 
 Create an **OniLink Bedrock Proxy** server with the Java 21 image and one public UDP allocation. Set the private backend host/port and enter a generated Base64 secret in the administrator-only `ONIBRIDGE_FORWARDING_SECRET` variable. Put the same value on the backend validator.
 
-The egg verifies its bootstrap downloads, creates `config.properties` only when missing, and preserves it on reinstall. Every container start checks the newest published OniLink release, including prereleases, and replaces the JAR only after checksum validation. A failed update starts the existing JAR; a successful one keeps `OniLink.jar.previous` for rollback. It also maps the primary allocation number to Bedrock UDP and the authenticated dashboard over TCP. The BDS/Endstone and Geyser processes still use separate servers/eggs.
+The egg verifies its bootstrap downloads, creates `config.properties` only when missing, and preserves it on reinstall. Every container start checks GitHub's latest stable release, verifies the JAR, updater, and reference configuration, and atomically installs valid changes. Drafts and prereleases are ignored. A failed update starts the existing JAR; a successful one keeps previous runtime files for rollback. It also maps the primary allocation number to Bedrock UDP and the authenticated dashboard over TCP. The BDS/Endstone and Geyser processes still use separate servers/eggs.
+
+The updater changes runtime files, not the egg definition stored in the panel. Reimport the current egg to receive new panel variables. Existing v0.1.1 servers will still discover and download the normal v0.1.2 JAR on their next restart.
 
 The BDS image must provide glibc 2.35 or newer for native OniBridge. The current amd64 `ghcr.io/parkervcp/yolks:python_3.14` image is Debian Bookworm-based and meets that floor. Recheck mutable image tags with `ldd --version` after updates, and never replace `libc.so.6` manually.
 
@@ -32,6 +34,12 @@ Add each secret to OniLink and only its matching backend:
 Use different values. Do not put a secret into a public egg default, startup command, or configuration file.
 
 The egg declares blank, non-user-viewable fields for the default, survival, and Java forwarding secrets. Panel administrators can access server variables, so protect administrator access and panel backups.
+
+## Player allowlist
+
+Leave **Enable authenticated XUID allowlist** off for the first connection. Add your connected account under **Dashboard → Allowlist** or run `allowlist add <gamertag>` in the Pterodactyl console. Confirm it with `allowlist list`, enable the panel switch, and restart.
+
+Entries persist in `/home/container/allowlist.properties`. Only the Xbox-authenticated XUID grants access; names are labels. Keep backend BDS `online-mode=false` and `allow-list=false`.
 
 For every additional native BDS server, the easier method requires no new egg variable: use **Configuration → Add BDS Backend** in the OniLink dashboard, download the generated key and `onibridge.toml`, and upload both to `/home/container/plugins/onibridge/` on that Endstone server. The generated TOML uses `active_secret_file`; the current Linux plugin automatically restricts the uploaded key to owner-only access. Follow [[Adding Backends]] for the complete steps.
 

@@ -9,6 +9,7 @@ import org.cloudburstmc.protocol.common.PacketSignal;
 import dev.onistone.onilink.auth.ClientLogin;
 import dev.onistone.onilink.auth.ClientLoginAuthenticator;
 import dev.onistone.onilink.auth.OfflineLoginForge;
+import dev.onistone.onilink.allowlist.ProxyAllowlist;
 import dev.onistone.onilink.codec.CodecDefinitionState;
 import dev.onistone.onilink.backend.BackendConnector;
 import dev.onistone.onilink.backend.ProxyConnection;
@@ -38,6 +39,7 @@ public final class InitialClientPacketHandler implements BedrockPacketHandler {
     private final ProxyResourcePackRegistry proxyResourcePackRegistry;
     private final BackendPaletteStore backendPaletteStore;
     private final BackendPackCache backendPackCache;
+    private final ProxyAllowlist allowlist;
     private SecretKey clientEncryptionKey;
     private ProxyConnection connection;
 
@@ -81,7 +83,7 @@ public final class InitialClientPacketHandler implements BedrockPacketHandler {
     ) {
         this(session, networkSettingsNegotiator, backendConnector, authenticator, offlineLoginForge,
                 connectedPlayers, playerCountChanged, proxyResourcePackRegistry, backendPaletteStore,
-                BackendPackCache.disabled());
+                BackendPackCache.disabled(), ProxyAllowlist.disabled());
     }
 
     public InitialClientPacketHandler(
@@ -95,6 +97,24 @@ public final class InitialClientPacketHandler implements BedrockPacketHandler {
             ProxyResourcePackRegistry proxyResourcePackRegistry,
             BackendPaletteStore backendPaletteStore,
             BackendPackCache backendPackCache
+    ) {
+        this(session, networkSettingsNegotiator, backendConnector, authenticator, offlineLoginForge,
+                connectedPlayers, playerCountChanged, proxyResourcePackRegistry, backendPaletteStore,
+                backendPackCache, ProxyAllowlist.disabled());
+    }
+
+    public InitialClientPacketHandler(
+            ListenerSession session,
+            NetworkSettingsNegotiator networkSettingsNegotiator,
+            BackendConnector backendConnector,
+            ClientLoginAuthenticator authenticator,
+            OfflineLoginForge offlineLoginForge,
+            ConnectedPlayerRegistry connectedPlayers,
+            Runnable playerCountChanged,
+            ProxyResourcePackRegistry proxyResourcePackRegistry,
+            BackendPaletteStore backendPaletteStore,
+            BackendPackCache backendPackCache,
+            ProxyAllowlist allowlist
     ) {
         this.session = session;
         this.networkSettingsNegotiator = networkSettingsNegotiator;
@@ -110,6 +130,7 @@ public final class InitialClientPacketHandler implements BedrockPacketHandler {
                 ? backendPaletteStore
                 : BackendPaletteStore.disabled();
         this.backendPackCache = backendPackCache != null ? backendPackCache : BackendPackCache.disabled();
+        this.allowlist = allowlist != null ? allowlist : ProxyAllowlist.disabled();
     }
 
     @Override
@@ -157,6 +178,17 @@ public final class InitialClientPacketHandler implements BedrockPacketHandler {
             }
 
             ClientLogin clientLogin = authenticator.authenticate(packet);
+            String xuid = clientLogin.authData().xuid();
+            if (!allowlist.allows(xuid)) {
+                System.out.printf(
+                        "Denied allowlist join for %s (XUID %s) from %s.%n",
+                        clientLogin.authData().displayName(),
+                        xuid,
+                        session.getSocketAddress()
+                );
+                session.disconnect(allowlist.config().kickMessage());
+                return PacketSignal.HANDLED;
+            }
             KeyPair keyPair = BedrockCrypto.createKeyPair();
             byte[] token = BedrockCrypto.randomToken();
             clientEncryptionKey = BedrockCrypto.secretKey(keyPair.getPrivate(), clientLogin.identityPublicKey(), token);

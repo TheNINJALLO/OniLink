@@ -165,12 +165,52 @@ For a single backend, start with `failover.enabled=false`. For multiple backends
 | Key | Example | Meaning |
 | --- | --- | --- |
 | `permissions.admins` | `2533274790000000` | Comma-separated XUIDs or gamertags; XUIDs are preferred |
-| `permissions.adminCommands` | `alert,glist,perm,send` | Commands restricted to administrators |
+| `permissions.adminCommands` | `alert,allowlist,glist,perm,send` | Commands restricted to administrators |
 | `backend.<name>.adminOnly` | `true` | Hide/restrict one backend |
 | `commands.passthrough` | empty | Proxy command names passed to all backends by default |
 | `backend.<name>.passthroughCommands` | `hub,server` | Per-backend passthrough override |
 
-`perm` remains administrator-only because it grants permissions. Leave `permissions.admins` empty until you know the trusted XUID.
+`perm` and `allowlist` remain administrator-only regardless of this setting because they grant control over the proxy and player access. Leave `permissions.admins` empty until you know the trusted XUID.
+
+## Authenticated XUID allowlist
+
+OniLink's allowlist works even though BDS must use `online-mode=false` and `allow-list=false`. OniLink validates the Xbox login chain at the public listener, extracts its signed XUID, and rejects an unlisted account before allocating a proxy session or contacting a backend. Gamertags in the file are display labels only and never authorize a login.
+
+| Key | Safe default | Meaning |
+| --- | --- | --- |
+| `allowlist.enabled` | `false` | Enforce XUID membership at OniLink ingress |
+| `allowlist.file` | `allowlist.properties` | Persistent XUID-to-label file; relative paths resolve beside `config.properties` |
+| `allowlist.kickMessage` | `You are not allow-listed on this server.` | Message shown to a rejected or removed player |
+| `allowlist.disconnectOnRemoval` | `true` | Immediately disconnect an online player when their XUID is removed |
+
+Add at least your own XUID before enabling enforcement:
+
+```text
+# OniLink console; no leading slash
+allowlist add 2533274790000001 ExamplePlayer
+allowlist list
+allowlist status
+```
+
+An authenticated player who is already connected can be added by name with `allowlist add ExamplePlayer`. From an authorized in-game account use `/onilink allowlist ...`. You can also use **Dashboard → Allowlist** to select a connected player or enter an XUID manually.
+
+Then set and restart:
+
+```properties
+allowlist.enabled=true
+allowlist.file=allowlist.properties
+allowlist.kickMessage=You are not allow-listed on this server.
+allowlist.disconnectOnRemoval=true
+```
+
+The generated file is ordinary Java properties syntax:
+
+```properties
+2533274790000001=ExamplePlayer
+2533274790000000=Second player
+```
+
+Use XUIDs from authenticated OniLink player data, not UUIDs or guessed gamertags. `permissions.admins` does not bypass the allowlist. If you accidentally enable an empty list, use the Pterodactyl console or dashboard to add your XUID, or temporarily set `allowlist.enabled=false` and restart.
 
 ## Public listener security keys
 

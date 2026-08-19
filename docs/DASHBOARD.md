@@ -12,6 +12,7 @@ The dashboard is built into `OniLink.jar`; there is no second service, database,
 | Overview | Proxy version, uptime, player count, JVM use, listener, backend status, and RakNet probe latency |
 | Players | Authenticated identity summary, route, protocol, join state, transfer, disconnect, and bounded packet trace |
 | Backends | Population, routing flags, forwarding state, endpoint visibility by role, and live health |
+| Allowlist | Authenticated XUID membership, connected-player enrollment, manual enrollment, and immediate removal |
 | Configuration | Guided BDS backend setup, protected secret creation, redacted editor, optimistic revision check, parser validation, automatic backup, and rollback |
 | Operations | Network alert, bounded log tail, redacted support bundle, and graceful shutdown |
 | Security | First-run owner claim, PBKDF2 password hashes, expiring bearer sessions, roles, optional TOTP, login throttling, and append-only audit records |
@@ -119,6 +120,12 @@ Open **Players**, select **Transfer**, and choose a configured backend. OniLink 
 ### Capture a packet trace
 
 Select **Trace** for one player and choose 1,000–60,000 milliseconds. Tracing is deliberately bounded and uses OniLink's existing per-connection diagnostic path.
+
+### Manage player access
+
+Open **Allowlist** as an admin or owner. Add a currently connected player to copy their Xbox-authenticated XUID, or enter a known numeric XUID and optional gamertag label. Labels are for operators only; authorization always compares the signed XUID.
+
+Before turning enforcement on, add your own account and confirm it appears in the table. Set `allowlist.enabled=true` in **Configuration**, save, and restart OniLink. Removing an entry takes effect for new joins immediately and, when `allowlist.disconnectOnRemoval=true`, also disconnects the matching live session.
 
 ### Add a BDS backend
 

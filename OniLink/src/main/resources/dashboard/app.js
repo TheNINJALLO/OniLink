@@ -9,6 +9,7 @@ const model = {
   state: null,
   players: [],
   backends: [],
+  allowlist: null,
   config: null,
   backendSetup: null,
   action: null,
@@ -271,6 +272,30 @@ async function loadConfig() {
   $("#config-revision").textContent = `Revision ${model.config.revision.slice(0, 12)}`;
 }
 
+async function loadAllowlist() {
+  model.allowlist = await api("/api/allowlist");
+  renderAllowlist();
+}
+
+function renderAllowlist() {
+  const data = model.allowlist || {enabled: false, count: 0, entries: []};
+  const status = $("#allowlist-status");
+  status.textContent = data.enabled ? "ENFORCING" : "DISABLED";
+  status.classList.toggle("warn", !data.enabled);
+  $("#allowlist-summary").textContent = data.enabled
+    ? `${data.count} authenticated XUID(s) may join. Unlisted players are denied before backend connection.`
+    : `${data.count} XUID(s) are prepared, but enforcement is disabled until configuration is enabled and OniLink restarts.`;
+  $("#allowlist-count").textContent = data.count;
+  const body = $("#allowlist-body");
+  body.innerHTML = data.entries.length ? data.entries.map(entry => `<tr><td><code>${escapeHtml(entry.xuid)}</code></td><td>${escapeHtml(entry.name || "—")}</td><td><button class="mini-button" data-remove-allowlist="${escapeHtml(entry.xuid)}">Remove</button></td></tr>`).join("") : `<tr><td colspan="3" class="empty">No XUIDs are allow-listed.</td></tr>`;
+  const select = $("#allowlist-player-select");
+  const allowed = new Set(data.entries.map(entry => entry.xuid));
+  const candidates = model.players.filter(player => !allowed.has(player.xuid));
+  select.innerHTML = candidates.length
+    ? candidates.map(player => `<option value="${escapeHtml(player.xuid)}" data-name="${escapeHtml(player.name)}">${escapeHtml(player.name)} — ${escapeHtml(player.xuid)}</option>`).join("")
+    : `<option value="">No unlisted connected players</option>`;
+}
+
 function showBackendSetup(result) {
   model.backendSetup = result;
   $("#backend-setup-title").textContent = `${result.backendName} files ready`;
@@ -307,6 +332,7 @@ async function navigate(page) {
   $("#page-title").textContent = button.textContent.replace(/^\d+/, "").trim();
   try {
     if (page === "configuration") await loadConfig();
+    if (page === "allowlist") await loadAllowlist();
     if (page === "operations") await loadLogs();
     if (page === "audit") await loadAudit();
     if (page === "accounts") await loadUsers();
@@ -344,6 +370,26 @@ $("#nav").addEventListener("click", event => { const button = event.target.close
 document.addEventListener("click", event => { const button = event.target.closest("[data-goto]"); if (button) navigate(button.dataset.goto); });
 $("#refresh-players").addEventListener("click", () => refreshRuntime(true));
 $("#refresh-backends").addEventListener("click", () => refreshRuntime(true));
+$("#refresh-allowlist").addEventListener("click", () => loadAllowlist().then(() => notice("Allowlist refreshed.")).catch(error => notice(error.message, true)));
+$("#allowlist-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  try { const result = await api("/api/allowlist", {method: "POST", body: Object.fromEntries(new FormData(form))}); form.reset(); await loadAllowlist(); notice(result.message); }
+  catch (error) { notice(error.message, true); }
+});
+$("#allowlist-add-connected").addEventListener("click", async () => {
+  const select = $("#allowlist-player-select");
+  const option = select.selectedOptions[0];
+  if (!option?.value) return notice("Select an unlisted connected player.", true);
+  try { const result = await api("/api/allowlist", {method: "POST", body: {xuid: option.value, name: option.dataset.name || ""}}); await loadAllowlist(); notice(result.message); }
+  catch (error) { notice(error.message, true); }
+});
+$("#allowlist-body").addEventListener("click", async event => {
+  const button = event.target.closest("[data-remove-allowlist]");
+  if (!button || !confirm(`Remove XUID ${button.dataset.removeAllowlist} from the allowlist?`)) return;
+  try { const result = await api("/api/allowlist", {method: "DELETE", body: {xuid: button.dataset.removeAllowlist}}); await loadAllowlist(); notice(result.message); }
+  catch (error) { notice(error.message, true); }
+});
 $("#players-body").addEventListener("click", event => { const button = event.target.closest("[data-action]"); if (button) openPlayerAction(button.dataset.action, button.dataset.player); });
 $("#action-cancel").addEventListener("click", () => $("#action-dialog").close());
 $("#action-form").addEventListener("submit", async event => {

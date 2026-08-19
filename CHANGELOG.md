@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.1.2 - 2026-08-19
+
+- Added a persistent, fail-closed OniLink XUID allowlist enforced immediately after Xbox login-chain authentication and before session/backend allocation.
+- Added administrator-only allowlist management through the proxy console, in-game commands, dashboard APIs, dashboard UI, audit records, and redacted support bundles.
+- Added a Pterodactyl allowlist switch with safe-off default, detailed enrollment/recovery instructions, and complete configuration examples.
+- Changed runtime updates to GitHub's latest stable release endpoint, excluding drafts and prereleases.
+- Extended checksum-verified runtime updates to `start-onilink.sh` and `onilink.properties.example` while preserving live `config.properties` and rollback copies.
+- Bumped OniLink, OniBridge, OniBridge-Geyser, the Pterodactyl bootstrap, and Linux release automation to `0.1.2`.
+
 ## 0.1.1 - 2026-08-19
 
 - Promoted the exact Linux BDS `1.26.44.3` + Endstone `0.11.9` profile to production after operator approval of the human-review and live-acceptance gates.

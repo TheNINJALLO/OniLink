@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/TheNINJALLO/OniLink/actions/workflows/linux-artifacts.yml"><img alt="Linux build" src="https://img.shields.io/github/actions/workflow/status/TheNINJALLO/OniLink/linux-artifacts.yml?branch=main&amp;style=for-the-badge&amp;logo=githubactions&amp;label=Linux%20Build"></a>
-  <a href="https://github.com/TheNINJALLO/OniLink/releases"><img alt="Release" src="https://img.shields.io/github/v/release/TheNINJALLO/OniLink?include_prereleases&amp;style=for-the-badge&amp;label=Release"></a>
+  <a href="https://github.com/TheNINJALLO/OniLink/releases"><img alt="Stable release" src="https://img.shields.io/github/v/release/TheNINJALLO/OniLink?style=for-the-badge&amp;label=Release"></a>
 </p>
 
 # OniLink Wiki
@@ -15,7 +15,7 @@ OniLink is a Java 21 Bedrock proxy with two fail-closed backend identity validat
 - **OniBridge-Geyser** verifies the same signed claim before Geyser opens a Java connection.
 
 > [!IMPORTANT]
-> `v0.1.1` is the current production release. The exact Linux BDS `1.26.44.3` + Endstone `0.11.9` profile completed its review, native harness, and operator-approved live acceptance gates.
+> `v0.1.2` is the current production release. It adds authenticated XUID allowlisting and stable startup updates while retaining the reviewed Linux BDS `1.26.44.3` + Endstone `0.11.9` profile.
 
 ## Start by goal
 
@@ -38,7 +38,7 @@ OniLink is a Java 21 Bedrock proxy with two fail-closed backend identity validat
 
 | Item | Value |
 | --- | --- |
-| Application release | [`v0.1.1`](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.1) |
+| Application release | [`v0.1.2`](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.2) |
 | BDS | `1.26.44.3` |
 | Endstone | `0.11.9` |
 | Linux | x86-64, System V AMD64, libc++ |

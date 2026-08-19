@@ -31,13 +31,13 @@ public record PermissionsConfig(Set<String> admins, Set<String> adminCommands, S
      * {@code /glist} is included because it reports where every player on the network is, which is
      * exactly what someone probing for a staff-only backend wants.
      */
-    public static final Set<String> DEFAULT_ADMIN_COMMANDS = Set.of("send", "alert", "glist", "perm");
+    public static final Set<String> DEFAULT_ADMIN_COMMANDS = Set.of("send", "alert", "glist", "perm", "allowlist");
 
     /**
      * Commands that stay administrator-only whatever the config says, because opening them hands
      * over the proxy itself rather than one capability.
      */
-    public static final Set<String> ALWAYS_ADMIN = Set.of("perm");
+    public static final Set<String> ALWAYS_ADMIN = Set.of("perm", "allowlist");
 
     public PermissionsConfig {
         admins = lowercased(admins);

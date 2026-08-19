@@ -15,6 +15,7 @@ import org.cloudburstmc.protocol.bedrock.netty.codec.batch.BedrockBatchDecoder;
 import org.cloudburstmc.protocol.bedrock.netty.initializer.BedrockServerInitializer;
 import dev.onistone.onilink.auth.ClientLoginAuthenticator;
 import dev.onistone.onilink.auth.OfflineLoginForge;
+import dev.onistone.onilink.allowlist.ProxyAllowlist;
 import dev.onistone.onilink.backend.BackendDirectory;
 import dev.onistone.onilink.backend.BackendSwitcher;
 import dev.onistone.onilink.backend.BackendConnector;
@@ -64,6 +65,7 @@ public final class BedrockProxyListener {
     private final ConnectionThrottle connectionThrottle;
     private final ProxyPlayerEnum playerEnum;
     private final ProxyPermissions permissions;
+    private final ProxyAllowlist allowlist;
     private ProxyConsole console;
     private Channel channel;
     private BackendPaletteStore backendPaletteStore = BackendPaletteStore.disabled();
@@ -91,7 +93,16 @@ public final class BedrockProxyListener {
      * registry; only this one can gain edges, and only from an addon that asked for them.</p>
      */
     public BedrockProxyListener(ProxyConfig config, ProxyPermissions permissions, PluginManager pluginManager) {
-        this(config, registryWith(pluginManager), permissions, pluginManager);
+        this(config, permissions, ProxyAllowlist.inMemory(config.allowlist()), pluginManager);
+    }
+
+    public BedrockProxyListener(
+            ProxyConfig config,
+            ProxyPermissions permissions,
+            ProxyAllowlist allowlist,
+            PluginManager pluginManager
+    ) {
+        this(config, registryWith(pluginManager), permissions, allowlist, pluginManager);
     }
 
     private static ProtocolRegistry registryWith(PluginManager pluginManager) {
@@ -109,13 +120,23 @@ public final class BedrockProxyListener {
             ProtocolRegistry protocolRegistry,
             ProxyPermissions permissions
     ) {
-        this(config, protocolRegistry, permissions, null);
+        this(config, protocolRegistry, permissions, ProxyAllowlist.inMemory(config.allowlist()), null);
     }
 
     public BedrockProxyListener(
             ProxyConfig config,
             ProtocolRegistry protocolRegistry,
             ProxyPermissions permissions,
+            PluginManager pluginManager
+    ) {
+        this(config, protocolRegistry, permissions, ProxyAllowlist.inMemory(config.allowlist()), pluginManager);
+    }
+
+    public BedrockProxyListener(
+            ProxyConfig config,
+            ProtocolRegistry protocolRegistry,
+            ProxyPermissions permissions,
+            ProxyAllowlist allowlist,
             PluginManager pluginManager
     ) {
         this.pluginManager = pluginManager;
@@ -128,6 +149,7 @@ public final class BedrockProxyListener {
         this.config = config;
         this.protocolRegistry = protocolRegistry;
         this.permissions = permissions == null ? ProxyPermissions.inMemory(config.permissions()) : permissions;
+        this.allowlist = allowlist == null ? ProxyAllowlist.inMemory(config.allowlist()) : allowlist;
         this.connectedPlayers = new ConnectedPlayerRegistry(config.maxPlayers());
         this.connectionThrottle = new ConnectionThrottle(config.security());
         this.playerEnum = new ProxyPlayerEnum(connectedPlayers, this.permissions);
@@ -201,6 +223,7 @@ public final class BedrockProxyListener {
                 backendDirectory,
                 backendSwitcher,
                 permissions,
+                allowlist,
                 commandRegistry,
                 playerEnum::broadcast
         );
@@ -284,6 +307,10 @@ public final class BedrockProxyListener {
                     + String.join(", /", new java.util.TreeSet<>(config.permissions().adminCommands()))
                     + " are unavailable to everyone. Set permissions.admins to your XUID to use them.");
         }
+        System.out.printf("Proxy allowlist: %s, %d XUID(s), file %s.%n",
+                allowlist.enabled() ? "ON" : "off",
+                allowlist.entries().size(),
+                allowlist.config().file());
         if (!config.forcedHosts().isEmpty()) {
             config.forcedHosts().byHostname().forEach((hostname, backend) ->
                     System.out.printf("Forced host %s -> backend %s.%n", hostname, backend));
@@ -417,7 +444,8 @@ public final class BedrockProxyListener {
                                 BedrockProxyListener.this::onPlayerRosterChanged,
                                 resourcePackRegistry,
                                 backendPaletteStore,
-                                backendPackCache
+                                backendPackCache,
+                                allowlist
                         ));
                         updateAdvertisement();
                     }
@@ -489,6 +517,11 @@ public final class BedrockProxyListener {
     public BackendSwitcher backendSwitcher() {
         if (backendSwitcher == null) throw new IllegalStateException("Proxy listener has not started");
         return backendSwitcher;
+    }
+
+    /** Authenticated ingress allowlist used by console and dashboard management. */
+    public ProxyAllowlist allowlist() {
+        return allowlist;
     }
 
     public void awaitShutdown() throws InterruptedException {

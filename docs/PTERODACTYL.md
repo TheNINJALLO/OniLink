@@ -4,7 +4,7 @@ Use a separate Pterodactyl server for OniLink and for every BDS or Geyser backen
 
 ## Import the OniLink egg
 
-Download `egg-onilink.json` from the [current release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.1) or [`packaging/pterodactyl`](../packaging/pterodactyl/README.md).
+Download `egg-onilink.json` from the [current release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.2) or [`packaging/pterodactyl`](../packaging/pterodactyl/README.md).
 
 1. Open **Admin Panel → Nests**.
 2. Select or create a nest and choose **Import Egg**.
@@ -12,14 +12,27 @@ Download `egg-onilink.json` from the [current release](https://github.com/TheNIN
 4. Create a server using **OniLink Bedrock Proxy** and the Java 21 image.
 5. Assign one public allocation. The egg writes its primary port to the Bedrock UDP listener and dashboard TCP listener.
 6. Set **Default backend host** and **Default backend UDP port** to the private address reachable from the OniLink container.
-7. Generate a forwarding secret with `openssl rand -base64 32` and enter it in the admin-only **Default OniForward secret** variable.
-8. Put the identical value in the default backend validator.
-9. Start the backend and confirm its validator first; then start OniLink.
-10. Open **Files → dashboard → FIRST_RUN_SETUP.txt**, copy the one-time code, and browse to `http://NODE-OR-DOMAIN:PRIMARY_PORT/` from a trusted network to create the dashboard owner.
+7. Leave **Enable authenticated XUID allowlist** off for the first join.
+8. Generate a forwarding secret with `openssl rand -base64 32` and enter it in the admin-only **Default OniForward secret** variable.
+9. Put the identical value in the default backend validator.
+10. Start the backend and confirm its validator first; then start OniLink.
+11. Open **Files → dashboard → FIRST_RUN_SETUP.txt**, copy the one-time code, and browse to `http://NODE-OR-DOMAIN:PRIMARY_PORT/` from a trusted network to create the dashboard owner.
 
-The installer downloads the exact `ONILINK_VERSION` bootstrap tag, verifies `OniLink.jar`, `start-onilink.sh`, and the configuration template against that release's `SHA256SUMS`, and preserves an existing `config.properties` during reinstall. Every later container start checks the newest published GitHub release, including prereleases, and installs its JAR only after checksum validation.
+The installer downloads the exact `ONILINK_VERSION` bootstrap tag, verifies `OniLink.jar`, `start-onilink.sh`, and the configuration template against that release's `SHA256SUMS`, and preserves an existing `config.properties` during reinstall. Every later container start queries GitHub's **latest stable release**, verifies the JAR, updater, and reference configuration, then updates changed runtime files atomically. Drafts and prereleases are ignored.
 
-If GitHub is unavailable or verification fails, startup keeps the currently installed JAR. A successful replacement retains the prior version as `OniLink.jar.previous` and records the active release tag in `.onilink-version`.
+If GitHub is unavailable or verification fails, startup keeps the currently installed JAR. A successful replacement retains the prior version as `OniLink.jar.previous`, preserves active `config.properties`, updates only `onilink.properties.example`, and records the active release tag in `.onilink-version`. A changed updater is saved as `start-onilink.sh.previous` and takes over on the next restart.
+
+Existing v0.1.1 containers already discover the normal v0.1.2 release and replace `OniLink.jar` on restart. Reimport the v0.1.2 egg (or reinstall after first backing up the server) once to receive the new panel variable and self-updating startup script; normal runtime updates do not rewrite Pterodactyl's stored egg definition.
+
+### Enable the authenticated allowlist
+
+1. Join once while **Enable authenticated XUID allowlist** is `false`.
+2. In **Dashboard → Allowlist**, select your connected account and add it. Alternatively run `allowlist add <gamertag>` in the Pterodactyl console while the player is connected, or `allowlist add <XUID> <label>` at any time.
+3. Confirm the entry with `allowlist list`.
+4. Stop OniLink, set **Enable authenticated XUID allowlist** to `true`, and start it again.
+5. Add every additional player by authenticated XUID. Removing a player takes effect immediately by default.
+
+The egg maps the panel switch to `allowlist.enabled`. Entries persist in `/home/container/allowlist.properties`; back up that file with `config.properties` and `dashboard/`. Keep BDS `online-mode=false` and `allow-list=false` because OniLink now performs the Xbox-authenticated access check before forwarding.
 
 The egg enables OniLink's embedded dashboard by default. Bedrock uses `PRIMARY_PORT/UDP`; the dashboard uses the same number over TCP. They can coexist because TCP and UDP are separate transports. Ensure the Wings mapping and node/provider firewall allow both protocols. The dashboard is HTTP, so restrict initial setup to a trusted network and put normal remote access behind HTTPS. See [Dashboard](DASHBOARD.md) for reverse-proxy and account examples.
 
@@ -169,7 +182,7 @@ The relevant layout is:
 /home/container/
 ├── bedrock_server
 ├── plugins/
-│   ├── onibridge-0.1.1-bds-1.26.44.3-linux-x86_64.so
+│   ├── onibridge-0.1.2-bds-1.26.44.3-linux-x86_64.so
 │   └── onibridge/
 │       ├── survival.key          # when using the dashboard/file method
 │       └── onibridge.toml

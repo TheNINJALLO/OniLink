@@ -88,6 +88,7 @@ public final class ProxyConsole {
             case "send" -> networkCommands.send(sender, arguments);
             case "alert", "say" -> networkCommands.alert(sender, CommandArguments.remainder(trimmed));
             case "perm", "permission" -> networkCommands.permission(sender, arguments);
+            case "allowlist", "whitelist" -> networkCommands.allowlist(sender, arguments);
             case "stop", "end" -> {
                 sender.sendMessage("Stopping the proxy.");
                 shutdown.run();
@@ -104,6 +105,9 @@ public final class ProxyConsole {
         sender.sendMessage("perm unset <player> <node> - revoke a permission");
         sender.sendMessage("perm info <player>         - what a player may do");
         sender.sendMessage("perm list                  - every runtime grant");
+        sender.sendMessage("allowlist add <player|XUID>    - permit an authenticated Xbox account");
+        sender.sendMessage("allowlist remove <player|XUID> - revoke an Xbox account");
+        sender.sendMessage("allowlist list|status          - inspect proxy ingress access");
         sender.sendMessage("stop                       - shut the proxy down");
         sender.sendMessage("Nodes: " + String.join(", ", networkCommands.knownNodes()));
     }

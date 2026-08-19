@@ -25,6 +25,10 @@ Compare backend name, bridge ID, key ID, Base64 secret, clock, token lifetime, a
 
 Treat this as a security failure. Confirm `reject_direct_joins=true`, verify OniBridge is active, and firewall the backend listener to OniLink.
 
+## Every player is reported as not allow-listed
+
+Use the OniLink/Pterodactyl console to run `allowlist status`, then `allowlist add <XUID> <label>`. An enabled empty list denies everyone, and proxy administrators do not bypass it. The authenticated dashboard's **Allowlist** page can also recover access; otherwise temporarily set `allowlist.enabled=false` and restart.
+
 ## First join works but rejoin has empty data
 
 The verified XUID was not active before BDS selected storage. Stop testing and inspect hook/profile evidence; this is not a cache problem.

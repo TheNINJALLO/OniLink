@@ -111,6 +111,10 @@ public record ProxyConfig(
         return policy.permissions();
     }
 
+    public AllowlistConfig allowlist() {
+        return policy.allowlist();
+    }
+
     public SecurityConfig security() {
         return policy.security();
     }
@@ -243,6 +247,7 @@ public record ProxyConfig(
                         PermissionsConfig.from(properties, backends.values().stream()
                                 .map(BackendConfig::name)
                                 .toList()),
+                        AllowlistConfig.from(properties, configDir),
                         SecurityConfig.from(properties),
                         forcedHostsConfig(properties, backends),
                         JoinConfig.from(properties, failover),
@@ -300,6 +305,12 @@ public record ProxyConfig(
         properties.setProperty("permissions.admins", "");
         properties.setProperty("permissions.adminCommands", String.join(",",
                 new java.util.TreeSet<>(PermissionsConfig.DEFAULT_ADMIN_COMMANDS)));
+        AllowlistConfig allowlistDefaults = AllowlistConfig.defaults();
+        properties.setProperty("allowlist.enabled", Boolean.toString(allowlistDefaults.enabled()));
+        properties.setProperty("allowlist.file", AllowlistConfig.DEFAULT_FILE);
+        properties.setProperty("allowlist.kickMessage", allowlistDefaults.kickMessage());
+        properties.setProperty("allowlist.disconnectOnRemoval",
+                Boolean.toString(allowlistDefaults.disconnectOnRemoval()));
         properties.setProperty("commands.passthrough", "");
         properties.setProperty("commands.qualifier", CommandsConfig.DEFAULT_QUALIFIER);
         SecurityConfig securityDefaults = SecurityConfig.defaults();

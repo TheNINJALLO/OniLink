@@ -6,8 +6,10 @@ import dev.onistone.onilink.backend.BackendSwitcher;
 import dev.onistone.onilink.backend.ProxyConnection;
 import dev.onistone.onilink.config.BackendConfig;
 import dev.onistone.onilink.config.ProxyConfig;
+import dev.onistone.onilink.allowlist.ProxyAllowlist;
 import dev.onistone.onilink.listener.BedrockProxyListener;
 
+import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.net.InetSocketAddress;
 import java.time.Instant;
@@ -47,6 +49,8 @@ final class ProxyDashboardControl implements DashboardControl {
         state.put("players", listener.connectedPlayers().size());
         state.put("maxPlayers", config.maxPlayers());
         state.put("backends", config.backends().size());
+        state.put("allowlistEnabled", listener.allowlist().enabled());
+        state.put("allowlistEntries", listener.allowlist().entries().size());
         state.put("listener", address(config.listenAddress()));
         state.put("memoryUsedBytes", usedMemory);
         state.put("memoryCommittedBytes", runtime.totalMemory());
@@ -104,6 +108,52 @@ final class ProxyDashboardControl implements DashboardControl {
             backends.add(item);
         }
         return List.copyOf(backends);
+    }
+
+    @Override
+    public Map<String, Object> allowlist() {
+        ProxyAllowlist allowlist = listener.allowlist();
+        List<Map<String, Object>> entries = allowlist.entries().stream()
+                .map(entry -> Map.<String, Object>of("xuid", entry.xuid(), "name", entry.name()))
+                .toList();
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("enabled", allowlist.enabled());
+        result.put("count", entries.size());
+        result.put("file", allowlist.config().file().toString());
+        result.put("disconnectOnRemoval", allowlist.config().disconnectOnRemoval());
+        result.put("entries", entries);
+        return result;
+    }
+
+    @Override
+    public ActionResult allowlistAdd(String xuid, String name) {
+        try {
+            boolean changed = listener.allowlist().add(xuid, name);
+            return new ActionResult(true, changed
+                    ? "Allow-listed XUID " + xuid.trim()
+                    : "XUID " + xuid.trim() + " is already allow-listed with that label");
+        } catch (IOException exception) {
+            throw new IllegalStateException("Could not save the allowlist: " + exception.getMessage(), exception);
+        }
+    }
+
+    @Override
+    public ActionResult allowlistRemove(String xuid) {
+        try {
+            if (!listener.allowlist().remove(xuid)) {
+                return new ActionResult(false, "XUID is not allow-listed");
+            }
+        } catch (IOException exception) {
+            throw new IllegalStateException("Could not save the allowlist: " + exception.getMessage(), exception);
+        }
+        if (listener.allowlist().enabled() && listener.allowlist().config().disconnectOnRemoval()) {
+            listener.connectedPlayers().connections().stream()
+                    .filter(connection -> xuid.trim().equals(connection.clientLogin().authData().xuid()))
+                    .findFirst()
+                    .ifPresent(connection -> connection.client().disconnect(
+                            listener.allowlist().config().kickMessage()));
+        }
+        return new ActionResult(true, "Removed XUID " + xuid.trim() + " from the allowlist");
     }
 
     @Override

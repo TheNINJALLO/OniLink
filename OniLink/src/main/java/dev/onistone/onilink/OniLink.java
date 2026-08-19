@@ -1,5 +1,6 @@
 package dev.onistone.onilink;
 
+import dev.onistone.onilink.allowlist.ProxyAllowlist;
 import dev.onistone.onilink.config.ProxyConfig;
 import dev.onistone.onilink.dashboard.OniLinkDashboard;
 import dev.onistone.onilink.listener.BedrockProxyListener;
@@ -40,6 +41,7 @@ public final class OniLink {
         BedrockProxyListener listener = new BedrockProxyListener(
                 config,
                 ProxyPermissions.load(config.permissions(), permissionsPath),
+                ProxyAllowlist.load(config.allowlist()),
                 pluginManager
         );
 

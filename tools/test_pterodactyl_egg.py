@@ -40,6 +40,8 @@ class PterodactylEggTests(unittest.TestCase):
                          files["config.properties"]["find"]["dashboard.host"])
         self.assertEqual("{{env.DASHBOARD_ENABLED}}",
                          files["config.properties"]["find"]["dashboard.enabled"])
+        self.assertEqual("{{env.ALLOWLIST_ENABLED}}",
+                         files["config.properties"]["find"]["allowlist.enabled"])
         self.assertEqual("OniLink listening on", startup["done"])
         self.assertEqual({}, logs)
 
@@ -62,12 +64,16 @@ class PterodactylEggTests(unittest.TestCase):
 
     def test_runtime_updater_is_latest_checksum_verified_and_fail_safe(self) -> None:
         script = UPDATER_PATH.read_text(encoding="utf-8")
-        self.assertIn("/releases?per_page=1", script)
-        self.assertNotIn("/releases/latest", script)
+        self.assertIn("/releases/latest", script)
+        self.assertNotIn("/releases?per_page=1", script)
         self.assertIn('download "${release_url}/SHA256SUMS"', script)
         self.assertIn('download "${release_url}/OniLink.jar"', script)
+        self.assertIn('download "${release_url}/start-onilink.sh"', script)
+        self.assertIn('download "${release_url}/onilink.properties.example"', script)
         self.assertIn('[[ "${downloaded_sha}" != "${expected_sha}" ]]', script)
         self.assertIn('"${server_jar}.previous"', script)
+        self.assertIn("start-onilink.sh.previous", script)
+        self.assertIn("preserved active ${config_file}", script)
         self.assertIn("keeping the installed JAR", script)
         self.assertIn("exec java -Xms128M -XX:MaxRAMPercentage=95.0", script)
 
@@ -92,14 +98,23 @@ class PterodactylEggTests(unittest.TestCase):
             commands.mkdir()
             old_jar = b"old verified jar"
             new_jar = b"new verified jar"
+            new_updater = b"#!/usr/bin/env bash\n# newer updater fixture\n"
+            new_example = b"allowlist.enabled=false\n"
             (root / "OniLink.jar").write_bytes(old_jar)
             (root / "config.properties").write_text("listener.port=19132\n", encoding="utf-8")
+            (root / "onilink.properties.example").write_text("old template\n", encoding="utf-8")
             (fixture / "OniLink.jar").write_bytes(new_jar)
+            (fixture / "start-onilink.sh").write_bytes(new_updater)
+            (fixture / "onilink.properties.example").write_bytes(new_example)
             jar_sha = hashlib.sha256(new_jar).hexdigest()
+            updater_sha = hashlib.sha256(new_updater).hexdigest()
+            example_sha = hashlib.sha256(new_example).hexdigest()
             (fixture / "SHA256SUMS").write_text(
-                f"{jar_sha}  OniLink.jar\n", encoding="utf-8")
+                f"{jar_sha}  OniLink.jar\n"
+                f"{updater_sha}  start-onilink.sh\n"
+                f"{example_sha}  onilink.properties.example\n", encoding="utf-8")
             (fixture / "release.json").write_text(
-                '[{"tag_name":"v9.9.9-candidate.1"}]\n', encoding="utf-8")
+                '{"tag_name":"v9.9.9"}\n', encoding="utf-8")
 
             fake_curl = commands / "curl"
             fake_curl.write_text("""#!/bin/sh
@@ -113,9 +128,11 @@ while [ \"$#\" -gt 0 ]; do
     esac
 done
 case \"$url\" in
-    *releases?per_page=1) source=$FIXTURE/release.json ;;
+    */releases/latest) source=$FIXTURE/release.json ;;
     */SHA256SUMS) source=$FIXTURE/SHA256SUMS ;;
     */OniLink.jar) source=$FIXTURE/OniLink.jar ;;
+    */start-onilink.sh) source=$FIXTURE/start-onilink.sh ;;
+    */onilink.properties.example) source=$FIXTURE/onilink.properties.example ;;
     *) exit 22 ;;
 esac
 cp \"$source\" \"$destination\"
@@ -138,8 +155,14 @@ printf '%s\\n' \"$*\" > \"$JAVA_LOG\"
             self.assertEqual(0, completed.returncode, completed.stderr)
             self.assertEqual(new_jar, (root / "OniLink.jar").read_bytes())
             self.assertEqual(old_jar, (root / "OniLink.jar.previous").read_bytes())
-            self.assertEqual("v9.9.9-candidate.1\n",
+            self.assertEqual("v9.9.9\n",
                              (root / ".onilink-version").read_text(encoding="utf-8"))
+            self.assertEqual(new_updater, (root / "start-onilink.sh").read_bytes())
+            self.assertTrue((root / "start-onilink.sh.previous").is_file())
+            self.assertEqual(new_example, (root / "onilink.properties.example").read_bytes())
+            self.assertEqual(b"old template\n", (root / "onilink.properties.example.previous").read_bytes())
+            self.assertEqual("listener.port=19132\n",
+                             (root / "config.properties").read_text(encoding="utf-8"))
             self.assertIn("-jar OniLink.jar config.properties",
                           (root / "java.log").read_text(encoding="utf-8"))
 
@@ -181,11 +204,13 @@ printf '%s\\n' \"$*\" > \"$JAVA_LOG\"
         self.assertEqual(len(variables), len(self.egg["variables"]))
         for required in (
                 "ONILINK_VERSION", "SERVER_JARFILE", "CONFIG_FILE", "BACKEND_HOST",
-                "BACKEND_PORT", "DASHBOARD_ENABLED", "ONIBRIDGE_FORWARDING_SECRET"):
+                "BACKEND_PORT", "DASHBOARD_ENABLED", "ALLOWLIST_ENABLED",
+                "ONIBRIDGE_FORWARDING_SECRET"):
             self.assertIn(required, variables)
 
-        self.assertEqual("v0.1.1", variables["ONILINK_VERSION"]["default_value"])
+        self.assertEqual("v0.1.2", variables["ONILINK_VERSION"]["default_value"])
         self.assertEqual("true", variables["DASHBOARD_ENABLED"]["default_value"])
+        self.assertEqual("false", variables["ALLOWLIST_ENABLED"]["default_value"])
         for name in (
                 "ONIBRIDGE_FORWARDING_SECRET", "ONIBRIDGE_SURVIVAL_SECRET",
                 "ONIBRIDGE_JAVA_SECRET"):

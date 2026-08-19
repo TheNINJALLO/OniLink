@@ -54,7 +54,7 @@
       <rect x="188" width="166" height="36" rx="18" fill="#63b8ff" fill-opacity="0.11" stroke="#63b8ff" stroke-opacity="0.44"/>
       <text x="271" y="23" text-anchor="middle" fill="#9bd0ff">BDS 1.26.44.3</text>
       <rect x="368" width="174" height="36" rx="18" fill="#f2b84b" fill-opacity="0.1" stroke="#f2b84b" stroke-opacity="0.42"/>
-      <text x="455" y="23" text-anchor="middle" fill="#ffd27a">v0.1.1 Production</text>
+      <text x="455" y="23" text-anchor="middle" fill="#ffd27a">v0.1.2 Production</text>
     </g>
   </g>
 

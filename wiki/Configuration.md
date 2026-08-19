@@ -88,6 +88,28 @@ backend.java.fallback=survival
 
 The public DNS and port point to OniLink. Backend addresses are the private addresses reachable from the proxy.
 
+## Authenticated player allowlist
+
+Keep the BDS settings `online-mode=false` and `allow-list=false`; OniLink enforces access using the XUID signed by Xbox authentication before it contacts a backend.
+
+First add your own account while the list is disabled:
+
+```text
+allowlist add 2533274790000001 ExamplePlayer
+allowlist list
+```
+
+You may use a currently connected gamertag instead of the XUID, or use **Dashboard → Allowlist**. Then configure and restart OniLink:
+
+```properties
+allowlist.enabled=true
+allowlist.file=allowlist.properties
+allowlist.kickMessage=You are not allow-listed on this server.
+allowlist.disconnectOnRemoval=true
+```
+
+Only XUIDs authorize a login; saved gamertags are labels. `permissions.admins` does not bypass the allowlist. The console and dashboard remain available if an operator accidentally locks out every player.
+
 ## Parsing rules and safe defaults
 
 - Put Java-properties comments on their own lines. In `key=value # comment`, the `# comment` text becomes part of the value.

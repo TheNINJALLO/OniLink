@@ -7,13 +7,15 @@
 - Runs OniLink on a Java 21 Pterodactyl image.
 - Downloads an exact public OniLink bootstrap release during installation or reinstall.
 - Downloads `SHA256SUMS` and verifies `OniLink.jar`, `start-onilink.sh`, and the configuration template before installation succeeds.
-- Checks the newest published GitHub release on every container start, including prereleases.
-- Replaces `OniLink.jar` atomically only after checksum validation and keeps the previous JAR for rollback.
+- Checks GitHub's latest stable, non-prerelease release on every container start.
+- Verifies and atomically updates `OniLink.jar`, the updater, and the reference configuration while preserving the live configuration.
+- Keeps the previous JAR and changed runtime support files for rollback.
 - Starts the installed JAR when GitHub is temporarily unavailable or an update cannot be verified.
 - Creates `config.properties` only when it is missing, preserving operator changes during reinstall.
 - Maps the primary Pterodactyl allocation to Bedrock UDP and dashboard TCP on the same numeric port.
 - Persists dashboard accounts/audit data and provides an operator switch to disable the web listener.
 - Maps the backend host, backend port, MOTD, and displayed player limit into the default configuration.
+- Exposes a safe-off switch for OniLink's authenticated XUID allowlist.
 - Declares forwarding secrets as administrator-only environment variables with no default value.
 
 ## Import
@@ -27,6 +29,7 @@
 7. Generate `openssl rand -base64 32` and set `ONIBRIDGE_FORWARDING_SECRET` in the administrator-facing server variables. Set the identical value on the matching backend validator.
 8. Start the backend first, confirm its validator is active, and then start OniLink.
 9. Open `dashboard/FIRST_RUN_SETUP.txt` in the file manager and use its one-time code to create the dashboard owner.
+10. Add your own XUID in **Dashboard → Allowlist**, then enable the egg's allowlist switch and restart.
 
 The initial `127.0.0.1` backend host works only when a backend is deliberately in the same container, which is not the recommended layout. Change it to the private hostname or address reachable through Wings networking.
 
@@ -39,6 +42,7 @@ Pterodactyl rewrites only these fields at startup:
 - `listener.host`
 - `listener.port`
 - `dashboard.enabled`, `dashboard.host`, and `dashboard.port`
+- `allowlist.enabled`
 - `backend.host` and `backend.port`
 - `backend.default.host` and `backend.default.port`
 - `motd`
@@ -50,11 +54,13 @@ The dashboard is reachable at `http://NODE-OR-DOMAIN:PRIMARY_PORT/` when **Enabl
 
 ## Automatic updates and rollback
 
-Restart the container to check for an update. `start-onilink.sh` queries the public release list, selects the newest published release, downloads its `OniLink.jar` and `SHA256SUMS`, and installs the JAR only when its SHA-256 value matches. The process includes normal releases and prereleases so the container follows the newest published OniLink build.
+Restart the container to check for an update. `start-onilink.sh` queries GitHub's `/releases/latest` endpoint, which returns the newest normal release and excludes drafts and prereleases. It downloads `OniLink.jar`, `start-onilink.sh`, `onilink.properties.example`, and `SHA256SUMS`, verifies all three runtime files, and only then installs changes.
 
 `ONILINK_VERSION` is only the bootstrap version used during server creation or **Reinstall Server**. It does not pin later starts. Reinstall preserves `config.properties`; compare it with `onilink.properties.example` after a bootstrap upgrade.
 
-After a successful change, the updater writes the release tag to `.onilink-version` and retains the old file as `OniLink.jar.previous`. To roll back manually, stop the server, rename the current JAR, copy `OniLink.jar.previous` to `OniLink.jar`, and start the server. The next start will install the newest published release again, so rollback is intended for diagnosis while the affected release is corrected or withdrawn.
+After a successful change, the updater writes the release tag to `.onilink-version` and retains the old JAR as `OniLink.jar.previous`. A changed updater is saved as `start-onilink.sh.previous` and takes effect on the following restart; a changed reference template is saved as `onilink.properties.example.previous`. Active `config.properties` is never replaced. To roll back manually, stop the server, restore the desired previous file, and start it. The next start installs the latest stable release again, so rollback is intended for diagnosis while the affected release is corrected or withdrawn.
+
+The runtime updater cannot replace the egg definition stored by the Pterodactyl panel. Reimport a newer `egg-onilink.json` when you want newly added panel variables or install-script changes. Existing servers can still receive new runtime JARs without an egg reimport.
 
 If the release lookup, download, or checksum validation fails, the updater logs a warning and starts the existing verified JAR. A brand-new server with no usable JAR stops instead of starting an unknown file.
 

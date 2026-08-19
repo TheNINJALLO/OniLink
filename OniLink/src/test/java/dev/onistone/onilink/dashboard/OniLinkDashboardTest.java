@@ -53,6 +53,7 @@ class OniLinkDashboardTest {
                     HttpResponse.BodyHandlers.ofString());
             assertEquals(200, application.statusCode());
             assertTrue(application.body().contains("const form = event.currentTarget;"));
+            assertTrue(application.body().contains("/api/allowlist"));
             assertFalse(application.body().contains("event.currentTarget.reset()"),
                     "async form handlers must retain the form before the event is released");
 
@@ -83,6 +84,17 @@ class OniLinkDashboardTest {
             assertEquals(200, state.statusCode());
             assertTrue(state.body().contains("\"players\":2"));
             assertTrue(state.body().contains("\"role\":\"owner\""));
+
+            HttpResponse<String> allowlist = client.send(HttpRequest.newBuilder(base.resolve("/api/allowlist"))
+                    .header("Authorization", "Bearer " + token.group(1)).GET().build(),
+                    HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, allowlist.statusCode());
+            assertTrue(allowlist.body().contains("\"enabled\":true"));
+            HttpResponse<String> allowlistAdd = post(client, base.resolve("/api/allowlist"), Map.of(
+                    "xuid", "2533274790000001", "name", "ExamplePlayer"), Map.of(
+                    "Authorization", "Bearer " + token.group(1)));
+            assertEquals(200, allowlistAdd.statusCode());
+            assertTrue(allowlistAdd.body().contains("Allow-listed"));
 
             HttpResponse<String> config = client.send(HttpRequest.newBuilder(base.resolve("/api/config"))
                     .header("Authorization", "Bearer " + token.group(1)).GET().build(),
@@ -136,6 +148,17 @@ class OniLinkDashboardTest {
         @Override
         public List<Map<String, Object>> backends(boolean includeAddresses) {
             return List.of();
+        }
+
+        @Override
+        public Map<String, Object> allowlist() {
+            return Map.of("enabled", true, "count", 1, "entries", List.of(
+                    Map.of("xuid", "2533274790000001", "name", "ExamplePlayer")));
+        }
+
+        @Override
+        public ActionResult allowlistAdd(String xuid, String name) {
+            return new ActionResult(true, "Allow-listed " + xuid);
         }
 
         @Override

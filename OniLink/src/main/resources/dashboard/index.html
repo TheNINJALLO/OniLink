@@ -19,10 +19,11 @@
         <button class="nav-link active" data-page="overview"><span>01</span>Overview</button>
         <button class="nav-link" data-page="players"><span>02</span>Players</button>
         <button class="nav-link" data-page="backends"><span>03</span>Backends</button>
-        <button class="nav-link admin-only" data-page="configuration"><span>04</span>Configuration</button>
-        <button class="nav-link operator-only" data-page="operations"><span>05</span>Operations</button>
-        <button class="nav-link admin-only" data-page="audit"><span>06</span>Audit</button>
-        <button class="nav-link" data-page="accounts"><span>07</span>Account</button>
+        <button class="nav-link admin-only" data-page="allowlist"><span>04</span>Allowlist</button>
+        <button class="nav-link admin-only" data-page="configuration"><span>05</span>Configuration</button>
+        <button class="nav-link operator-only" data-page="operations"><span>06</span>Operations</button>
+        <button class="nav-link admin-only" data-page="audit"><span>07</span>Audit</button>
+        <button class="nav-link" data-page="accounts"><span>08</span>Account</button>
       </nav>
       <div class="sidebar-foot">
         <div class="identity"><span class="avatar" id="avatar">?</span><span><b id="identity-name">Not signed in</b><small id="identity-role">Offline</small></span></div>
@@ -63,6 +64,18 @@
       <section class="page" id="page-backends">
         <div class="section-lead"><div><p class="eyebrow">BDS ROUTES</p><h2>Backends</h2><p>Latency, availability, routing role, and live population.</p></div><button class="button" id="refresh-backends">Refresh health</button></div>
         <div id="backend-grid" class="backend-grid"><article class="panel empty">No backend data yet.</article></div>
+      </section>
+
+      <section class="page" id="page-allowlist">
+        <div class="section-lead"><div><p class="eyebrow">AUTHENTICATED INGRESS</p><h2>Player allowlist</h2><p>Authorize permanent Xbox XUIDs before OniLink allocates a player slot or contacts BDS.</p></div><button class="button" id="refresh-allowlist">Refresh allowlist</button></div>
+        <div class="split">
+          <article class="panel"><div class="panel-head"><div><p class="eyebrow">ENFORCEMENT</p><h3>Proxy access</h3></div><span class="badge" id="allowlist-status">Loading</span></div><p class="muted" id="allowlist-summary">Allowlist state has not loaded.</p><div class="warning"><b>XUID authorization</b><span>Gamertags are labels only. Set <code>allowlist.enabled=true</code> in Configuration and restart OniLink to enforce this list.</span></div></article>
+          <article class="panel"><div class="panel-head"><div><p class="eyebrow">CONNECTED PLAYER</p><h3>Add from live identity</h3></div></div><label class="field"><span>Authenticated player</span><select id="allowlist-player-select"><option value="">No connected players</option></select></label><button class="button primary" id="allowlist-add-connected" type="button">Allow-list selected player</button></article>
+        </div>
+        <div class="split">
+          <article class="panel"><div class="panel-head"><div><p class="eyebrow">MANUAL ENTRY</p><h3>Add an Xbox XUID</h3></div></div><form id="allowlist-form"><label class="field"><span>Xbox XUID</span><input name="xuid" inputmode="numeric" pattern="[0-9]{1,32}" maxlength="32" required placeholder="2533274790000001" autocomplete="off"></label><label class="field"><span>Gamertag label <small>(optional)</small></span><input name="name" maxlength="64" placeholder="ExamplePlayer" autocomplete="off"></label><button class="button primary" type="submit">Add to allowlist</button></form></article>
+          <article class="panel table-panel"><div class="panel-head"><div><p class="eyebrow">AUTHORIZED XUIDS</p><h3>Current entries</h3></div><span class="badge" id="allowlist-count">0</span></div><div class="table-wrap"><table><thead><tr><th>XUID</th><th>Label</th><th>Action</th></tr></thead><tbody id="allowlist-body"><tr><td colspan="3" class="empty">No allowlist data yet.</td></tr></tbody></table></div></article>
+        </div>
       </section>
 
       <section class="page" id="page-configuration">

@@ -3,7 +3,7 @@
 This is the full operator guide for installing OniLink and configuring either a native BDS + Endstone backend or a Geyser-backed Java server. If you only need the shortest path, use [Quick start](QUICKSTART.md). If you want ready-to-copy files, start in [`examples/`](../examples/README.md).
 
 > [!IMPORTANT]
-> `v0.1.1` is the production release for the exact Linux BDS `1.26.44.3` + Endstone `0.11.9` profile. Its manifest reports `production_ready=true`; keep `allow_unreviewed_profile=false` so unknown or unapproved profiles remain blocked.
+> `v0.1.2` is the production release for the exact Linux BDS `1.26.44.3` + Endstone `0.11.9` profile. Its manifest reports `production_ready=true`; keep `allow_unreviewed_profile=false` so unknown or unapproved profiles remain blocked.
 
 ## Contents
 
@@ -73,7 +73,7 @@ Container NAT may change the source address observed by the backend. Do not assu
 
 ```bash
 mkdir -p ~/onilink-download
-gh release download v0.1.1 \
+gh release download v0.1.2 \
   --repo TheNINJALLO/OniLink \
   --dir ~/onilink-download
 cd ~/onilink-download
@@ -84,7 +84,7 @@ Every listed file must report `OK`. Stop if any file is missing or mismatched.
 
 ### Browser download
 
-Download every required file from the [v0.1.1 release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.1), including `SHA256SUMS`. On Linux:
+Download every required file from the [v0.1.2 release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.2), including `SHA256SUMS`. On Linux:
 
 ```bash
 cd /path/to/downloads
@@ -204,8 +204,8 @@ Keep a copy of the last known working server directory so rollback is a file res
 From the BDS root:
 
 ```bash
-cp /path/to/onibridge-0.1.1-bds-1.26.44.3-linux-x86_64.so plugins/
-chmod 0644 plugins/onibridge-0.1.1-bds-1.26.44.3-linux-x86_64.so
+cp /path/to/onibridge-0.1.2-bds-1.26.44.3-linux-x86_64.so plugins/
+chmod 0644 plugins/onibridge-0.1.2-bds-1.26.44.3-linux-x86_64.so
 ```
 
 Start the server once using your normal Endstone launch command. OniBridge creates:
@@ -354,7 +354,13 @@ protocolFault.logFile=logs/protocol-errors.log
 
 # Start with no proxy administrators. Add trusted XUIDs later.
 permissions.admins=
-permissions.adminCommands=alert,glist,perm,send
+permissions.adminCommands=alert,allowlist,glist,perm,send
+
+# Add trusted XUIDs before changing this to true.
+allowlist.enabled=false
+allowlist.file=allowlist.properties
+allowlist.kickMessage=You are not allow-listed on this server.
+allowlist.disconnectOnRemoval=true
 
 # Public listener protection.
 security.rateLimit.enabled=true
@@ -412,6 +418,25 @@ java -jar OniLink.jar config.properties
 Keep this terminal private because shell history and process-management mistakes can expose secrets. Move to systemd, a panel secret, or a protected environment file after the first controlled test.
 
 OniLink also starts its embedded dashboard on `127.0.0.1:8080` by default. Open `dashboard/FIRST_RUN_SETUP.txt`, copy the one-time setup code, and create the owner from a browser on the proxy host. Do not publish the HTTP listener directly; use the [dashboard guide](DASHBOARD.md) for SSH tunnels, HTTPS reverse proxies, roles, TOTP, and recovery.
+
+### 6.5 Enable the proxy allowlist
+
+Leave the allowlist disabled for the first authenticated join. Then add that connected account from the OniLink console, using either its exact current gamertag or its XUID:
+
+```text
+allowlist add ExamplePlayer
+allowlist list
+```
+
+For a player who is not connected, use the permanent numeric XUID and an optional label:
+
+```text
+allowlist add 2533274790000001 ExamplePlayer
+```
+
+Set `allowlist.enabled=true` in `config.properties` and restart OniLink. Enforcement happens after Xbox authentication but before backend selection, so BDS remains configured with `online-mode=false` and `allow-list=false`. Remove access with `allowlist remove <XUID-or-known-label>`; the default configuration disconnects a matching online session immediately.
+
+Do not rely on a gamertag as the credential: only the signed XUID is matched. Proxy administrators do not bypass this check. If you lock yourself out, the server console and authenticated dashboard remain available for recovery.
 
 ## 7. Install a Geyser backend
 
@@ -609,7 +634,7 @@ Create `/etc/onilink/survival.env` with mode `0600`, reload systemd, and restart
 
 Use separate Pterodactyl servers for OniLink and each backend.
 
-Import the released [`egg-onilink.json`](../packaging/pterodactyl/egg-onilink.json) through **Admin Panel → Nests → Import Egg**, create an OniLink server using its Java 21 image, and give it one public allocation. The egg verifies its bootstrap JAR, updater, and template against `SHA256SUMS`, preserves existing configuration/dashboard data on reinstall, maps the primary number to Bedrock UDP and dashboard TCP, and checks the newest published OniLink release on every start. A failed check falls back to the existing JAR.
+Import the released [`egg-onilink.json`](../packaging/pterodactyl/egg-onilink.json) through **Admin Panel → Nests → Import Egg**, create an OniLink server using its Java 21 image, and give it one public allocation. The egg verifies its bootstrap JAR, updater, and template against `SHA256SUMS`, preserves existing configuration/dashboard data on reinstall, maps the primary number to Bedrock UDP and dashboard TCP, and checks GitHub's latest stable OniLink release on every start. A failed check falls back to the existing JAR.
 
 Set the egg's backend host/port to the private allocation reachable through Wings. Before first start, an administrator must fill the non-user-viewable `ONIBRIDGE_FORWARDING_SECRET` variable with standard Base64 for at least 32 random bytes and set the same value on the backend validator.
 

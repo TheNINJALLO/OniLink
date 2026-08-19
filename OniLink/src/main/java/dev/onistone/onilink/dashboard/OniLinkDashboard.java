@@ -198,6 +198,7 @@ public final class OniLinkDashboard implements AutoCloseable {
                 sendJson(exchange, 200, Map.of("backends",
                         control.backends(principal.role().allows(DashboardAccounts.Role.ADMIN))));
             }
+            case "/api/allowlist" -> handleAllowlist(exchange, principal);
             case "/api/logs" -> {
                 requireRole(principal, DashboardAccounts.Role.OPERATOR);
                 requireMethod(exchange, "GET");
@@ -334,6 +335,29 @@ public final class OniLinkDashboard implements AutoCloseable {
         }
     }
 
+    private void handleAllowlist(HttpExchange exchange, DashboardAccounts.Principal principal) throws IOException {
+        requireRole(principal, DashboardAccounts.Role.ADMIN);
+        if ("GET".equals(exchange.getRequestMethod())) {
+            sendJson(exchange, 200, control.allowlist());
+            return;
+        }
+        requireMutation(exchange, "POST", "DELETE");
+        Map<String, String> form = form(exchange);
+        String xuid = value(form.get("xuid"));
+        DashboardControl.ActionResult result;
+        String action;
+        if ("DELETE".equals(exchange.getRequestMethod())) {
+            result = control.allowlistRemove(xuid);
+            action = "allowlist.remove";
+        } else {
+            result = control.allowlistAdd(xuid, value(form.get("name")));
+            action = "allowlist.add";
+        }
+        audit(exchange, principal, action, result.success() ? "success" : "rejected",
+                Map.of("xuid", xuid, "message", result.message()));
+        sendJson(exchange, result.success() ? 200 : 409, result.asMap());
+    }
+
     private void handlePassword(HttpExchange exchange, DashboardAccounts.Principal principal) throws IOException {
         requireMutation(exchange, "POST");
         Map<String, String> form = form(exchange);
@@ -387,6 +411,7 @@ public final class OniLinkDashboard implements AutoCloseable {
             zip(zip, "state.json", DashboardJson.encode(control.state()));
             zip(zip, "players.json", DashboardJson.encode(control.players(false)));
             zip(zip, "backends.json", DashboardJson.encode(control.backends(false)));
+            zip(zip, "allowlist.json", DashboardJson.encode(control.allowlist()));
             zip(zip, "config.properties.redacted", String.valueOf(configFile.read().get("content")));
             zip(zip, "latest.log.tail", String.join(System.lineSeparator(),
                     DashboardAuditLog.tail(logPath, 2_000, MAX_SUPPORT_FILE_BYTES)));

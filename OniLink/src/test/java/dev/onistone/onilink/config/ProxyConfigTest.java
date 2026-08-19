@@ -33,6 +33,9 @@ class ProxyConfigTest {
         assertEquals(19135, config.legacyVerification().listenAddress().getPort());
         assertEquals("OniLink", config.motd());
         assertEquals(PacketCompressionAlgorithm.ZLIB, config.compressionAlgorithm());
+        assertFalse(config.allowlist().enabled());
+        assertEquals("allowlist.properties", config.allowlist().file().getFileName().toString());
+        assertTrue(config.allowlist().disconnectOnRemoval());
     }
 
     /**
@@ -68,6 +71,7 @@ class ProxyConfigTest {
                 "the example ships backend.protocol=auto, which parses to null and means 'probe it'");
         assertEquals(PacketCompressionAlgorithm.ZLIB, config.compressionAlgorithm());
         assertEquals(false, config.legacyVerification().enabled());
+        assertFalse(config.allowlist().enabled());
     }
 
     /**

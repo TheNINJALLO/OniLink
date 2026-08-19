@@ -22,6 +22,7 @@ class PermissionsConfigTest {
         assertFalse(permissions.allows("2535412345678901", "Steve", "send"));
         assertFalse(permissions.allows("2535412345678901", "Steve", "alert"));
         assertFalse(permissions.allows("2535412345678901", "Steve", "glist"));
+        assertFalse(permissions.allows("2535412345678901", "Steve", "allowlist"));
         // The self-service commands stay open, or a fresh install has no way to move anyone.
         assertTrue(permissions.allows("2535412345678901", "Steve", "server"));
         assertTrue(permissions.allows("2535412345678901", "Steve", "hub"));
@@ -121,13 +122,14 @@ class PermissionsConfigTest {
     }
 
     @Test
-    void permStaysClosedEvenWithAnEmptyAdminCommandList() {
+    void securityCommandsStayClosedEvenWithAnEmptyAdminCommandList() {
         Properties properties = new Properties();
         properties.setProperty("permissions.adminCommands", "");
 
         PermissionsConfig permissions = PermissionsConfig.from(properties, List.of());
 
         assertFalse(permissions.allows("999", "Steve", "perm"));
+        assertFalse(permissions.allows("999", "Steve", "allowlist"));
     }
 
     @Test

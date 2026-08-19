@@ -60,6 +60,18 @@ Treat this as a security failure:
 
 Direct-join rejection is defense in depth; the firewall remains mandatory.
 
+## OniLink rejects every player as not allow-listed
+
+An enabled empty list denies every player by design. In the OniLink/Pterodactyl console run:
+
+```text
+allowlist status
+allowlist add 2533274790000001 YourGamertag
+allowlist list
+```
+
+Use the account's authenticated numeric XUID. A gamertag works for `add` only while that player is already connected, and saved labels never authorize a join. You may also use **Dashboard → Allowlist**, or temporarily set `allowlist.enabled=false` and restart. Being listed in `permissions.admins` does not bypass ingress enforcement.
+
 ## First join works, but rejoin has empty inventory
 
 The verified XUID was not active before BDS selected storage. Stop the test and inspect the native hook/profile evidence. This is an identity failure, not a resource-pack or cache problem.
