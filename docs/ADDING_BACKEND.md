@@ -82,7 +82,7 @@ Open the new BDS/Endstone server in Pterodactyl and stop it. In **Files**, creat
 ```text
 /home/container/
 └── plugins/
-    ├── onibridge-0.1.0-bds-1.26.44.3-linux-x86_64.so
+    ├── onibridge-0.1.1-bds-1.26.44.3-linux-x86_64.so
     └── onibridge/
         ├── creative.key
         └── onibridge.toml
@@ -204,7 +204,7 @@ active_secret_file = "creative.key"
 
 [compatibility]
 required_profile = "bds-1.26.44.3-linux-x86_64-06effdd00067f1ae"
-allow_unreviewed_profile = true
+allow_unreviewed_profile = false
 ```
 
 The secret text does not go into `active_secret_env`. That field contains an environment-variable **name**, such as `ONIBRIDGE_CREATIVE_SECRET`, and is left blank when the file method is used. Configure exactly one of `active_secret_env` and `active_secret_file`.

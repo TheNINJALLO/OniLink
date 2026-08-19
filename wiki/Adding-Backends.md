@@ -71,7 +71,7 @@ active_secret_file = "creative.key"
 
 [compatibility]
 required_profile = "bds-1.26.44.3-linux-x86_64-06effdd00067f1ae"
-allow_unreviewed_profile = true
+allow_unreviewed_profile = false
 ```
 
 Restart the backend first, then OniLink. The full explanation, routing examples, removal steps, and failure table are in the repository's [Adding another BDS backend guide](https://github.com/TheNINJALLO/OniLink/blob/main/docs/ADDING_BACKEND.md).

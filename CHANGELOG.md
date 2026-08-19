@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.1 - 2026-08-18
+
+- Promoted the exact Linux BDS `1.26.44.3` + Endstone `0.11.9` profile to production after operator approval of the human-review and live-acceptance gates.
+- Regenerated the native adapter as a production profile, removed the unreviewed-profile opt-in from shipped Linux examples and the dashboard backend wizard, and made the release manifest report `production_ready=true`.
+- Bumped OniLink, OniBridge, OniBridge-Geyser, the Pterodactyl bootstrap, and Linux release automation to `0.1.1`.
+
 ## 0.1.0 - 2026-08-18
 
 - Fixed the dashboard broadcast and account-creation forms retaining `event.currentTarget` after an asynchronous request, which caused successful actions to end with `Cannot read properties of null (reading 'reset')` in browsers.

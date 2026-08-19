@@ -7,7 +7,7 @@
 Use this page as the canonical map for operators, testers, and contributors. The [GitHub Wiki](https://github.com/TheNINJALLO/OniLink/wiki) provides a shorter task-oriented copy of the operator guidance.
 
 > [!IMPORTANT]
-> `v0.1.0` is the current stable OniLink application release. Native BDS profiles have separate exact-binary approval gates; check [Compatibility](COMPATIBILITY.md) before every native deployment.
+> `v0.1.1` is the current production release. Its exact Linux BDS `1.26.44.3` + Endstone `0.11.9` profile is production-approved; other platforms and profiles retain separate compatibility gates.
 
 ## Start here
 
@@ -17,7 +17,7 @@ Use this page as the canonical map for operators, testers, and contributors. The
 | Install the current Linux release | [Quick start](QUICKSTART.md) |
 | Install and configure the complete network | [Installation](INSTALLATION.md) |
 | Add another BDS server automatically | [Adding a BDS backend](ADDING_BACKEND.md) |
-| Review the current changes and upgrade steps | [v0.1.0 release notes](releases/v0.1.0.md) |
+| Review the current changes and upgrade steps | [v0.1.1 release notes](releases/v0.1.1.md) |
 | Copy a complete working configuration | [Deployment examples](../examples/README.md) |
 | Import the OniLink Pterodactyl egg | [Pterodactyl](PTERODACTYL.md) |
 | Configure and secure the operations UI | [Dashboard](DASHBOARD.md) |
@@ -46,7 +46,7 @@ Use this page as the canonical map for operators, testers, and contributors. The
 
 ## Build and release engineering
 
-- [Building](BUILDING.md) — reproducible Java/native builds and the Linux candidate workflow.
+- [Building](BUILDING.md) — reproducible Java/native builds and the Linux release workflow.
 - [BDS acquisition](BDS_ACQUISITION.md) — explicit EULA gate and archive controls.
 - [BDS profile generation](BDS_PROFILE_GENERATION.md) — per-platform analysis and candidate production.
 - [Adding a BDS version](ADDING_BDS_VERSION.md) — version-update procedure.
@@ -58,12 +58,12 @@ Use this page as the canonical map for operators, testers, and contributors. The
 
 | Item | Current value |
 | --- | --- |
-| Application release | `v0.1.0` |
+| Application release | `v0.1.1` |
 | Locked BDS | `1.26.44.3` |
 | Endstone | `0.11.9` |
 | Public proxy runtime | Java 21 |
 | Native plugin | C++20, exact-profile build |
 | Linux release CI | Ubuntu 22.04, LLVM/libc++ 18, maximum `GLIBC_2.35` import |
-| Native profile status | Not production-approved; see remaining gates |
+| Linux native profile status | Production-approved for the exact locked target |
 
 When a value changes, update this page, the root README, the compatibility table, the Wiki, and the release manifest together.

@@ -93,6 +93,7 @@ class DashboardConfigFileTest {
         assertTrue(toml.contains("active_secret_file = \"creative.key\""));
         assertTrue(toml.contains(
                 "required_profile = \"bds-1.26.44.3-linux-x86_64-06effdd00067f1ae\""));
+        assertTrue(toml.contains("allow_unreviewed_profile = false"));
 
         assertThrows(IllegalStateException.class,
                 () -> editor.addBackend(String.valueOf(result.get("revision")), Map.of(

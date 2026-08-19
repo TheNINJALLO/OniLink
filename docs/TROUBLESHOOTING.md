@@ -14,7 +14,7 @@ Read the first OniBridge critical message.
 | BDS hash mismatch | Stop; use the exact supported executable or generate/review a new profile |
 | Endstone mismatch | Install the exact required Endstone build |
 | Expected-byte/call mismatch | Stop; do not copy an offset or RVA from another build or OS |
-| Unreviewed profile blocked | Use `allow_unreviewed_profile=true` only for the documented candidate test |
+| Unreviewed profile blocked | Install the current production Linux artifact and keep `allow_unreviewed_profile=false`; use the override only for a separately documented candidate test |
 | Missing generated adapter | Build a profile-specific plugin; generic native plugins are forbidden |
 
 ### `GLIBC_x.y not found` while loading `onibridge.so`

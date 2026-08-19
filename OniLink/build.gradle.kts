@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "dev.onistone"
-version = "0.1.0-SNAPSHOT"
+version = "0.1.1"
 
 // OneDrive and antivirus scanners can transiently lock Gradle's class directories on Windows.
 // CI and local release jobs may place disposable intermediates on a local scratch volume while

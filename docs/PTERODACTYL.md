@@ -4,7 +4,7 @@ Use a separate Pterodactyl server for OniLink and for every BDS or Geyser backen
 
 ## Import the OniLink egg
 
-Download `egg-onilink.json` from the [current release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.0) or [`packaging/pterodactyl`](../packaging/pterodactyl/README.md).
+Download `egg-onilink.json` from the [current release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.1) or [`packaging/pterodactyl`](../packaging/pterodactyl/README.md).
 
 1. Open **Admin Panel → Nests**.
 2. Select or create a nest and choose **Import Egg**.
@@ -25,7 +25,7 @@ The egg enables OniLink's embedded dashboard by default. Bedrock uses `PRIMARY_P
 
 The egg covers only the OniLink proxy process. It cannot redistribute BDS. Use an existing licensed BDS/Endstone server or egg for the native backend, and Geyser's official standalone egg or an existing Geyser server for the Java path.
 
-The BDS container image must also satisfy the native OniBridge runtime. Current Linux candidates are built on Ubuntu 22.04 and cannot import symbols newer than `GLIBC_2.35`. The current amd64 `ghcr.io/parkervcp/yolks:python_3.14` image is Debian Bookworm-based and meets that floor; verify mutable image tags with `ldd --version` after an image update. The OniLink-only egg still uses its Java 21 image. Do not copy a host `libc.so.6` into either container.
+The BDS container image must also satisfy the native OniBridge runtime. The current Linux production artifact is built on Ubuntu 22.04 and cannot import symbols newer than `GLIBC_2.35`. The current amd64 `ghcr.io/parkervcp/yolks:python_3.14` image is Debian Bookworm-based and meets that floor; verify mutable image tags with `ldd --version` after an image update. The OniLink-only egg still uses its Java 21 image. Do not copy a host `libc.so.6` into either container.
 
 ## Recommended server layout
 
@@ -169,7 +169,7 @@ The relevant layout is:
 /home/container/
 ├── bedrock_server
 ├── plugins/
-│   ├── onibridge-0.1.0-bds-1.26.44.3-linux-x86_64.so
+│   ├── onibridge-0.1.1-bds-1.26.44.3-linux-x86_64.so
 │   └── onibridge/
 │       ├── survival.key          # when using the dashboard/file method
 │       └── onibridge.toml
@@ -189,7 +189,7 @@ active_secret_env = "ONIBRIDGE_SURVIVAL_SECRET"
 
 [compatibility]
 required_profile = "bds-1.26.44.3-linux-x86_64-06effdd00067f1ae"
-allow_unreviewed_profile = true
+allow_unreviewed_profile = false
 allow_unknown_bds = false
 allow_unknown_endstone = false
 ```
@@ -244,8 +244,8 @@ A backend that shuts down on a profile failure must remain offline until the exa
 
 Persist OniLink configuration/cache/logs and all backend world/plugin data. Do not persist temporary BDS analysis caches into runtime release storage. Back up both configuration sides together so key IDs and bridge/backend names remain aligned.
 
-## EULA and candidate status
+## EULA and profile status
 
 Do not put `MINECRAFT_EULA_ACCEPTED` in a public egg or repository. It is needed only in controlled BDS acquisition/profile tooling, not normal forwarding runtime.
 
-The current `1.26.44.3` native artifacts are acceptance-test candidates. `allow_unreviewed_profile=true` is not a production setting; complete the live checklist and promote the exact profile before production deployment.
+The current Linux `1.26.44.3` profile is production-approved and must use `allow_unreviewed_profile=false`. Windows and any newly generated profiles retain their own evidence gates and must not inherit this approval.

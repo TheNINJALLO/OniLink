@@ -30,7 +30,7 @@
 <!-- onilink-professional-header:end -->
 
 > [!IMPORTANT]
-> `v0.1.0` is the first stable OniLink application release. The native BDS profile keeps its separate fail-closed approval status: its Linux build and synthetic hook harness pass, but formal human review and the complete recorded live acceptance matrix are still required before treating that exact profile as production-approved.
+> `v0.1.1` is the current production release. The exact Linux BDS `1.26.44.3` + Endstone `0.11.9` profile has completed its human review, native hook harness, and operator-approved live acceptance gates. Unknown binaries, platforms, Endstone versions, and profile IDs still fail closed.
 
 ## What this repository provides
 
@@ -63,7 +63,7 @@ OniLink preserves the authenticated name, XUID, UUID, and observed client addres
 
 ## Quick start
 
-1. Read the [v0.1.0 release notes](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.0) and download only the files for your backend path.
+1. Read the [v0.1.1 release notes](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.1) and download only the files for your backend path.
 2. Verify the download directory against `SHA256SUMS`.
 3. Generate a unique 32-byte-or-stronger secret for each backend and expose it through an environment variable—not a committed configuration file.
 4. Configure matching backend name, bridge ID, key ID, and secret environment variable on both sides.
@@ -75,7 +75,7 @@ After the first server works, use the dashboard's **Add BDS Backend** wizard to 
 Download the current release with GitHub CLI:
 
 ```bash
-gh release download v0.1.0 \
+gh release download v0.1.1 \
   --repo TheNINJALLO/OniLink \
   --dir onilink-release
 ```
@@ -92,7 +92,7 @@ For remote use, put the dashboard behind HTTPS and restrict it to administrator 
 
 ### Native BDS + Endstone
 
-Use `onibridge-0.1.0-bds-1.26.44.3-linux-x86_64.so` with the exact BDS `1.26.44.3` Linux executable and Endstone `0.11.9`. Install the matching profile JSON, start once to generate `onibridge.toml`, configure it, and keep `allow_unreviewed_profile=true` limited to controlled candidate testing.
+Use `onibridge-0.1.1-bds-1.26.44.3-linux-x86_64.so` with the exact BDS `1.26.44.3` Linux executable and Endstone `0.11.9`. Install the matching profile JSON, start once to generate `onibridge.toml`, configure it, and keep `allow_unreviewed_profile=false` for this production-approved profile.
 
 [Native installation guide →](docs/INSTALLATION.md)
 
@@ -106,7 +106,7 @@ Put `OniBridge-Geyser.jar` in Geyser's `extensions/` directory. Bind Geyser's Be
 
 | Target | Build/test status | Production status |
 | --- | --- | --- |
-| Linux x86-64, BDS `1.26.44.3`, Endstone `0.11.9` | GitHub-hosted native build, unit tests, synthetic hook harness, and an operator-reported proxied join pass | Candidate profile; human review and the complete live matrix remain |
+| Linux x86-64, BDS `1.26.44.3`, Endstone `0.11.9` | Native build, unit tests, synthetic hook harness, human review, and operator-approved live matrix pass | Production-approved exact profile |
 | Windows x86-64, BDS `1.26.44.3`, Endstone `0.11.9` | Native unit/harness and offline plugin lifecycle pass | Candidate; live client joins remain |
 | Geyser `2.11` | Java build plus protocol/security tests pass | Candidate; live Geyser/Floodgate joins remain |
 

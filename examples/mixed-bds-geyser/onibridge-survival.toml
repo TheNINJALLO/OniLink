@@ -29,7 +29,7 @@ interfere_with_backend_commands = false
 
 [compatibility]
 required_profile = "bds-1.26.44.3-linux-x86_64-06effdd00067f1ae"
-allow_unreviewed_profile = true
+allow_unreviewed_profile = false
 allow_unknown_bds = false
 allow_unknown_endstone = false
 

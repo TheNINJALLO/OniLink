@@ -2,7 +2,7 @@
 
 ## Backend shuts down at startup
 
-Read the first OniBridge critical message. Common causes are a missing secret, empty/wrong profile ID, wrong BDS hash, wrong Endstone version, expected-byte mismatch, unknown TOML key, or disabled candidate opt-in.
+Read the first OniBridge critical message. Common causes are a missing secret, empty/wrong profile ID, wrong BDS hash, wrong Endstone version, expected-byte mismatch, unknown TOML key, or an attempted unapproved profile.
 
 Do not turn off shutdown-on-hook-failure or enable unknown-runtime bypasses.
 

@@ -17,20 +17,19 @@
 
 The release `.so` is built natively on GitHub's Ubuntu 22.04 runner by `.github/workflows/linux-artifacts.yml`. That workflow builds both Java components, compiles and links the profile-specific native plugin, runs the native unit suite and synthetic executable hook harness, enforces a maximum `GLIBC_2.35` symbol requirement, and uploads the exact release bundle.
 
-The `v0.1.0` library is ELF64 little-endian x86-64. Verify its SHA-256 against the release's `SHA256SUMS`; the final value is also recorded in the [v0.1.0 release notes](releases/v0.1.0.md).
+The `v0.1.1` library is ELF64 little-endian x86-64. Verify its SHA-256 against the release's `SHA256SUMS`; the final value is also recorded in the [v0.1.1 release notes](releases/v0.1.1.md).
 
 The Linux compatibility manifest records `GLIBC_2.35` as both the highest required symbol version and the enforced maximum.
 
 The build uses LLVM/libc++ 18 packages compiled for Ubuntu 22.04. The published plugin is runtime-neutral: its only dynamic dependencies are `libc.so.6` and `libm.so.6`. The release gate accepts a runtime-neutral plugin or direct/host-resolved libc++ references while rejecting every `libstdc++.so` dependency and unresolved `std::__cxx11` or `GLIBCXX` symbol. Deploy it only in an Endstone environment providing glibc 2.35 or newer.
 
-## Remaining validation
+## Production approval
 
-The GitHub-hosted build and synthetic hook harness pass, but production promotion still requires:
+The exact Linux profile is production-approved. Its recorded gates include:
 
-- Independent human review of the exact profile and generated adapter.
-- Plugin load, hook install, shutdown cleanup, and unload evidence on the target host.
-- Valid and hostile live join cases.
-- Restart/rejoin inventory, Ender Chest, permission, ban, allowlist, command, and address continuity.
-- Concurrency and backend-switch coverage.
+- Human review of the exact profile and generated adapter.
+- Native plugin build, hook harness, load, and exact hook activation.
+- Operator-approved live join, rejection, persistence, policy, command, concurrency, and switching acceptance.
+- A passing glibc 2.35 ceiling and C++ runtime policy.
 
-The compatibility manifest therefore remains `production_ready=false`. See [Testing](TESTING.md) for the acceptance matrix.
+The compatibility manifest therefore reports `production_ready=true`, `profile_status=production`, and no release blockers. This approval applies only to the exact hash, platform, profile ID, and Endstone version in the table above.

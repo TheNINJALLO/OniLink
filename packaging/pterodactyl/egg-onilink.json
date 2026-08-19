@@ -36,7 +36,7 @@
             "name": "OniLink bootstrap release tag",
             "description": "Exact public GitHub release used only during create/reinstall. Normal starts then update the JAR to the newest published release, including prereleases.",
             "env_variable": "ONILINK_VERSION",
-            "default_value": "v0.1.0",
+            "default_value": "v0.1.1",
             "user_viewable": true,
             "user_editable": true,
             "rules": "required|string|max:64|regex:/^[A-Za-z0-9][A-Za-z0-9._-]*$/",

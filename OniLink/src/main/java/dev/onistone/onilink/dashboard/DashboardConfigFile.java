@@ -473,7 +473,7 @@ final class DashboardConfigFile {
 
                 [compatibility]
                 required_profile = "%s"
-                allow_unreviewed_profile = true
+                allow_unreviewed_profile = false
                 allow_unknown_bds = false
                 allow_unknown_endstone = false
 

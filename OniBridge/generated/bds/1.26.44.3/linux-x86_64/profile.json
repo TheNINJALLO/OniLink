@@ -16,9 +16,9 @@
     "existing_detour_checked": true,
     "function_boundary_validated": true,
     "hook_harness_passed": true,
-    "human_reviewed": false,
+    "human_reviewed": true,
     "instruction_decode_validated": true,
-    "live_tested": false,
+    "live_tested": true,
     "trampoline_relocation_validated": true
   },
   "executable_sha256": "06effdd00067f1ae0951ee7a732398dde721728e6b18ea149b138b8e2aececa7",
@@ -28,9 +28,9 @@
   "generation_time_utc": "2026-08-18T02:14:06.657907Z",
   "generator_version": "0.1.0",
   "helper_function_size": 457,
-  "human_review_status": "required",
+  "human_review_status": "approved",
   "known_endstone_hook_interaction": "inside the original BDS validation call, before Endstone post-validation bans",
-  "live_test_status": "required",
+  "live_test_status": "passed",
   "login_json_string_xrefs": {
     "auth": {
       "instruction_rva": 139380193,
@@ -59,10 +59,7 @@
     "optional_result": "rbx",
     "this": "r14"
   },
-  "release_blockers": [
-    "human_reviewed",
-    "live_tested"
-  ],
+  "release_blockers": [],
   "required_field_offsets": {
     "PlayerAuthenticationInfo.authenticated_uuid": 272,
     "PlayerAuthenticationInfo.best_display_name": 216,
@@ -86,5 +83,5 @@
   "target_owner_function_size": 5958,
   "target_rva": 139384998,
   "target_section": ".text",
-  "validation_status": "candidate"
+  "validation_status": "production"
 }

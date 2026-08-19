@@ -3,7 +3,7 @@
 This is the full operator guide for installing OniLink and configuring either a native BDS + Endstone backend or a Geyser-backed Java server. If you only need the shortest path, use [Quick start](QUICKSTART.md). If you want ready-to-copy files, start in [`examples/`](../examples/README.md).
 
 > [!IMPORTANT]
-> `v0.1.0` is a stable OniLink application release. Its exact Linux BDS profile remains `production_ready=false` until formal human review and the complete live acceptance matrix are recorded; `allow_unreviewed_profile=true` is still an explicit native-profile test opt-in.
+> `v0.1.1` is the production release for the exact Linux BDS `1.26.44.3` + Endstone `0.11.9` profile. Its manifest reports `production_ready=true`; keep `allow_unreviewed_profile=false` so unknown or unapproved profiles remain blocked.
 
 ## Contents
 
@@ -73,7 +73,7 @@ Container NAT may change the source address observed by the backend. Do not assu
 
 ```bash
 mkdir -p ~/onilink-download
-gh release download v0.1.0 \
+gh release download v0.1.1 \
   --repo TheNINJALLO/OniLink \
   --dir ~/onilink-download
 cd ~/onilink-download
@@ -84,7 +84,7 @@ Every listed file must report `OK`. Stop if any file is missing or mismatched.
 
 ### Browser download
 
-Download every required file from the [v0.1.0 release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.0), including `SHA256SUMS`. On Linux:
+Download every required file from the [v0.1.1 release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.1), including `SHA256SUMS`. On Linux:
 
 ```bash
 cd /path/to/downloads
@@ -204,8 +204,8 @@ Keep a copy of the last known working server directory so rollback is a file res
 From the BDS root:
 
 ```bash
-cp /path/to/onibridge-0.1.0-bds-1.26.44.3-linux-x86_64.so plugins/
-chmod 0644 plugins/onibridge-0.1.0-bds-1.26.44.3-linux-x86_64.so
+cp /path/to/onibridge-0.1.1-bds-1.26.44.3-linux-x86_64.so plugins/
+chmod 0644 plugins/onibridge-0.1.1-bds-1.26.44.3-linux-x86_64.so
 ```
 
 Start the server once using your normal Endstone launch command. OniBridge creates:
@@ -252,7 +252,7 @@ interfere_with_backend_commands = false
 
 [compatibility]
 required_profile = "bds-1.26.44.3-linux-x86_64-06effdd00067f1ae"
-allow_unreviewed_profile = true
+allow_unreviewed_profile = false
 allow_unknown_bds = false
 allow_unknown_endstone = false
 
@@ -270,7 +270,7 @@ Important rules:
 - `reject_direct_joins` must stay `true`.
 - `identity.uuid_mode` should stay `preserve_backend`.
 - `interfere_with_backend_commands`, `allow_unknown_bds`, `allow_unknown_endstone`, and legacy verification must stay `false`.
-- `allow_unreviewed_profile=true` is only the explicit opt-in for this candidate test. It is not a production approval.
+- Keep `allow_unreviewed_profile=false`; the released exact profile is production-approved and does not require a bypass.
 
 Native TOML is strict. Unknown keys, duplicate keys, invalid types, and unsupported values stop startup.
 

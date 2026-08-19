@@ -3,7 +3,7 @@
 This walkthrough installs the Linux native bridge for one BDS backend. The complete operator manual, including backups, systemd, Pterodactyl, rotation, rollback, and multi-backend examples, is in the [installation guide](https://github.com/TheNINJALLO/OniLink/blob/main/docs/INSTALLATION.md).
 
 > [!WARNING]
-> `v0.1.0` is a stable OniLink application release. Use the native plugin only with BDS `1.26.44.3` Linux x86-64 and Endstone `0.11.9`; a nearby version is not compatible. The exact native profile remains `production_ready=false` until its formal review and recorded live gates are complete.
+> `v0.1.1` is production-approved only for BDS `1.26.44.3` Linux x86-64 with Endstone `0.11.9`; a nearby version is not compatible. The exact profile reports `production_ready=true` and every mismatch still fails closed.
 
 ## Example network
 
@@ -41,8 +41,8 @@ Copy the release artifact into Endstone's plugin directory:
 
 ```bash
 install -m 0755 \
-  onibridge-0.1.0-bds-1.26.44.3-linux-x86_64.so \
-  /srv/bds/plugins/onibridge-0.1.0-bds-1.26.44.3-linux-x86_64.so
+  onibridge-0.1.1-bds-1.26.44.3-linux-x86_64.so \
+  /srv/bds/plugins/onibridge-0.1.1-bds-1.26.44.3-linux-x86_64.so
 ```
 
 Start BDS once. OniBridge creates `plugins/onibridge/onibridge.toml` and intentionally stops because no forwarding secret has been configured yet. This first shutdown is expected.
@@ -99,7 +99,7 @@ interfere_with_backend_commands = false
 
 [compatibility]
 required_profile = "bds-1.26.44.3-linux-x86_64-06effdd00067f1ae"
-allow_unreviewed_profile = true
+allow_unreviewed_profile = false
 allow_unknown_bds = false
 allow_unknown_endstone = false
 

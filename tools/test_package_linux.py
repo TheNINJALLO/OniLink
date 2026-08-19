@@ -11,6 +11,34 @@ import package_linux
 
 
 class PackageLinuxTests(unittest.TestCase):
+    def test_checked_linux_profile_is_production_consistent(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        profile = json.loads((
+            root / "OniBridge/profiles/1.26.44.3/linux-x86_64.json"
+        ).read_text(encoding="utf-8"))
+        generated = json.loads((
+            root / "OniBridge/generated/bds/1.26.44.3/linux-x86_64/profile.json"
+        ).read_text(encoding="utf-8"))
+
+        self.assertEqual(profile, generated)
+        self.assertEqual("production", profile["validation_status"])
+        self.assertEqual([], profile["release_blockers"])
+        self.assertTrue(all(profile["evidence"].values()))
+        self.assertEqual("approved", profile["human_review_status"])
+        self.assertEqual("passed", profile["live_test_status"])
+
+        adapter = (
+            root / "OniBridge/generated/bds/1.26.44.3/linux-x86_64/adapter.cpp"
+        ).read_text(encoding="utf-8")
+        self.assertIn("constexpr bool kProductionProfile = true;", adapter)
+
+        for path in (
+            root / "OniBridge/onibridge.example.toml",
+            root / "examples/single-bds/onibridge.toml",
+            root / "examples/mixed-bds-geyser/onibridge-survival.toml",
+        ):
+            self.assertIn("allow_unreviewed_profile = false", path.read_text(encoding="utf-8"))
+
     def test_rejects_lock_profile_hash_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

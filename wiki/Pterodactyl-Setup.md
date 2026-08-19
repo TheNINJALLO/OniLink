@@ -4,7 +4,7 @@ Run OniLink and every backend as separate Pterodactyl servers.
 
 ## Import the released egg
 
-Download [`egg-onilink.json`](https://github.com/TheNINJALLO/OniLink/releases/download/v0.1.0/egg-onilink.json), then open **Admin Panel → Nests → Import Egg**.
+Download [`egg-onilink.json`](https://github.com/TheNINJALLO/OniLink/releases/download/v0.1.1/egg-onilink.json), then open **Admin Panel → Nests → Import Egg**.
 
 Create an **OniLink Bedrock Proxy** server with the Java 21 image and one public UDP allocation. Set the private backend host/port and enter a generated Base64 secret in the administrator-only `ONIBRIDGE_FORWARDING_SECRET` variable. Put the same value on the backend validator.
 

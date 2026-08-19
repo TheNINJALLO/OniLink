@@ -28,6 +28,6 @@ BDS archives, executables, symbols, dumps, worlds, secrets, and caches must neve
 
 ## Promotion gates
 
-Application release stability and native-profile approval are separate decisions. A normal OniLink release may contain an exact native profile whose manifest remains `production_ready=false`, but the release notes, README, compatibility table, and manifest must make that limitation explicit. Never mark a native profile production-ready until its human review, hook-harness evidence, and complete live testing are recorded for the exact target.
+Application release stability and native-profile approval are separate decisions. The current exact Linux profile completed its human review, hook-harness evidence, and operator-approved live testing, so its manifest reports `production_ready=true`. New BDS versions and other platforms must pass their own gates and must never inherit this approval.
 
 See [Building](https://github.com/TheNINJALLO/OniLink/blob/main/docs/BUILDING.md), [Adding a BDS version](https://github.com/TheNINJALLO/OniLink/blob/main/docs/ADDING_BDS_VERSION.md), and [BDS profile generation](https://github.com/TheNINJALLO/OniLink/blob/main/docs/BDS_PROFILE_GENERATION.md).
