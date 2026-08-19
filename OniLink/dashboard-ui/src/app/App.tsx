@@ -12,6 +12,7 @@ import { TenantPortalPage } from "../features/hosting/TenantPortalPage";
 import { OperationsPage } from "../features/operations/OperationsPage";
 import { OverviewPage } from "../features/overview/OverviewPage";
 import { PlayersPage } from "../features/players/PlayersPage";
+import { PacketMonitorPage } from "../features/packets/PacketMonitorPage";
 import { useHashRoute } from "../hooks/useHashRoute";
 import { AppShell, ForbiddenPage, visibleNav } from "../layouts/AppShell";
 
@@ -40,6 +41,9 @@ export function App() {
         break;
       case "players":
         page = <PlayersPage />;
+        break;
+      case "packet-monitor":
+        page = <PacketMonitorPage />;
         break;
       case "backends":
         page = <BackendsPage navigate={navigate} />;

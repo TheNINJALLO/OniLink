@@ -14,7 +14,7 @@ servers or eggs and does not need an Application API key. Follow
 
 ## Import the OniLink egg
 
-Download `egg-onilink.json` from the [current release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.7) or [`packaging/pterodactyl`](../packaging/pterodactyl/README.md).
+Download `egg-onilink.json` from the [current beta](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.2.0-beta.1) or [`packaging/pterodactyl`](../packaging/pterodactyl/README.md).
 
 1. Open **Admin Panel → Nests**.
 2. Select or create a nest and choose **Import Egg**.
@@ -28,11 +28,17 @@ Download `egg-onilink.json` from the [current release](https://github.com/TheNIN
 10. Start the backend and confirm its validator first; then start OniLink.
 11. Open **Files → dashboard → FIRST_RUN_SETUP.txt**, copy the one-time code, and browse to `http://NODE-OR-DOMAIN:PRIMARY_PORT/` from a trusted network to create the dashboard owner.
 
-The installer downloads the exact `ONILINK_VERSION` bootstrap tag, verifies `OniLink.jar`, `start-onilink.sh`, and the configuration template against that release's `SHA256SUMS`, and preserves an existing `config.properties` during reinstall. Every later container start queries GitHub's **latest stable release**, verifies the JAR, updater, and reference configuration, then updates changed runtime files atomically. Drafts and prereleases are ignored.
+The installer downloads the exact `ONILINK_VERSION` bootstrap tag, verifies `OniLink.jar`, `start-onilink.sh`, and the configuration template against that release's `SHA256SUMS`, and preserves an existing `config.properties` during reinstall. Every later container start uses **Automatic update channel**, verifies the JAR, updater, and reference configuration, then updates changed runtime files atomically.
+
+| Channel | Startup behavior |
+| --- | --- |
+| `stable` | Installs GitHub's latest normal release and ignores prereleases. |
+| `beta` | Installs the newest published release, including prereleases. The `v0.2.0-beta.1` egg defaults here. |
+| `pinned` | Verifies and stays on the exact `ONILINK_VERSION` release tag. |
 
 If GitHub is unavailable or verification fails, startup keeps the currently installed JAR. A successful replacement retains the prior version as `OniLink.jar.previous`, preserves active `config.properties`, updates only `onilink.properties.example`, and records the active release tag in `.onilink-version`. A changed updater is saved as `start-onilink.sh.previous` and takes over on the next restart.
 
-Existing updater-enabled containers discover the newest stable release and replace `OniLink.jar` on restart. No egg reimport is required for the single-container tenant dashboard because its accounts, catalogs, and proxy supervisor are part of the JAR. Runtime updates do not rewrite Pterodactyl's stored egg definition; reimport the egg only when you need newly added panel variables or install-script changes.
+Existing updater-enabled containers without `ONILINK_UPDATE_CHANNEL` remain on `stable` and do not discover this beta. Reimport the `v0.2.0-beta.1` egg, confirm its channel is `beta`, and restart to participate. Runtime updates do not rewrite Pterodactyl's stored egg definition; reimport the egg whenever you need newly added panel variables or install-script changes.
 
 ### Enable the authenticated allowlist
 
@@ -192,7 +198,7 @@ The relevant layout is:
 /home/container/
 ├── bedrock_server
 ├── plugins/
-│   ├── onibridge-0.1.7-bds-1.26.44.3-linux-x86_64.so
+│   ├── onibridge-0.2.0-beta.1-bds-1.26.44.3-linux-x86_64.so
 │   └── onibridge/
 │       ├── survival.key          # when using the dashboard/file method
 │       └── onibridge.toml

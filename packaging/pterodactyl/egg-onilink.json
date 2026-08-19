@@ -7,7 +7,7 @@
     "exported_at": "2026-08-19T23:30:00-04:00",
     "name": "OniLink Bedrock Proxy",
     "author": "TheNINJALLO@users.noreply.github.com",
-    "description": "OniLink is a Java 21 Bedrock proxy with fail-closed OniForward identity forwarding, an authenticated XUID allowlist, and an operations dashboard. This egg verifies its bootstrap release, checks GitHub's latest stable release on every start, and atomically installs checksum-verified runtime updates.",
+    "description": "OniLink is a Java 21 Bedrock proxy with fail-closed OniForward identity forwarding, an authenticated XUID allowlist, and an operations dashboard. This beta egg verifies its bootstrap release and atomically installs checksum-verified runtime updates from the selected stable, beta, or pinned channel.",
     "features": [
         "java_version",
         "pid_limit"
@@ -26,7 +26,7 @@
     },
     "scripts": {
         "installation": {
-            "script": "#!/bin/bash\nset -euo pipefail\n\ninstall_root=/mnt/server\nmkdir -p \"${install_root}\"\ncd \"${install_root}\"\n\ncase \"${ONILINK_VERSION}\" in\n    *[!A-Za-z0-9._-]*|'')\n        echo \"Invalid ONILINK_VERSION: ${ONILINK_VERSION}\" >&2\n        exit 2\n        ;;\nesac\n\nbase_url=\"https://github.com/TheNINJALLO/OniLink/releases/download/${ONILINK_VERSION}\"\n\ndownload() {\n    asset=$1\n    destination=$2\n    echo \"Downloading ${asset} from ${ONILINK_VERSION}...\"\n    curl -fL --retry 3 --retry-delay 2 --connect-timeout 15 \\\n        \"${base_url}/${asset}\" -o \"${destination}\"\n}\n\nrm -f OniLink.jar.download onilink.properties.example.download start-onilink.sh.download SHA256SUMS.download\ndownload OniLink.jar OniLink.jar.download\ndownload onilink.properties.example onilink.properties.example.download\ndownload start-onilink.sh start-onilink.sh.download\ndownload SHA256SUMS SHA256SUMS.download\n\njar_sha=$(awk '$2 == \"OniLink.jar\" { print $1 }' SHA256SUMS.download)\nconfig_sha=$(awk '$2 == \"onilink.properties.example\" { print $1 }' SHA256SUMS.download)\nstartup_sha=$(awk '$2 == \"start-onilink.sh\" { print $1 }' SHA256SUMS.download)\nif [[ ! \"${jar_sha}\" =~ ^[0-9a-fA-F]{64}$ ]] || [[ ! \"${config_sha}\" =~ ^[0-9a-fA-F]{64}$ ]] || [[ ! \"${startup_sha}\" =~ ^[0-9a-fA-F]{64}$ ]]; then\n    echo \"Release checksum entries are missing or malformed.\" >&2\n    exit 3\nfi\nprintf '%s  %s\\n' \"${jar_sha}\" OniLink.jar.download | sha256sum -c -\nprintf '%s  %s\\n' \"${config_sha}\" onilink.properties.example.download | sha256sum -c -\nprintf '%s  %s\\n' \"${startup_sha}\" start-onilink.sh.download | sha256sum -c -\n\nmv OniLink.jar.download \"${SERVER_JARFILE}\"\nmv onilink.properties.example.download onilink.properties.example\nmv start-onilink.sh.download start-onilink.sh\nmv SHA256SUMS.download SHA256SUMS\nchmod 0755 start-onilink.sh\n\nif [[ ! -f \"${CONFIG_FILE}\" ]]; then\n    cp onilink.properties.example \"${CONFIG_FILE}\"\n    echo \"Created ${CONFIG_FILE} from the release template.\"\nelse\n    echo \"Preserved existing ${CONFIG_FILE}. Compare it with onilink.properties.example after upgrades.\"\nfi\n\nmkdir -p cache dashboard logs plugins resource-packs\necho \"OniLink bootstrap ${ONILINK_VERSION} installed and verified.\"\necho \"Each container start now checks for the newest published OniLink JAR.\"\necho \"Set the admin-only ONIBRIDGE_FORWARDING_SECRET before starting the proxy.\"",
+            "script": "#!/bin/bash\nset -euo pipefail\n\ninstall_root=/mnt/server\nmkdir -p \"${install_root}\"\ncd \"${install_root}\"\n\ncase \"${ONILINK_VERSION}\" in\n    *[!A-Za-z0-9._-]*|'')\n        echo \"Invalid ONILINK_VERSION: ${ONILINK_VERSION}\" >&2\n        exit 2\n        ;;\nesac\n\nbase_url=\"https://github.com/TheNINJALLO/OniLink/releases/download/${ONILINK_VERSION}\"\n\ndownload() {\n    asset=$1\n    destination=$2\n    echo \"Downloading ${asset} from ${ONILINK_VERSION}...\"\n    curl -fL --retry 3 --retry-delay 2 --connect-timeout 15 \\\n        \"${base_url}/${asset}\" -o \"${destination}\"\n}\n\nrm -f OniLink.jar.download onilink.properties.example.download start-onilink.sh.download SHA256SUMS.download\ndownload OniLink.jar OniLink.jar.download\ndownload onilink.properties.example onilink.properties.example.download\ndownload start-onilink.sh start-onilink.sh.download\ndownload SHA256SUMS SHA256SUMS.download\n\njar_sha=$(awk '$2 == \"OniLink.jar\" { print $1 }' SHA256SUMS.download)\nconfig_sha=$(awk '$2 == \"onilink.properties.example\" { print $1 }' SHA256SUMS.download)\nstartup_sha=$(awk '$2 == \"start-onilink.sh\" { print $1 }' SHA256SUMS.download)\nif [[ ! \"${jar_sha}\" =~ ^[0-9a-fA-F]{64}$ ]] || [[ ! \"${config_sha}\" =~ ^[0-9a-fA-F]{64}$ ]] || [[ ! \"${startup_sha}\" =~ ^[0-9a-fA-F]{64}$ ]]; then\n    echo \"Release checksum entries are missing or malformed.\" >&2\n    exit 3\nfi\nprintf '%s  %s\\n' \"${jar_sha}\" OniLink.jar.download | sha256sum -c -\nprintf '%s  %s\\n' \"${config_sha}\" onilink.properties.example.download | sha256sum -c -\nprintf '%s  %s\\n' \"${startup_sha}\" start-onilink.sh.download | sha256sum -c -\n\nmv OniLink.jar.download \"${SERVER_JARFILE}\"\nmv onilink.properties.example.download onilink.properties.example\nmv start-onilink.sh.download start-onilink.sh\nmv SHA256SUMS.download SHA256SUMS\nchmod 0755 start-onilink.sh\n\nif [[ ! -f \"${CONFIG_FILE}\" ]]; then\n    cp onilink.properties.example \"${CONFIG_FILE}\"\n    echo \"Created ${CONFIG_FILE} from the release template.\"\nelse\n    echo \"Preserved existing ${CONFIG_FILE}. Compare it with onilink.properties.example after upgrades.\"\nfi\n\nmkdir -p cache dashboard logs plugins resource-packs\necho \"OniLink bootstrap ${ONILINK_VERSION} installed and verified.\"\necho \"Each container start now checks the ${ONILINK_UPDATE_CHANNEL:-stable} update channel.\"\necho \"Set the admin-only ONIBRIDGE_FORWARDING_SECRET before starting the proxy.\"",
             "container": "ghcr.io/ptero-eggs/installers:debian",
             "entrypoint": "bash"
         }
@@ -34,12 +34,22 @@
     "variables": [
         {
             "name": "OniLink bootstrap release tag",
-            "description": "Exact public GitHub release used only during create/reinstall. Normal starts query GitHub's latest stable non-prerelease release and install its checksum-verified runtime files.",
+            "description": "Exact public GitHub release used during create/reinstall and when the update channel is pinned.",
             "env_variable": "ONILINK_VERSION",
-            "default_value": "v0.1.7",
+            "default_value": "v0.2.0-beta.1",
             "user_viewable": true,
             "user_editable": true,
             "rules": "required|string|max:64|regex:/^[A-Za-z0-9][A-Za-z0-9._-]*$/",
+            "field_type": "text"
+        },
+        {
+            "name": "Automatic update channel",
+            "description": "beta installs the newest published release including prereleases; stable ignores prereleases; pinned stays on the exact OniLink bootstrap release tag.",
+            "env_variable": "ONILINK_UPDATE_CHANNEL",
+            "default_value": "beta",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:stable,beta,pinned",
             "field_type": "text"
         },
         {

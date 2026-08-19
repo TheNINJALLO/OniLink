@@ -12,6 +12,7 @@ import {
   LogOut,
   Menu,
   Network,
+  ScanSearch,
   ServerCog,
   Settings,
   ShieldCheck,
@@ -43,6 +44,7 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
       { route: "overview", label: "Overview", icon: LayoutDashboard, minimum: "viewer" },
       { route: "players", label: "Players", icon: UsersRound, minimum: "viewer" },
       { route: "backends", label: "Backends", icon: Network, minimum: "viewer" },
+      { route: "packet-monitor", label: "Packet Monitor", icon: ScanSearch, allRoles: true },
     ],
   },
   {

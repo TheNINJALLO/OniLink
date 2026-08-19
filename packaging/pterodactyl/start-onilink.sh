@@ -2,7 +2,7 @@
 set -uo pipefail
 
 readonly ONILINK_REPOSITORY="TheNINJALLO/OniLink"
-readonly ONILINK_RELEASE_API="https://api.github.com/repos/${ONILINK_REPOSITORY}/releases/latest"
+readonly ONILINK_RELEASE_API_ROOT="https://api.github.com/repos/${ONILINK_REPOSITORY}/releases"
 
 server_jar="${SERVER_JARFILE:-OniLink.jar}"
 config_file="${CONFIG_FILE:-config.properties}"
@@ -43,7 +43,35 @@ update_onilink() {
     }
     trap cleanup EXIT
 
-    if ! download "${ONILINK_RELEASE_API}" "${update_directory}/release.json"; then
+    local update_channel="${ONILINK_UPDATE_CHANNEL:-stable}"
+    local release_api
+    local channel_label
+    case "${update_channel}" in
+        stable)
+            release_api="${ONILINK_RELEASE_API_ROOT}/latest"
+            channel_label="stable"
+            ;;
+        beta)
+            release_api="${ONILINK_RELEASE_API_ROOT}?per_page=20"
+            channel_label="beta"
+            ;;
+        pinned)
+            case "${ONILINK_VERSION:-}" in
+                *[!A-Za-z0-9._-]*|'')
+                    log "WARNING: pinned updates require a valid ONILINK_VERSION; keeping the installed JAR."
+                    return 1
+                    ;;
+            esac
+            release_api="${ONILINK_RELEASE_API_ROOT}/tags/${ONILINK_VERSION}"
+            channel_label="pinned"
+            ;;
+        *)
+            log "WARNING: unknown update channel '${update_channel}'; use stable, beta, or pinned."
+            return 1
+            ;;
+    esac
+
+    if ! download "${release_api}" "${update_directory}/release.json"; then
         log "WARNING: GitHub release lookup failed; keeping the installed JAR."
         return 1
     fi
@@ -64,9 +92,9 @@ update_onilink() {
         installed_tag=$(head -n 1 .onilink-version)
     fi
     if [[ "${installed_tag}" == "${release_tag}" ]]; then
-        log "Verifying installed stable release ${release_tag}..."
+        log "Verifying installed ${channel_label} channel release ${release_tag}..."
     else
-        log "Stable update available: ${installed_tag:-none} -> ${release_tag}."
+        log "${channel_label^} update available: ${installed_tag:-none} -> ${release_tag}."
     fi
     if ! download "${release_url}/SHA256SUMS" "${update_directory}/SHA256SUMS" || \
        ! download "${release_url}/OniLink.jar" "${update_directory}/OniLink.jar" || \

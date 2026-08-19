@@ -33,6 +33,7 @@ import dev.onistone.onilink.security.ConnectionThrottle;
 import dev.onistone.onilink.security.PreAuthBatchLimiter;
 import dev.onistone.onilink.security.RateLimitReporter;
 import dev.onistone.onilink.protocol.ProtocolNegotiator;
+import dev.onistone.onilink.protocol.PacketMonitor;
 import dev.onistone.onilink.protocol.ProtocolRegistry;
 import dev.onistone.onilink.registry.BackendPaletteStore;
 import dev.onistone.onilink.resourcepack.BackendPackCache;
@@ -52,6 +53,7 @@ import java.util.concurrent.ThreadLocalRandom;
 public final class BedrockProxyListener {
     private final ProxyConfig config;
     private final ProtocolRegistry protocolRegistry;
+    private final PacketMonitor packetMonitor;
     private final NioEventLoopGroup eventLoopGroup = new NioEventLoopGroup();
     private final ConcurrentHashMap.KeySetView<ListenerSession, Boolean> sessions = ConcurrentHashMap.newKeySet();
     private final CountDownLatch stopped = new CountDownLatch(1);
@@ -148,6 +150,7 @@ public final class BedrockProxyListener {
         }
         this.config = config;
         this.protocolRegistry = protocolRegistry;
+        this.packetMonitor = new PacketMonitor(protocolRegistry);
         this.permissions = permissions == null ? ProxyPermissions.inMemory(config.permissions()) : permissions;
         this.allowlist = allowlist == null ? ProxyAllowlist.inMemory(config.allowlist()) : allowlist;
         this.connectedPlayers = new ConnectedPlayerRegistry(config.maxPlayers());
@@ -452,7 +455,8 @@ public final class BedrockProxyListener {
                                 resourcePackRegistry,
                                 backendPaletteStore,
                                 backendPackCache,
-                                allowlist
+                                allowlist,
+                                packetMonitor
                         ));
                         updateAdvertisement();
                     }
@@ -529,6 +533,10 @@ public final class BedrockProxyListener {
     /** Authenticated ingress allowlist used by console and dashboard management. */
     public ProxyAllowlist allowlist() {
         return allowlist;
+    }
+
+    public PacketMonitor packetMonitor() {
+        return packetMonitor;
     }
 
     public void awaitShutdown() throws InterruptedException {

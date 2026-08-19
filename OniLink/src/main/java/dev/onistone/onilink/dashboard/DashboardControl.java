@@ -11,6 +11,21 @@ interface DashboardControl extends AutoCloseable {
 
     List<Map<String, Object>> backends(boolean includeAddresses);
 
+    default Map<String, Object> packetMonitor(Map<String, String> filters) {
+        return Map.of(
+                "enabled", false,
+                "privacy", "Packet monitoring is unavailable for this runtime.",
+                "summary", Map.of(),
+                "protocols", List.of(),
+                "selectedPair", Map.of(),
+                "routeAvailable", false,
+                "records", List.of(),
+                "matches", List.of(),
+                "catalog", List.of(),
+                "catalogCount", 0
+        );
+    }
+
     default Map<String, Object> allowlist() {
         return Map.of("enabled", false, "count", 0, "entries", List.of());
     }

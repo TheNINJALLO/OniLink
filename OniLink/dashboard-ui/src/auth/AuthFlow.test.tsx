@@ -132,6 +132,7 @@ describe("authentication and shell", () => {
       "Overview",
       "Players",
       "Backends",
+      "Packet Monitor",
       "Account",
     ]);
     expect(visibleNav("operator").map((item) => item.label)).toContain("Operations");
@@ -139,7 +140,11 @@ describe("authentication and shell", () => {
       expect.arrayContaining(["Add Backend", "Allowlist", "Configuration", "Audit"]),
     );
     expect(visibleNav("owner").map((item) => item.label)).toContain("Tenant Hosting");
-    expect(visibleNav("tenant").map((item) => item.label)).toEqual(["My Proxies", "Account"]);
+    expect(visibleNav("tenant").map((item) => item.label)).toEqual([
+      "Packet Monitor",
+      "My Proxies",
+      "Account",
+    ]);
   });
 
   it("opens and cleans up the mobile drawer with Escape and backdrop input", async () => {

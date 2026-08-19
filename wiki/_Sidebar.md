@@ -9,6 +9,7 @@
 - [[Pterodactyl Setup]]
 - [[Tenant Hosting]]
 - [[Operations Dashboard|Dashboard]]
+- [[Packet Monitor]]
 - [[Configuration]]
 - [[Architecture and Security]]
 - [[Compatibility and Testing]]

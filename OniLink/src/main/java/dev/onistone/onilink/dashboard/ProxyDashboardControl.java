@@ -111,6 +111,11 @@ final class ProxyDashboardControl implements DashboardControl {
     }
 
     @Override
+    public Map<String, Object> packetMonitor(Map<String, String> filters) {
+        return listener.packetMonitor().snapshot(filters);
+    }
+
+    @Override
     public Map<String, Object> allowlist() {
         ProxyAllowlist allowlist = listener.allowlist();
         List<Map<String, Object>> entries = allowlist.entries().stream()

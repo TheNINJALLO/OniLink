@@ -306,6 +306,15 @@ final class DashboardTenantHosting implements AutoCloseable {
         return result;
     }
 
+    synchronized Map<String, Object> packetMonitor(
+            String rawTenant,
+            String rawProxy,
+            Map<String, String> filters
+    ) {
+        ProxyInstance proxy = existingProxy(rawTenant, rawProxy);
+        return runningControl(proxy).packetMonitor(filters);
+    }
+
     synchronized Map<String, Object> runtimeAction(Map<String, String> form) {
         ProxyInstance proxy = existingProxy(form.get("tenant"), form.get("proxy"));
         DashboardControl control = runningControl(proxy);

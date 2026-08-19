@@ -211,6 +211,7 @@ public final class OniLinkDashboard implements AutoCloseable {
                 sendJson(exchange, 200, Map.of("backends",
                         control.backends(principal.role().allows(DashboardAccounts.Role.ADMIN))));
             }
+            case "/api/packets" -> handlePacketMonitor(exchange, principal);
             case "/api/allowlist" -> handleAllowlist(exchange, principal);
             case "/api/logs" -> {
                 requireRole(principal, DashboardAccounts.Role.OPERATOR);
@@ -496,6 +497,26 @@ public final class OniLinkDashboard implements AutoCloseable {
         sendJson(exchange, 201, result);
     }
 
+    private void handlePacketMonitor(
+            HttpExchange exchange,
+            DashboardAccounts.Principal principal
+    ) throws IOException {
+        requireMethod(exchange, "GET");
+        Map<String, String> filters = query(exchange);
+        String requestedTenant = value(filters.get("tenant"));
+        if (principal.tenantScoped() || !requestedTenant.isBlank()) {
+            String tenant = authorizedTenant(principal, requestedTenant);
+            sendJson(exchange, 200, tenantHosting.packetMonitor(
+                    tenant,
+                    filters.get("proxy"),
+                    filters
+            ));
+            return;
+        }
+        requireRole(principal, DashboardAccounts.Role.VIEWER);
+        sendJson(exchange, 200, control.packetMonitor(filters));
+    }
+
     private void handleTenancyHandoff(
             HttpExchange exchange,
             DashboardAccounts.Principal principal
@@ -590,6 +611,7 @@ public final class OniLinkDashboard implements AutoCloseable {
             zip(zip, "state.json", DashboardJson.encode(control.state()));
             zip(zip, "players.json", DashboardJson.encode(control.players(false)));
             zip(zip, "backends.json", DashboardJson.encode(control.backends(false)));
+            zip(zip, "packet-monitor.json", DashboardJson.encode(control.packetMonitor(Map.of("limit", "500"))));
             zip(zip, "allowlist.json", DashboardJson.encode(control.allowlist()));
             zip(zip, "config.properties.redacted", String.valueOf(configFile.read().get("content")));
             zip(zip, "latest.log.tail", String.join(System.lineSeparator(),

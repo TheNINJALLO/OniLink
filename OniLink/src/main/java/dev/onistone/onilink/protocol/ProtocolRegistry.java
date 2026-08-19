@@ -7,6 +7,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -161,6 +162,13 @@ public final class ProtocolRegistry {
         return Collections.unmodifiableCollection(codecs.values().stream()
                 .map(codec -> new ProtocolBinding(codec, codec, codec, IdentityTranslator898.INSTANCE))
                 .toList());
+    }
+
+    /** All registered codecs in protocol order for diagnostics and compatibility tooling. */
+    public List<BedrockCodec> supportedCodecs() {
+        return codecs.values().stream()
+                .sorted(Comparator.comparingInt(BedrockCodec::getProtocolVersion))
+                .toList();
     }
 
     public BedrockCodec advertisedClientCodec() {

@@ -530,6 +530,167 @@ dd {
   max-width: 560px;
   margin-bottom: 1rem;
 }
+.packetMetricGrid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.packetSafety {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+  border-color: #28614a;
+  background: #0d211b;
+}
+.packetSafety > svg {
+  flex: none;
+  color: var(--green);
+}
+.packetSafety > div {
+  min-width: 0;
+  flex: 1;
+}
+.packetSafety p {
+  margin: 0.15rem 0 0;
+  color: #a9c9b6;
+  font-size: 0.78rem;
+}
+.liveIndicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #9fe0b9;
+  font-size: 0.72rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+.liveIndicator::before {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 0 4px rgba(67, 209, 125, 0.12);
+  content: "";
+}
+.liveIndicator.paused {
+  color: #e3c77b;
+}
+.liveIndicator.paused::before {
+  background: var(--amber);
+  box-shadow: none;
+}
+.packetFilters {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.65fr) minmax(180px, 0.8fr) minmax(260px, 1.5fr) minmax(
+      120px,
+      0.5fr
+    );
+  align-items: end;
+  gap: 0.65rem;
+}
+.inputWithIcon {
+  position: relative;
+  display: block;
+}
+.inputWithIcon svg {
+  position: absolute;
+  top: 50%;
+  left: 0.72rem;
+  width: 17px;
+  transform: translateY(-50%);
+  color: var(--muted);
+}
+.inputWithIcon input {
+  padding-left: 2.2rem;
+}
+.packetStreamTable {
+  max-height: 56vh;
+}
+.packetNameButton {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #bceeff;
+  font: inherit;
+  font-weight: 750;
+  cursor: pointer;
+  text-align: left;
+}
+.packetNameButton:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+.packetInsights {
+  margin-top: 1rem;
+}
+.packetMatchList {
+  max-height: 520px;
+  margin: 0.8rem 0 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+.packetMatchList li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.72rem 0;
+  border-bottom: 1px solid #27394d;
+}
+.packetMatchList li > div:first-child {
+  min-width: 0;
+}
+.packetMatchList li > div:last-child {
+  flex: none;
+  text-align: right;
+}
+.packetMatchList strong,
+.packetMatchList small,
+.packetMatchList span {
+  display: block;
+}
+.packetMatchList small,
+.packetMatchList span {
+  margin-top: 0.2rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+.packetMatchList span {
+  color: #ebca82;
+}
+.packetExplanation {
+  display: grid;
+  gap: 0.8rem;
+  margin-top: 0.9rem;
+}
+.packetExplanation > div {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.7rem;
+  padding: 0.8rem;
+  border: 1px solid #2a4057;
+  border-radius: 7px;
+  background: #0d1927;
+}
+.packetExplanation svg {
+  color: var(--cyan);
+}
+.packetExplanation strong {
+  display: block;
+  margin-bottom: 0.18rem;
+  color: var(--text);
+}
+.protocolPairPicker {
+  margin: 0.5rem 0 1rem;
+}
+.packetCatalogTable {
+  max-height: 62vh;
+}
+.packetDialog {
+  width: min(720px, calc(100vw - 2rem));
+}
+.packetDetails dd {
+  max-width: 65%;
+}
 hr {
   margin: 1.25rem 0;
   border: 0;

@@ -52,6 +52,7 @@ import org.cloudburstmc.protocol.bedrock.packet.SubChunkRequestPacket;
 import org.cloudburstmc.protocol.common.PacketSignal;
 import dev.onistone.onilink.command.CommandInterception;
 import dev.onistone.onilink.command.ProxyCommandInterceptor;
+import dev.onistone.onilink.protocol.PacketMonitor;
 
 public final class ClientRelayPacketHandler implements BedrockPacketHandler {
     private static final int INITIAL_CROSS_PROTOCOL_BACKEND_CHUNK_RADIUS = 8;
@@ -105,6 +106,12 @@ public final class ClientRelayPacketHandler implements BedrockPacketHandler {
 
         if (isCrossProtocol() && packet instanceof CameraAimAssistInstructionPacket aimAssist) {
             handleCrossProtocolCameraAimAssistInstruction(aimAssist);
+            connection.observePacket(
+                    PacketMonitor.Direction.SERVERBOUND,
+                    packet,
+                    packet,
+                    PacketMonitor.Action.HANDLED
+            );
             return PacketSignal.HANDLED;
         }
 
@@ -115,6 +122,12 @@ public final class ClientRelayPacketHandler implements BedrockPacketHandler {
                     connection.sessionProfile().backendCodec().getProtocolVersion(),
                     packet.getClass().getSimpleName()
             );
+            connection.observePacket(
+                    PacketMonitor.Direction.SERVERBOUND,
+                    packet,
+                    null,
+                    PacketMonitor.Action.DROPPED
+            );
             return PacketSignal.HANDLED;
         }
 
@@ -123,6 +136,12 @@ public final class ClientRelayPacketHandler implements BedrockPacketHandler {
                     "Dropping early cross-protocol join packet before first LevelChunk from %s for 1.21.130 backend: %s.%n",
                     connection.client().getSocketAddress(),
                     packet.getClass().getSimpleName()
+            );
+            connection.observePacket(
+                    PacketMonitor.Direction.SERVERBOUND,
+                    packet,
+                    null,
+                    PacketMonitor.Action.WITHHELD
             );
             return PacketSignal.HANDLED;
         }
@@ -320,6 +339,12 @@ public final class ClientRelayPacketHandler implements BedrockPacketHandler {
             CommandInterception interception = commandInterceptor.intercept(commandRequest);
             if (interception instanceof CommandInterception.Consumed consumed) {
                 commandRouter.execute(connection, consumed);
+                connection.observePacket(
+                        PacketMonitor.Direction.SERVERBOUND,
+                        packet,
+                        packet,
+                        PacketMonitor.Action.HANDLED
+                );
                 return PacketSignal.HANDLED;
             }
             if (connection.isPacketTraceActive()) {
@@ -537,6 +562,12 @@ public final class ClientRelayPacketHandler implements BedrockPacketHandler {
                         connection.backendName()
                 );
             }
+            connection.observePacket(
+                    PacketMonitor.Direction.SERVERBOUND,
+                    packet,
+                    null,
+                    PacketMonitor.Action.WITHHELD
+            );
             return;
         }
         normalizePlayerRuntimeId(packet);
@@ -544,6 +575,12 @@ public final class ClientRelayPacketHandler implements BedrockPacketHandler {
         BedrockPacket translated = connection.sessionProfile()
                 .translator()
                 .translateServerbound(packet, connection.sessionProfile().translationContext());
+        connection.observePacket(
+                PacketMonitor.Direction.SERVERBOUND,
+                packet,
+                translated,
+                translated == null ? PacketMonitor.Action.DROPPED : PacketMonitor.Action.FORWARDED
+        );
         if (translated == null) {
             if (traceSequence >= 0 || connection.isPacketTraceActive()) {
                 System.out.printf(

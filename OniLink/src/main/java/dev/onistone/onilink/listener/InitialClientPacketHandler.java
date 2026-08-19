@@ -19,6 +19,7 @@ import dev.onistone.onilink.network.NetworkSettingsNegotiationResult;
 import dev.onistone.onilink.network.NetworkSettingsNegotiator;
 import dev.onistone.onilink.protocol.CanonicalProtocol;
 import dev.onistone.onilink.protocol.IdentityTranslator898;
+import dev.onistone.onilink.protocol.PacketMonitor;
 import dev.onistone.onilink.registry.BackendPaletteStore;
 import dev.onistone.onilink.resourcepack.BackendPackCache;
 import dev.onistone.onilink.resourcepack.ProxyResourcePackRegistry;
@@ -40,6 +41,7 @@ public final class InitialClientPacketHandler implements BedrockPacketHandler {
     private final BackendPaletteStore backendPaletteStore;
     private final BackendPackCache backendPackCache;
     private final ProxyAllowlist allowlist;
+    private final PacketMonitor packetMonitor;
     private SecretKey clientEncryptionKey;
     private ProxyConnection connection;
 
@@ -116,6 +118,25 @@ public final class InitialClientPacketHandler implements BedrockPacketHandler {
             BackendPackCache backendPackCache,
             ProxyAllowlist allowlist
     ) {
+        this(session, networkSettingsNegotiator, backendConnector, authenticator, offlineLoginForge,
+                connectedPlayers, playerCountChanged, proxyResourcePackRegistry, backendPaletteStore,
+                backendPackCache, allowlist, null);
+    }
+
+    public InitialClientPacketHandler(
+            ListenerSession session,
+            NetworkSettingsNegotiator networkSettingsNegotiator,
+            BackendConnector backendConnector,
+            ClientLoginAuthenticator authenticator,
+            OfflineLoginForge offlineLoginForge,
+            ConnectedPlayerRegistry connectedPlayers,
+            Runnable playerCountChanged,
+            ProxyResourcePackRegistry proxyResourcePackRegistry,
+            BackendPaletteStore backendPaletteStore,
+            BackendPackCache backendPackCache,
+            ProxyAllowlist allowlist,
+            PacketMonitor packetMonitor
+    ) {
         this.session = session;
         this.networkSettingsNegotiator = networkSettingsNegotiator;
         this.backendConnector = backendConnector;
@@ -131,6 +152,7 @@ public final class InitialClientPacketHandler implements BedrockPacketHandler {
                 : BackendPaletteStore.disabled();
         this.backendPackCache = backendPackCache != null ? backendPackCache : BackendPackCache.disabled();
         this.allowlist = allowlist != null ? allowlist : ProxyAllowlist.disabled();
+        this.packetMonitor = packetMonitor;
     }
 
     @Override
@@ -206,7 +228,8 @@ public final class InitialClientPacketHandler implements BedrockPacketHandler {
                     offlineLoginForge.forge(keyPair, clientLogin),
                     proxyResourcePackRegistry,
                     backendPaletteStore,
-                    backendPackCache
+                    backendPackCache,
+                    packetMonitor
             );
 
             ConnectedPlayerRegistry.RegistrationResult registration = connectedPlayers.register(connection);

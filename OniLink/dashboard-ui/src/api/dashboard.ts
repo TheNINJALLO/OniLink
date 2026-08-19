@@ -7,6 +7,7 @@ import type {
   Configuration,
   DashboardUser,
   Player,
+  PacketMonitorSnapshot,
   Principal,
   RuntimeState,
   SessionPayload,
@@ -31,6 +32,13 @@ export const dashboardApi = {
   state: (signal?: AbortSignal) => request<RuntimeState>("/api/state", { signal }),
   players: (signal?: AbortSignal) => request<{ players: Player[] }>("/api/players", { signal }),
   backends: (signal?: AbortSignal) => request<{ backends: Backend[] }>("/api/backends", { signal }),
+  packets: (params: Record<string, string | number>, signal?: AbortSignal) => {
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+      if (String(value).trim()) query.set(key, String(value));
+    }
+    return request<PacketMonitorSnapshot>(`/api/packets?${query}`, { signal });
+  },
   action: (action: string, body: Record<string, string | number>) =>
     request<ActionResult>(`/api/action/${action}`, { method: "POST", body }),
   allowlist: (signal?: AbortSignal) => request<Allowlist>("/api/allowlist", { signal }),

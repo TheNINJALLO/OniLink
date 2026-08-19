@@ -7,7 +7,7 @@
 - Runs OniLink on a Java 21 Pterodactyl image.
 - Downloads an exact public OniLink bootstrap release during installation or reinstall.
 - Downloads `SHA256SUMS` and verifies `OniLink.jar`, `start-onilink.sh`, and the configuration template before installation succeeds.
-- Checks GitHub's latest stable, non-prerelease release on every container start.
+- Checks the selected stable, beta, or pinned GitHub release channel on every container start.
 - Verifies and atomically updates `OniLink.jar`, the updater, and the reference configuration while preserving the live configuration.
 - Keeps the previous JAR and changed runtime support files for rollback.
 - Starts the installed JAR when GitHub is temporarily unavailable or an update cannot be verified.
@@ -63,14 +63,18 @@ See the [single-container tenant guide](../../docs/TENANT_HOSTING.md).
 
 ## Automatic updates and rollback
 
-Restart the container to check for an update. `start-onilink.sh` queries GitHub's `/releases/latest` endpoint, which returns the newest normal release and excludes drafts and prereleases. It downloads `OniLink.jar`, `start-onilink.sh`, `onilink.properties.example`, and `SHA256SUMS`, verifies all three runtime files, and only then installs changes.
+Restart the container to check for an update. `start-onilink.sh` resolves **Automatic update channel**, downloads `OniLink.jar`, `start-onilink.sh`, `onilink.properties.example`, and `SHA256SUMS`, verifies all three runtime files, and only then installs changes.
 
-`ONILINK_VERSION` is only the bootstrap version used during server creation or **Reinstall Server**. It does not pin later starts. Reinstall preserves `config.properties`; compare it with `onilink.properties.example` after a bootstrap upgrade.
+- `stable` uses GitHub's `/releases/latest` endpoint and ignores prereleases.
+- `beta` follows the newest published normal or prerelease build. The `v0.2.0-beta.1` egg defaults to this channel.
+- `pinned` stays on the exact public tag in `ONILINK_VERSION`.
 
-After a successful change, the updater writes the release tag to `.onilink-version` and retains the old JAR as `OniLink.jar.previous`. A changed updater is saved as `start-onilink.sh.previous` and takes effect on the following restart; a changed reference template is saved as `onilink.properties.example.previous`. Active `config.properties` is never replaced. To roll back manually, stop the server, restore the desired previous file, and start it. The next start installs the latest stable release again, so rollback is intended for diagnosis while the affected release is corrected or withdrawn.
+`ONILINK_VERSION` is the bootstrap version used during server creation or **Reinstall Server** and the runtime version only when the channel is `pinned`. Reinstall preserves `config.properties`; compare it with `onilink.properties.example` after a bootstrap upgrade.
+
+After a successful change, the updater writes the release tag to `.onilink-version` and retains the old JAR as `OniLink.jar.previous`. A changed updater is saved as `start-onilink.sh.previous` and takes effect on the following restart; a changed reference template is saved as `onilink.properties.example.previous`. Active `config.properties` is never replaced. To hold a rollback, set the channel to `pinned` and set `ONILINK_VERSION` to the intended release before restarting.
 
 The runtime updater cannot replace the egg definition stored by the Pterodactyl panel. Reimport a newer `egg-onilink.json` when you want newly added panel variables or install-script changes. Existing servers can still receive new runtime JARs without an egg reimport.
 
 If the release lookup, download, or checksum validation fails, the updater logs a warning and starts the existing verified JAR. A brand-new server with no usable JAR stops instead of starting an unknown file.
 
-The stable OniLink application and its egg do not override native-profile approval. Complete the exact-profile and live acceptance gates in the [testing guide](../../docs/TESTING.md).
+No application update channel overrides native-profile approval. Complete the exact-profile and live acceptance gates in the [testing guide](../../docs/TESTING.md).

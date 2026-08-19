@@ -58,6 +58,97 @@ export interface Player {
   packetTraceActive: boolean;
 }
 
+export interface PacketProtocol {
+  protocol: number;
+  minecraftVersion: string;
+  packetModels: number;
+}
+
+export interface PacketProtocolPair {
+  clientProtocol: number;
+  clientVersion: string;
+  backendProtocol: number;
+  backendVersion: string;
+}
+
+export type PacketMatchStatus =
+  | "native"
+  | "automatic_codec_match"
+  | "explicit_translation"
+  | "review_required"
+  | "unknown_packet";
+
+export interface PacketObservation {
+  sequence: number;
+  timestamp: string;
+  direction: "serverbound" | "clientbound";
+  directionLabel: string;
+  packetName: string;
+  sourcePacketId: number;
+  targetPacketId: number;
+  sourceProtocol: number;
+  sourceVersion: string;
+  targetProtocol: number;
+  targetVersion: string;
+  status: PacketMatchStatus;
+  action: string;
+  player: string;
+  backend: string;
+  suggestion: string;
+}
+
+export interface PacketMatch {
+  direction: "serverbound" | "clientbound";
+  packetName: string;
+  sourcePacketId: number;
+  targetPacketId: number;
+  sourceProtocol: number;
+  targetProtocol: number;
+  status: PacketMatchStatus;
+  action: string;
+  suggestion: string;
+  count: number;
+  lastSeen: string;
+}
+
+export interface PacketCatalogEntry {
+  direction: "serverbound" | "clientbound";
+  packetName: string;
+  sourcePacketId: number;
+  targetPacketId: number;
+  status: "native" | "automatic_codec_match" | "review_required";
+  candidate: string;
+  observedCount: number;
+}
+
+export interface PacketMonitorSummary {
+  observedPackets: number;
+  storedRecords: number;
+  uniqueMatches: number;
+  nativeMatches: number;
+  automaticMatches: number;
+  explicitTranslations: number;
+  reviewRequired: number;
+  droppedPackets: number;
+  sampledOut: number;
+  evictedRecords: number;
+  capacity: number;
+  movementSampleRate: number;
+}
+
+export interface PacketMonitorSnapshot {
+  enabled: boolean;
+  privacy: string;
+  summary: PacketMonitorSummary;
+  protocols: PacketProtocol[];
+  selectedPair: PacketProtocolPair;
+  routeAvailable: boolean;
+  records: PacketObservation[];
+  matches: PacketMatch[];
+  catalog: PacketCatalogEntry[];
+  catalogCount: number;
+}
+
 export type HealthState = "online" | "degraded" | "offline" | "checking";
 
 export interface BackendHealth {

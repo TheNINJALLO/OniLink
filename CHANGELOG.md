@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+## 0.2.0-beta.1 - 2026-08-19
+
+- Added a bounded, metadata-only packet monitor to every provider and tenant proxy runtime, with
+  live direction, packet-model, codec-ID, protocol-pair, relay-action, and translation-outcome views.
+- Added evidence-driven cross-version matching that recognizes shared packet classes through the
+  compiled source/target codecs and records the real explicit translator outcome.
+- Added a compiled protocol-pair catalog, live observation counts, review-required and unknown
+  packet queues, safe ID-only research hints, filters, pause/resume, detail views, and JSON export.
+- Added strict tenant scoping for packet-monitor APIs and included a bounded metadata snapshot in
+  redacted support bundles without retaining payloads, chat, login chains, tokens, XUIDs, addresses,
+  or raw wire bytes.
+- Added `stable`, `beta`, and `pinned` Pterodactyl update channels. The beta egg follows published
+  prereleases on reboot while existing eggs continue to default to stable-only updates.
+- Added packet-monitor UI, protocol, dashboard authorization, ring-buffer, privacy, packaging, and
+  updater coverage plus operator documentation and Wiki guidance.
+- Bumped OniLink, OniBridge, OniBridge-Geyser, the beta egg, and Linux release automation to
+  `0.2.0-beta.1`.
+
 ## 0.1.7 - 2026-08-19
 
 - Reworked tenant and backend onboarding around plainly labeled proxy and destination-server

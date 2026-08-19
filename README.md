@@ -31,7 +31,7 @@
 <!-- onilink-professional-header:end -->
 
 > [!IMPORTANT]
-> `v0.1.7` is the current production release. Tenant and backend setup now separate the proxy address players join from the destination game server address, with individual IP/domain and UDP-port fields, examples, and a live connection-path preview. Secure backend onboarding, authenticated XUID allowlisting, shared-container tenancy, stable updates, and the production-approved Linux BDS `1.26.44.3` + Endstone `0.11.9` profile remain fail closed.
+> `v0.2.0-beta.1` is the current public beta. It adds a live, metadata-only packet monitor and evidence-driven cross-version codec matching without guessing packet semantics. The Linux BDS `1.26.44.3` + Endstone `0.11.9` native profile remains production-approved and fail closed; `v0.1.7` remains the stable application release while the monitor is validated.
 
 ## What this repository provides
 
@@ -64,7 +64,7 @@ OniLink preserves the authenticated name, XUID, UUID, and observed client addres
 
 ## Quick start
 
-1. Read the [v0.1.7 release notes](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.7) and download only the files for your backend path.
+1. Read the [v0.2.0-beta.1 release notes](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.2.0-beta.1) and download only the files for your backend path.
 2. Verify the download directory against `SHA256SUMS`.
 3. Generate a unique 32-byte-or-stronger secret for each backend and expose it through an environment variable—not a committed configuration file.
 4. Configure matching backend name, bridge ID, key ID, and secret environment variable on both sides.
@@ -76,16 +76,16 @@ After the first server works, open the dashboard's dedicated **Add Backend** pag
 Download the current release with GitHub CLI:
 
 ```bash
-gh release download v0.1.7 \
+gh release download v0.2.0-beta.1 \
   --repo TheNINJALLO/OniLink \
   --dir onilink-release
 ```
 
-Pterodactyl administrators can import [`egg-onilink.json`](packaging/pterodactyl/egg-onilink.json) from the same release. The egg verifies its bootstrap files, preserves live configuration and dashboard data, checks GitHub's latest stable release on every container start, and checksum-updates the JAR, updater, and reference configuration. Runtime updates do not rewrite the panel's stored egg definition, so reimport a new egg when you want newly added panel variables.
+Pterodactyl administrators can import [`egg-onilink.json`](packaging/pterodactyl/egg-onilink.json) from the same release. The beta egg verifies its bootstrap files, preserves live configuration and dashboard data, and checksum-updates the JAR, updater, and reference configuration from its selected `stable`, `beta`, or `pinned` channel. Existing stable eggs continue to ignore prereleases. Runtime updates do not rewrite the panel's stored egg definition, so reimport the beta egg to receive the channel selector.
 
 ## Operations dashboard
 
-`OniLink.jar` includes a responsive control plane for live players, authenticated XUID allowlisting, backend health, transfers, alerts, bounded traces, guided BDS backend setup, owner-managed tenant accounts and proxies, safe configuration editing, logs, audit records, accounts, TOTP, metrics, and redacted support bundles. It defaults to `127.0.0.1:8080`; first-run owner setup uses a one-time code written to `dashboard/FIRST_RUN_SETUP.txt`.
+`OniLink.jar` includes a responsive control plane for live players, authenticated XUID allowlisting, backend health, transfers, alerts, bounded traces, live packet compatibility monitoring, guided BDS backend setup, owner-managed tenant accounts and proxies, safe configuration editing, logs, audit records, accounts, TOTP, metrics, and redacted support bundles. It defaults to `127.0.0.1:8080`; first-run owner setup uses a one-time code written to `dashboard/FIRST_RUN_SETUP.txt`.
 
 For remote use, put the dashboard behind HTTPS and restrict it to administrator networks. See the [complete dashboard guide](docs/DASHBOARD.md) for standalone, reverse-proxy, account, role, recovery, and Pterodactyl examples.
 
@@ -99,7 +99,7 @@ server per logical proxy; no new server, egg, or Application API key is required
 
 ### Native BDS + Endstone
 
-Use `onibridge-0.1.7-bds-1.26.44.3-linux-x86_64.so` with the exact BDS `1.26.44.3` Linux executable and Endstone `0.11.9`. Install the matching profile JSON, start once to generate `onibridge.toml`, configure it, and keep `allow_unreviewed_profile=false` for this production-approved profile.
+Use `onibridge-0.2.0-beta.1-bds-1.26.44.3-linux-x86_64.so` with the exact BDS `1.26.44.3` Linux executable and Endstone `0.11.9`. Install the matching profile JSON, start once to generate `onibridge.toml`, configure it, and keep `allow_unreviewed_profile=false` for this production-approved profile.
 
 [Native installation guide →](docs/INSTALLATION.md)
 
@@ -128,8 +128,8 @@ Exact executable hashes, profile IDs, and remaining gates are maintained in [Com
 | [Installation](docs/INSTALLATION.md) | [Geyser](docs/GEYSER.md) | [OniForward protocol](docs/ONIFORWARD_PROTOCOL.md) |
 | [Deployment examples](examples/README.md) | [Windows status](docs/WINDOWS.md) | [Compatibility](docs/COMPATIBILITY.md) |
 | [Troubleshooting](docs/TROUBLESHOOTING.md) | [Dashboard](docs/DASHBOARD.md) | [Building](docs/BUILDING.md) |
-| [GitHub Wiki](https://github.com/TheNINJALLO/OniLink/wiki) | [Pterodactyl](docs/PTERODACTYL.md) | [Source audit](docs/SOURCE_AUDIT.md) |
-| [Tenant hosting](docs/TENANT_HOSTING.md) | [Add a BDS backend](docs/ADDING_BACKEND.md) | [Contributing](CONTRIBUTING.md) |
+| [Packet monitor](docs/PACKET_MONITOR.md) | [Pterodactyl](docs/PTERODACTYL.md) | [Source audit](docs/SOURCE_AUDIT.md) |
+| [GitHub Wiki](https://github.com/TheNINJALLO/OniLink/wiki) | [Tenant hosting](docs/TENANT_HOSTING.md) | [Contributing](CONTRIBUTING.md) |
 | [Migration](docs/MIGRATION.md) | [Testing](docs/TESTING.md) | [Feature parity](docs/FEATURE_PARITY.md) |
 
 ## Build and test

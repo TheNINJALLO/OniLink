@@ -77,10 +77,12 @@ class PterodactylEggTests(unittest.TestCase):
         self.assertNotIn("releases/latest", script)
         self.assertNotIn("bedrock_server", script)
 
-    def test_runtime_updater_is_latest_checksum_verified_and_fail_safe(self) -> None:
+    def test_runtime_updater_has_verified_stable_beta_and_pinned_channels(self) -> None:
         script = UPDATER_PATH.read_text(encoding="utf-8")
-        self.assertIn("/releases/latest", script)
-        self.assertNotIn("/releases?per_page=1", script)
+        self.assertIn("ONILINK_RELEASE_API_ROOT}/latest", script)
+        self.assertIn("ONILINK_UPDATE_CHANNEL:-stable", script)
+        self.assertIn("ONILINK_RELEASE_API_ROOT}?per_page=20", script)
+        self.assertIn("ONILINK_RELEASE_API_ROOT}/tags/${ONILINK_VERSION}", script)
         self.assertIn('download "${release_url}/SHA256SUMS"', script)
         self.assertIn('download "${release_url}/OniLink.jar"', script)
         self.assertIn('download "${release_url}/start-onilink.sh"', script)
@@ -106,7 +108,7 @@ class PterodactylEggTests(unittest.TestCase):
             self.assertEqual(0, completed.returncode, f"{name}: {completed.stderr}")
 
     @unittest.skipIf(os.name == "nt", "POSIX updater integration test runs in Linux CI")
-    def test_runtime_updater_replaces_verified_jar_and_retains_previous(self) -> None:
+    def test_beta_updater_replaces_verified_jar_and_retains_previous(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             fixture = root / "fixture"
@@ -153,7 +155,7 @@ while [ \"$#\" -gt 0 ]; do
     esac
 done
 case \"$url\" in
-    */releases/latest) source=$FIXTURE/release.json ;;
+    */releases?per_page=20) source=$FIXTURE/release.json ;;
     */SHA256SUMS) source=$FIXTURE/SHA256SUMS ;;
     */OniLink.jar) source=$FIXTURE/OniLink.jar ;;
     */start-onilink.sh) source=$FIXTURE/start-onilink.sh ;;
@@ -178,6 +180,7 @@ printf '%s\\n' \"$*\" > \"$JAVA_LOG\"
             environment["PATH"] = f"{commands}:{environment['PATH']}"
             environment["FIXTURE"] = str(fixture)
             environment["JAVA_LOG"] = str(root / "java.log")
+            environment["ONILINK_UPDATE_CHANNEL"] = "beta"
             completed = subprocess.run(
                 ["bash", str(UPDATER_PATH)],
                 cwd=root,
@@ -261,6 +264,7 @@ printf '%s\\n' \"$*\" > \"$JAVA_LOG\"
         self.assertEqual(len(variables), len(self.egg["variables"]))
         for required in (
             "ONILINK_VERSION",
+            "ONILINK_UPDATE_CHANNEL",
             "SERVER_JARFILE",
             "CONFIG_FILE",
             "BACKEND_HOST",
@@ -272,7 +276,8 @@ printf '%s\\n' \"$*\" > \"$JAVA_LOG\"
         ):
             self.assertIn(required, variables)
 
-        self.assertEqual("v0.1.7", variables["ONILINK_VERSION"]["default_value"])
+        self.assertEqual("v0.2.0-beta.1", variables["ONILINK_VERSION"]["default_value"])
+        self.assertEqual("beta", variables["ONILINK_UPDATE_CHANNEL"]["default_value"])
         self.assertEqual("true", variables["DASHBOARD_ENABLED"]["default_value"])
         self.assertEqual("false", variables["ALLOWLIST_ENABLED"]["default_value"])
         for name in (

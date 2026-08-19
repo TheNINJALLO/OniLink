@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "dev.onistone"
-version = "0.1.7"
+version = "0.2.0-beta.1"
 val extensionVersion = version.toString()
 
 java {

@@ -33,7 +33,7 @@ The setup file is deleted after use. Passwords are stored as salted PBKDF2 hashe
 
 | Role | Intended access |
 | --- | --- |
-| Viewer | Overview, players, backends, and metrics |
+| Viewer | Overview, players, backends, packet monitor, and metrics |
 | Operator | Viewer access plus logs, alerts, transfers, disconnects, and packet traces |
 | Admin | Operator access plus configuration, audit, endpoints, and support bundles |
 | Owner | Admin access plus accounts, tenant hosting, and graceful proxy shutdown |
@@ -47,6 +47,17 @@ Hosting providers use the owner-only **Tenant Hosting** page to create customer-
 isolated proxy listeners inside the existing OniLink container. Give the same Pterodactyl server
 one additional UDP allocation per logical proxy. Tenants sign in at this same URL and see only
 **My Proxies**; no Application API key, extra server, or repeated egg is needed. See [[Tenant Hosting]].
+
+## Packet monitor
+
+Every signed-in role can open **Packet Monitor**. It shows safe live metadata from the real relay,
+the automatic shared-codec matches already handling cross-version traffic, reviewed translators,
+and packet definitions that still need investigation. Owners and tenants select a permitted proxy;
+cross-tenant API access is denied on the server.
+
+The monitor keeps only a bounded in-memory history and never retains packet payloads, chat, login
+chains, tokens, XUIDs, addresses, or raw bytes. See [[Packet Monitor]] for status meanings, report
+handling, and the new-version testing workflow.
 
 ## Pterodactyl
 

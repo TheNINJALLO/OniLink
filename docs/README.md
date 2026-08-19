@@ -7,7 +7,7 @@
 Use this page as the canonical map for operators, testers, and contributors. The [GitHub Wiki](https://github.com/TheNINJALLO/OniLink/wiki) provides a shorter task-oriented copy of the operator guidance.
 
 > [!IMPORTANT]
-> `v0.1.7` is the current production release. Tenant and backend setup clearly separate the player-facing proxy from the destination game server, and the exact Linux BDS `1.26.44.3` + Endstone `0.11.9` profile remains production-approved; other platforms and profiles retain separate compatibility gates.
+> `v0.2.0-beta.1` is the current public beta. Its packet monitor observes safe relay metadata, verifies shared-codec mappings against real traffic, and flags gaps for reviewed translator work. The exact Linux BDS `1.26.44.3` + Endstone `0.11.9` profile remains production-approved; the monitor does not relax any compatibility gate.
 
 ## Start here
 
@@ -17,7 +17,8 @@ Use this page as the canonical map for operators, testers, and contributors. The
 | Install the current Linux release | [Quick start](QUICKSTART.md) |
 | Install and configure the complete network | [Installation](INSTALLATION.md) |
 | Add another BDS server automatically | [Adding a BDS backend](ADDING_BACKEND.md) |
-| Review the current changes and upgrade steps | [v0.1.7 release notes](releases/v0.1.7.md) |
+| Review the current changes and upgrade steps | [v0.2.0-beta.1 release notes](releases/v0.2.0-beta.1.md) |
+| Inspect live cross-version packet mappings | [Packet monitor](PACKET_MONITOR.md) |
 | Copy a complete working configuration | [Deployment examples](../examples/README.md) |
 | Import the OniLink Pterodactyl egg | [Pterodactyl](PTERODACTYL.md) |
 | Provision isolated paid customer instances | [Tenant hosting](TENANT_HOSTING.md) |
@@ -34,6 +35,7 @@ Use this page as the canonical map for operators, testers, and contributors. The
 - [Pterodactyl](PTERODACTYL.md) — process separation, allocations, environment secrets, and startup order.
 - [Tenant hosting](TENANT_HOSTING.md) — one shared dashboard, scoped customer logins, isolated in-process proxies, handoffs, and lifecycle controls.
 - [Dashboard](DASHBOARD.md) — first-run ownership, roles, TOTP, HTTPS, operations, recovery, and panel setup.
+- [Packet monitor](PACKET_MONITOR.md) — live metadata, codec matching, reports, privacy, and adjacent-version workflow.
 - [Migration](MIGRATION.md) — preserving identity and storage continuity when introducing OniLink.
 - [Testing](TESTING.md) — completed evidence and the live acceptance checklist.
 - [Command compatibility](COMMAND_COMPATIBILITY.md) — proxy/backend command ownership and fixture expectations.
@@ -60,7 +62,7 @@ Use this page as the canonical map for operators, testers, and contributors. The
 
 | Item | Current value |
 | --- | --- |
-| Application release | `v0.1.7` |
+| Application release | `v0.2.0-beta.1` (public beta; `v0.1.7` remains stable) |
 | Locked BDS | `1.26.44.3` |
 | Endstone | `0.11.9` |
 | Public proxy runtime | Java 21 |

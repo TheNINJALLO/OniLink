@@ -6,7 +6,7 @@ import { dashboardApi } from "../api/dashboard";
 import { App } from "../app/App";
 import { AuthProvider } from "../auth/AuthProvider";
 import { backends, player, state } from "../test/fixtures";
-import type { GlobalRole, Player } from "../types/dashboard";
+import type { GlobalRole, PacketMonitorSnapshot, Player } from "../types/dashboard";
 
 function renderRoute(role: GlobalRole, route: string) {
   sessionStorage.setItem("onilink_dashboard_token", "test-session");
@@ -29,6 +29,95 @@ function renderRoute(role: GlobalRole, route: string) {
 }
 
 describe("monitoring features", () => {
+  it("shows live packet matches and the cross-version codec catalog", async () => {
+    const snapshot: PacketMonitorSnapshot = {
+      enabled: true,
+      privacy: "Metadata only; no payloads or wire bytes are stored.",
+      summary: {
+        observedPackets: 42,
+        storedRecords: 10,
+        uniqueMatches: 3,
+        nativeMatches: 1,
+        automaticMatches: 40,
+        explicitTranslations: 1,
+        reviewRequired: 1,
+        droppedPackets: 1,
+        sampledOut: 32,
+        evictedRecords: 0,
+        capacity: 5000,
+        movementSampleRate: 20,
+      },
+      protocols: [
+        { protocol: 898, minecraftVersion: "1.21.130", packetModels: 190 },
+        { protocol: 2168, minecraftVersion: "1.26.40", packetModels: 240 },
+      ],
+      selectedPair: {
+        clientProtocol: 2168,
+        clientVersion: "1.26.40",
+        backendProtocol: 898,
+        backendVersion: "1.21.130",
+      },
+      routeAvailable: true,
+      records: [
+        {
+          sequence: 9,
+          timestamp: "2026-08-19T22:00:00Z",
+          direction: "clientbound",
+          directionLabel: "Server to player",
+          packetName: "StartGamePacket",
+          sourcePacketId: 11,
+          targetPacketId: 11,
+          sourceProtocol: 898,
+          sourceVersion: "1.21.130",
+          targetProtocol: 2168,
+          targetVersion: "1.26.40",
+          status: "automatic_codec_match",
+          action: "forwarded",
+          player: "TheN1NJ4LL0",
+          backend: "survival",
+          suggestion: "",
+        },
+      ],
+      matches: [
+        {
+          direction: "clientbound",
+          packetName: "StartGamePacket",
+          sourcePacketId: 11,
+          targetPacketId: 11,
+          sourceProtocol: 898,
+          targetProtocol: 2168,
+          status: "automatic_codec_match",
+          action: "forwarded",
+          suggestion: "",
+          count: 4,
+          lastSeen: "2026-08-19T22:00:00Z",
+        },
+      ],
+      catalog: [
+        {
+          direction: "clientbound",
+          packetName: "StartGamePacket",
+          sourcePacketId: 11,
+          targetPacketId: 11,
+          status: "automatic_codec_match",
+          candidate: "",
+          observedCount: 4,
+        },
+      ],
+      catalogCount: 1,
+    };
+    vi.spyOn(dashboardApi, "packets").mockResolvedValue(snapshot);
+    renderRoute("viewer", "packet-monitor");
+    const user = userEvent.setup();
+    expect(await screen.findByRole("heading", { name: "Packet Monitor" })).toBeInTheDocument();
+    expect(await screen.findByText("42")).toBeInTheDocument();
+    expect(screen.getAllByText("Auto matched").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("StartGamePacket").length).toBeGreaterThan(0);
+    await user.click(screen.getByRole("button", { name: "StartGamePacket" }));
+    expect(screen.getByRole("heading", { name: "StartGamePacket" })).toBeInTheDocument();
+    expect(screen.getByText(/no payloads or wire bytes/i)).toBeInTheDocument();
+  });
+
   it("renders the runtime overview using real API values", async () => {
     vi.spyOn(dashboardApi, "backends").mockResolvedValue({ backends });
     renderRoute("viewer", "overview");

@@ -11,6 +11,7 @@ The dashboard is built into `OniLink.jar`; there is no second service, database,
 | --- | --- |
 | Overview | Proxy version, uptime, player count, JVM use, listener, backend status, and RakNet probe latency |
 | Players | Authenticated identity summary, route, protocol, join state, transfer, disconnect, and bounded packet trace |
+| Packet Monitor | Live metadata-only packet flow, cross-version codec matches, review-required gaps, compiled packet catalog, and JSON reports |
 | Backends | Population, routing flags, forwarding state, endpoint visibility by role, and live health |
 | Allowlist | Authenticated XUID membership, connected-player enrollment, manual enrollment, and immediate removal |
 | Configuration | Guided BDS backend setup, protected secret creation, redacted editor, optimistic revision check, parser validation, automatic backup, and rollback |
@@ -104,7 +105,7 @@ are created under **Tenant Hosting** so they receive a mandatory tenant scope.
 
 | Role | Access |
 | --- | --- |
-| `viewer` | Overview, players, backends, and authenticated metrics |
+| `viewer` | Overview, players, backends, packet monitor, and authenticated metrics |
 | `operator` | Viewer access plus logs, alerts, transfer, disconnect, and packet trace |
 | `admin` | Operator access plus endpoint details, configuration, audit, and support bundles |
 | `owner` | All access plus user administration and proxy shutdown |
@@ -123,6 +124,19 @@ Open **Players**, select **Transfer**, and choose a configured backend. OniLink 
 ### Capture a packet trace
 
 Select **Trace** for one player and choose 1,000–60,000 milliseconds. Tracing is deliberately bounded and uses OniLink's existing per-connection diagnostic path.
+
+### Inspect cross-version packets
+
+Open **Packet Monitor** to watch the real relay's metadata, compare the client/backend codec pair,
+and isolate automatic matches, explicit translators, unknown packets, or definitions that require
+review. Owners and tenants can select a tenant proxy; server-side authorization rejects access to a
+runtime outside the signed-in account's scope.
+
+The monitor does not retain packet payloads, chat, login material, forwarding tokens, XUIDs,
+addresses, or wire bytes. Its 5,000-record in-memory ring disappears on restart, and high-volume
+movement records are sampled. Exported reports and support bundles can still include player display
+names and backend labels. Read [Packet monitor and cross-version matching](PACKET_MONITOR.md) before
+sharing a report or using the results to implement another protocol.
 
 ### Manage player access
 

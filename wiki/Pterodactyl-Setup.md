@@ -4,13 +4,13 @@ Run OniLink and every backend as separate Pterodactyl servers.
 
 ## Import the released egg
 
-Download [`egg-onilink.json`](https://github.com/TheNINJALLO/OniLink/releases/download/v0.1.7/egg-onilink.json), then open **Admin Panel → Nests → Import Egg**.
+Download [`egg-onilink.json`](https://github.com/TheNINJALLO/OniLink/releases/download/v0.2.0-beta.1/egg-onilink.json), then open **Admin Panel → Nests → Import Egg**.
 
 Create an **OniLink Bedrock Proxy** server with the Java 21 image and one public UDP allocation. Set the private backend host/port and enter a generated Base64 secret in the administrator-only `ONIBRIDGE_FORWARDING_SECRET` variable. Put the same value on the backend validator.
 
-The egg verifies its bootstrap downloads, creates `config.properties` only when missing, and preserves it on reinstall. Every container start checks GitHub's latest stable release, verifies the JAR, updater, and reference configuration, and atomically installs valid changes. Drafts and prereleases are ignored. A failed update starts the existing JAR; a successful one keeps previous runtime files for rollback. It also maps the primary allocation number to Bedrock UDP and the authenticated dashboard over TCP. The BDS/Endstone and Geyser processes still use separate servers/eggs.
+The egg verifies its bootstrap downloads, creates `config.properties` only when missing, and preserves it on reinstall. Every container start checks the selected update channel, verifies the JAR, updater, and reference configuration, and atomically installs valid changes. `stable` ignores prereleases, `beta` follows the newest published release including betas, and `pinned` stays on `ONILINK_VERSION`. The beta egg defaults to `beta`. A failed update starts the existing JAR; a successful one keeps previous runtime files for rollback. It also maps the primary allocation number to Bedrock UDP and the authenticated dashboard over TCP. The BDS/Endstone and Geyser processes still use separate servers/eggs.
 
-The updater changes runtime files, not the egg definition stored in the panel. Existing updater-enabled servers discover and download the latest stable JAR on their next restart. The single-container tenant dashboard is part of that JAR, so it needs no egg reimport. Reimport the egg only when you need newly added panel variables or install defaults.
+The updater changes runtime files, not the egg definition stored in the panel. Existing eggs without the channel variable default to `stable`, so reimport the `v0.2.0-beta.1` egg and confirm `beta` to test this release. Reimport again only when you need later panel variables or install defaults.
 
 The BDS image must provide glibc 2.35 or newer for native OniBridge. The current amd64 `ghcr.io/parkervcp/yolks:python_3.14` image is Debian Bookworm-based and meets that floor. Recheck mutable image tags with `ldd --version` after updates, and never replace `libc.so.6` manually.
 

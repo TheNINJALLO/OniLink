@@ -40,6 +40,7 @@ import org.cloudburstmc.protocol.bedrock.packet.ItemComponentPacket;
 import org.cloudburstmc.protocol.bedrock.packet.SyncEntityPropertyPacket;
 import dev.onistone.onilink.registry.CrossBackendPalette;
 import dev.onistone.onilink.registry.ItemPaletteMapping;
+import dev.onistone.onilink.protocol.PacketMonitor;
 import org.cloudburstmc.protocol.bedrock.packet.LevelChunkPacket;
 import org.cloudburstmc.protocol.bedrock.packet.LevelSoundEventPacket;
 import org.cloudburstmc.protocol.bedrock.packet.MoveEntityAbsolutePacket;
@@ -517,6 +518,12 @@ public final class BackendRelayPacketHandler implements BedrockPacketHandler {
                     connection.sessionProfile().clientCodec().getProtocolVersion(),
                     packet.getClass().getSimpleName()
             );
+            connection.observePacket(
+                    PacketMonitor.Direction.CLIENTBOUND,
+                    packet,
+                    null,
+                    PacketMonitor.Action.DROPPED
+            );
             return PacketSignal.HANDLED;
         }
         if (packet instanceof DeathInfoPacket) {
@@ -578,6 +585,12 @@ public final class BackendRelayPacketHandler implements BedrockPacketHandler {
                         "Dropping undecodable backend command output packet %d from %s to avoid client disconnect.%n",
                         unknownPacket.getPacketId(),
                         backendName
+                );
+                connection.observePacket(
+                        PacketMonitor.Direction.CLIENTBOUND,
+                        packet,
+                        null,
+                        PacketMonitor.Action.DROPPED
                 );
                 return PacketSignal.HANDLED;
             }
@@ -674,6 +687,12 @@ public final class BackendRelayPacketHandler implements BedrockPacketHandler {
         BedrockPacket translated = connection.sessionProfile()
                 .translator()
                 .translateClientbound(rewriteClientboundRuntimeIds(packet), connection.sessionProfile().translationContext());
+        connection.observePacket(
+                PacketMonitor.Direction.CLIENTBOUND,
+                packet,
+                translated,
+                translated == null ? PacketMonitor.Action.DROPPED : PacketMonitor.Action.FORWARDED
+        );
         if (translated == null) {
             System.out.printf(
                     "Dropping clientbound packet from backend %s after protocol translation for client protocol %d: %s.%n",

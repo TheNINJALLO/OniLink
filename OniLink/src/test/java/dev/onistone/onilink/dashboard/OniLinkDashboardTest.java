@@ -57,6 +57,7 @@ class OniLinkDashboardTest {
             assertTrue(application.headers().firstValue("Cache-Control").orElseThrow().contains("immutable"));
             assertTrue(application.body().contains("/api/tenancy/tenants"));
             assertTrue(application.body().contains("/api/tenancy/proxy/runtime"));
+            assertTrue(application.body().contains("/api/packets"));
             assertFalse(application.body().contains("/api/hosting"));
             String stylesheetPath = assetPath(home.body(), "href", "css");
             HttpResponse<String> stylesheet = get(client, base.resolve(stylesheetPath), "");
@@ -91,6 +92,7 @@ class OniLinkDashboardTest {
             String operatorToken = createAndLogin(client, base, ownerToken, "test-operator", "operator");
             String adminToken = createAndLogin(client, base, ownerToken, "test-admin", "admin");
             assertEquals(200, get(client, base.resolve("/api/state"), viewerToken).statusCode());
+            assertEquals(200, get(client, base.resolve("/api/packets?limit=100"), viewerToken).statusCode());
             assertEquals(403, get(client, base.resolve("/api/logs?limit=50"), viewerToken).statusCode());
             assertEquals(200, get(client, base.resolve("/api/logs?limit=50"), operatorToken).statusCode());
             assertEquals(403, get(client, base.resolve("/api/config"), operatorToken).statusCode());
@@ -148,6 +150,12 @@ class OniLinkDashboardTest {
             assertEquals(403, get(client, base.resolve("/api/state"), tenantToken).statusCode());
             assertEquals(403, get(client,
                     base.resolve("/api/tenancy/proxy?tenant=other&proxy=survival"), tenantToken).statusCode());
+            HttpResponse<String> tenantPackets = get(client,
+                    base.resolve("/api/packets?tenant=acme&proxy=survival&limit=100"), tenantToken);
+            assertEquals(200, tenantPackets.statusCode());
+            assertTrue(tenantPackets.body().contains("\"enabled\":false"));
+            assertEquals(403, get(client,
+                    base.resolve("/api/packets?tenant=other&proxy=survival"), tenantToken).statusCode());
 
             HttpResponse<String> allowlist = get(client, base.resolve("/api/allowlist"), ownerToken);
             assertEquals(200, allowlist.statusCode());

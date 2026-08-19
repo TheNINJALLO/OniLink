@@ -11,6 +11,9 @@
   .inlineForm {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .packetFilters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 @media (max-width: 820px) {
   body.drawerOpen {
@@ -100,6 +103,14 @@
   .connectionPath > svg {
     transform: rotate(90deg);
   }
+  .packetSafety,
+  .packetMatchList li {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .packetMatchList li > div:last-child {
+    text-align: left;
+  }
 }
 @media (max-width: 540px) {
   .topbar {
@@ -134,7 +145,8 @@
   .healthSummary,
   .formGrid,
   .filterRow,
-  .inlineForm {
+  .inlineForm,
+  .packetFilters {
     grid-template-columns: 1fr;
   }
   .headerActions .button {
@@ -148,5 +160,13 @@
   }
   .card {
     padding: 0.9rem;
+  }
+  .packetDetails div {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .packetDetails dd {
+    max-width: 100%;
+    text-align: left;
   }
 }

@@ -11,6 +11,7 @@ import dev.onistone.onilink.registry.CrossBackendPalette;
 import dev.onistone.onilink.resourcepack.BackendPackCache;
 import dev.onistone.onilink.resourcepack.ProxyResourcePackRegistry;
 import dev.onistone.onilink.session.ProxySessionProfile;
+import dev.onistone.onilink.protocol.PacketMonitor;
 
 import java.security.KeyPair;
 import java.util.ArrayList;
@@ -45,6 +46,7 @@ public final class ProxyConnection {
     private final ProxyResourcePackRegistry proxyResourcePackRegistry;
     private final BackendPackCache backendPackCache;
     private final CrossBackendPalette crossBackendPalette;
+    private final PacketMonitor packetMonitor;
     private Boolean clientBlockIdsHashed;
     private final ClientWorldState clientWorldState = new ClientWorldState();
     private BackendSession backend;
@@ -133,6 +135,21 @@ public final class ProxyConnection {
             BackendPaletteStore backendPaletteStore,
             BackendPackCache backendPackCache
     ) {
+        this(client, sessionProfile, clientLogin, keyPair, backendLogin, proxyResourcePackRegistry,
+                backendPaletteStore, backendPackCache, null);
+    }
+
+    public ProxyConnection(
+            dev.onistone.onilink.listener.ListenerSession client,
+            ProxySessionProfile sessionProfile,
+            ClientLogin clientLogin,
+            KeyPair keyPair,
+            LoginPacket backendLogin,
+            ProxyResourcePackRegistry proxyResourcePackRegistry,
+            BackendPaletteStore backendPaletteStore,
+            BackendPackCache backendPackCache,
+            PacketMonitor packetMonitor
+    ) {
         this.client = client;
         this.sessionProfile = sessionProfile;
         this.clientLogin = clientLogin;
@@ -143,6 +160,7 @@ public final class ProxyConnection {
                 : ProxyResourcePackRegistry.empty();
         this.crossBackendPalette = new CrossBackendPalette(backendPaletteStore);
         this.backendPackCache = backendPackCache != null ? backendPackCache : BackendPackCache.disabled();
+        this.packetMonitor = packetMonitor;
     }
 
     public dev.onistone.onilink.listener.ListenerSession client() {
@@ -216,6 +234,30 @@ public final class ProxyConnection {
      */
     public CrossBackendPalette crossBackendPalette() {
         return crossBackendPalette;
+    }
+
+    public void observePacket(
+            PacketMonitor.Direction direction,
+            BedrockPacket original,
+            BedrockPacket translated,
+            PacketMonitor.Action action
+    ) {
+        ProxySessionProfile profile = sessionProfile;
+        if (packetMonitor == null || profile == null) {
+            return;
+        }
+        String player = clientLogin == null || clientLogin.authData() == null
+                ? ""
+                : clientLogin.authData().displayName();
+        packetMonitor.observe(
+                direction,
+                original,
+                translated,
+                action,
+                profile.translationContext(),
+                player,
+                backendName
+        );
     }
 
     /**

@@ -20,7 +20,7 @@
 #include <vector>
 
 #ifndef ONIBRIDGE_VERSION
-#define ONIBRIDGE_VERSION "0.1.7"
+#define ONIBRIDGE_VERSION "0.2.0-beta.1"
 #endif
 
 namespace onistone::onibridge {
