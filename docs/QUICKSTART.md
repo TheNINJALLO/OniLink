@@ -12,14 +12,14 @@ You need:
 - Endstone `0.11.9` on that backend.
 - Java 21 for OniLink.
 - A private or firewalled UDP path from OniLink to BDS.
-- The [current candidate release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.0-candidate.1).
+- The [current candidate release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.0-candidate.2).
 
 Do not expose the backend's Bedrock listener publicly. Players connect to OniLink; only OniLink connects to the backend.
 
 ## 2. Download and verify the release
 
 ```bash
-gh release download v0.1.0-candidate.1 \
+gh release download v0.1.0-candidate.2 \
   --repo TheNINJALLO/OniLink \
   --dir onilink-candidate
 cd onilink-candidate
@@ -138,7 +138,7 @@ Use the full [testing checklist](TESTING.md). Do not change the profile to produ
 
 ## Next steps
 
-- Add more BDS backends by repeating the backend-specific settings with a unique secret.
+- Add more BDS backends with the dashboard wizard and the [step-by-step backend guide](ADDING_BACKEND.md).
 - For a Java backend, follow [Geyser integration](GEYSER.md) instead of installing the native `.so`.
 - For panel deployment, continue with [Pterodactyl](PTERODACTYL.md).
 - To configure accounts, roles, TOTP, and the web control plane, continue with [Dashboard](DASHBOARD.md).

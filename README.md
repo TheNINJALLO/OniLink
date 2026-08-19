@@ -30,7 +30,7 @@
 <!-- onilink-professional-header:end -->
 
 > [!IMPORTANT]
-> `v0.1.0-candidate.1` is an acceptance-test release, not a production approval. The Linux build and synthetic hook harness pass on GitHub's Ubuntu runner, but the exact BDS profile still requires human review and a live join/storage test before promotion.
+> `v0.1.0-candidate.2` is an acceptance-test release, not a production approval. The Linux build and synthetic hook harness pass on GitHub's Ubuntu runner, but the exact BDS profile still requires formal human review and a recorded live acceptance matrix before promotion.
 
 ## What this repository provides
 
@@ -63,17 +63,19 @@ OniLink preserves the authenticated name, XUID, UUID, and observed client addres
 
 ## Quick start
 
-1. Read the [candidate release notice](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.0-candidate.1) and download only the files for your backend path.
+1. Read the [candidate release notice](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.0-candidate.2) and download only the files for your backend path.
 2. Verify the download directory against `SHA256SUMS`.
 3. Generate a unique 32-byte-or-stronger secret for each backend and expose it through an environment variable—not a committed configuration file.
 4. Configure matching backend name, bridge ID, key ID, and secret environment variable on both sides.
 5. Keep the backend listener private and restrict its trusted proxy CIDRs to OniLink.
 6. Choose a ready-to-copy [deployment example](examples/README.md), follow the [complete installation guide](docs/INSTALLATION.md), then complete the [acceptance checklist](docs/TESTING.md).
 
+After the first server works, use the dashboard's **Add BDS Backend** wizard to generate every additional route, unique secret, and matching Endstone configuration. See [Adding another BDS backend](docs/ADDING_BACKEND.md) for the complete Pterodactyl and manual walkthrough.
+
 Download the current candidate with GitHub CLI:
 
 ```bash
-gh release download v0.1.0-candidate.1 \
+gh release download v0.1.0-candidate.2 \
   --repo TheNINJALLO/OniLink \
   --dir onilink-candidate
 ```
@@ -82,7 +84,7 @@ Pterodactyl administrators can import [`egg-onilink.json`](packaging/pterodactyl
 
 ## Operations dashboard
 
-`OniLink.jar` includes a responsive control plane for live players, backend health, transfers, alerts, bounded traces, safe configuration editing, logs, audit records, accounts, TOTP, metrics, and redacted support bundles. It defaults to `127.0.0.1:8080`; first-run owner setup uses a one-time code written to `dashboard/FIRST_RUN_SETUP.txt`.
+`OniLink.jar` includes a responsive control plane for live players, backend health, transfers, alerts, bounded traces, guided BDS backend setup, safe configuration editing, logs, audit records, accounts, TOTP, metrics, and redacted support bundles. It defaults to `127.0.0.1:8080`; first-run owner setup uses a one-time code written to `dashboard/FIRST_RUN_SETUP.txt`.
 
 For remote use, put the dashboard behind HTTPS and restrict it to administrator networks. See the [complete dashboard guide](docs/DASHBOARD.md) for standalone, reverse-proxy, account, role, recovery, and Pterodactyl examples.
 
@@ -115,7 +117,7 @@ Exact executable hashes, profile IDs, and remaining gates are maintained in [Com
 | Start here | Operator guides | Engineering reference |
 | --- | --- | --- |
 | [Documentation hub](docs/README.md) | [Configuration](docs/CONFIGURATION.md) | [Architecture](docs/ARCHITECTURE.md) |
-| [Quick start](docs/QUICKSTART.md) | [Linux](docs/LINUX.md) | [Identity flow](docs/IDENTITY_FLOW.md) |
+| [Quick start](docs/QUICKSTART.md) | [Add a BDS backend](docs/ADDING_BACKEND.md) | [Identity flow](docs/IDENTITY_FLOW.md) |
 | [Installation](docs/INSTALLATION.md) | [Geyser](docs/GEYSER.md) | [OniForward protocol](docs/ONIFORWARD_PROTOCOL.md) |
 | [Deployment examples](examples/README.md) | [Windows status](docs/WINDOWS.md) | [Compatibility](docs/COMPATIBILITY.md) |
 | [Troubleshooting](docs/TROUBLESHOOTING.md) | [Dashboard](docs/DASHBOARD.md) | [Building](docs/BUILDING.md) |

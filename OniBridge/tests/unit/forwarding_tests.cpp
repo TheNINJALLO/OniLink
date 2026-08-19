@@ -1,3 +1,4 @@
+#include <onibridge/config.hpp>
 #include <onibridge/forwarding.hpp>
 #include <onibridge/login_envelope.hpp>
 #include <onibridge/service.hpp>
@@ -5,6 +6,8 @@
 #include <atomic>
 #include <array>
 #include <cstdlib>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <thread>
@@ -155,6 +158,35 @@ void cidr_tests() {
     check(!matcher.matches("not-an-ip"), "invalid socket source is rejected");
 }
 
+void secret_file_tests() {
+#ifdef _WIN32
+    // Windows filesystems do not expose POSIX mode bits; native Windows deployments use the
+    // environment-variable secret source instead.
+    return;
+#else
+    const auto path = std::filesystem::temp_directory_path() / "onibridge-secret-file-test.key";
+    std::filesystem::remove(path);
+    {
+        std::ofstream output(path, std::ios::binary);
+        output << "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\n";
+    }
+    std::filesystem::permissions(
+        path,
+        std::filesystem::perms::owner_read | std::filesystem::perms::owner_write
+            | std::filesystem::perms::group_read | std::filesystem::perms::others_read,
+        std::filesystem::perm_options::replace);
+    SecretSource source;
+    source.restricted_file = path;
+    const auto secret = load_secret(source);
+    check(secret.size() == 32, "secret file loads 32 decoded bytes");
+    const auto permissions = std::filesystem::status(path).permissions();
+    constexpr auto exposed = std::filesystem::perms::group_all | std::filesystem::perms::others_all;
+    check((permissions & exposed) == std::filesystem::perms::none,
+          "secret file permissions are automatically restricted to the owner");
+    std::filesystem::remove(path);
+#endif
+}
+
 void service_tests() {
     OniBridgeService service("kingdom-main", "kingdom", {key(), std::nullopt}, TrustedProxyMatcher({"10.0.0.0/8"}));
     const auto token = sign_forwarding_token(fixture(), key());
@@ -208,6 +240,7 @@ int main() {
     token_tests();
     replay_tests();
     cidr_tests();
+    secret_file_tests();
     service_tests();
     login_envelope_tests();
     if (failures) std::cerr << failures << " test(s) failed\n";

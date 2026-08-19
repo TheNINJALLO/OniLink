@@ -3,7 +3,7 @@
 This page is the operator path from an empty host to a controlled OniLink candidate test. The repository's [complete installation manual](https://github.com/TheNINJALLO/OniLink/blob/main/docs/INSTALLATION.md) includes every command, setting table, systemd example, rotation procedure, and rollback step.
 
 > [!IMPORTANT]
-> `v0.1.0-candidate.1` is not production-approved. Native BDS testing requires the exact BDS `1.26.44.3` Linux executable, Endstone `0.11.9`, the candidate opt-in, and completion of the live test matrix.
+> `v0.1.0-candidate.2` is not production-approved. Native BDS testing requires the exact BDS `1.26.44.3` Linux executable, Endstone `0.11.9`, the candidate opt-in, and completion of the formal acceptance record.
 
 ## 1. Pick a topology
 
@@ -37,7 +37,7 @@ Backend name, bridge ID, key ID, and secret bytes must match on OniLink and the 
 ## 3. Download and verify
 
 ```bash
-gh release download v0.1.0-candidate.1 \
+gh release download v0.1.0-candidate.2 \
   --repo TheNINJALLO/OniLink \
   --dir onilink-candidate
 cd onilink-candidate
@@ -108,6 +108,8 @@ Start each validator once to create its data directory, then stop and configure 
 - [Mixed BDS + Geyser files](https://github.com/TheNINJALLO/OniLink/tree/main/examples/mixed-bds-geyser)
 
 Then read [[Native BDS Setup]] or [[Geyser Java Setup]] for the exact validator settings.
+
+Once the first server works, use **Configuration → Add BDS Backend** in the dashboard. It updates OniLink, creates a unique protected secret, and produces the two files to upload to the new Endstone server. Follow [[Adding Backends]] for the exact panel paths, field examples, routing options, and manual fallback.
 
 ## 7. Lock down networking
 

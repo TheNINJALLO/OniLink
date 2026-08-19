@@ -17,7 +17,7 @@ Every backend is a separate trust domain. Align these values exactly:
 | Backend name | backend list entry | `backend_name` | `backend_name` |
 | Bridge ID | `backend.<name>.forwarding.bridgeId` | `bridge_id` | `bridge_id` |
 | Active key ID | `backend.<name>.forwarding.activeKeyId` | `forwarding.active_key_id` | `active_key_id` |
-| Secret environment | `backend.<name>.forwarding.activeSecretEnv` | `forwarding.active_secret_env` | `active_secret_env` |
+| Secret source | `activeSecretEnv` or `activeSecretFile` | `active_secret_env` or `active_secret_file` | `active_secret_env` or `active_secret_file` |
 | Trusted source | proxy egress address | `trusted_proxy_cidrs` | `trusted_proxy_cidrs` |
 
 `forwarding.proxyId` identifies the OniLink instance and is included in replay identity. Use a stable unique value per proxy.
@@ -26,8 +26,9 @@ Every backend is a separate trust domain. Align these values exactly:
 
 - Use standard Base64 encoding for at least 32 random bytes.
 - Give every backend a different secret.
-- Prefer environment variables for panels and containers.
-- Restricted secret files are suitable for conventional hosts.
+- For an additional native BDS server, prefer the dashboard wizard; it creates matched restricted files without requiring new egg variables.
+- Environment variables remain suitable when the panel administrator can configure the same protected variable on both containers.
+- Configure exactly one environment or file source on each side.
 - Never put a real secret in source control, logs, screenshots, or support issues.
 
 Example secret generation:
@@ -85,6 +86,8 @@ For the full OniLink option reference, use `OniLink/onilink.example.properties`.
 | BDS plus Geyser/Java | [`examples/mixed-bds-geyser/`](../examples/mixed-bds-geyser/README.md) |
 
 The complete deployment sequence and operating-system examples are in [Installation](INSTALLATION.md).
+
+To add a native BDS route automatically, use **Configuration → Add BDS Backend** in the dashboard and follow [Adding another BDS backend](ADDING_BACKEND.md).
 
 ## OniLink listener and routing keys
 

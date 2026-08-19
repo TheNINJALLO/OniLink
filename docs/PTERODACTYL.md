@@ -4,7 +4,7 @@ Use a separate Pterodactyl server for OniLink and for every BDS or Geyser backen
 
 ## Import the OniLink egg
 
-Download `egg-onilink.json` from the [current release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.0-candidate.1) or [`packaging/pterodactyl`](../packaging/pterodactyl/README.md).
+Download `egg-onilink.json` from the [current release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.0-candidate.2) or [`packaging/pterodactyl`](../packaging/pterodactyl/README.md).
 
 1. Open **Admin Panel → Nests**.
 2. Select or create a nest and choose **Import Egg**.
@@ -59,6 +59,22 @@ The released egg declares these without values:
 | `ONIBRIDGE_JAVA_SECRET` | Optional named variable for the mixed example |
 
 When using the mixed example, the survival and Java values must be different. An egg export contains only blank defaults; never add a real value to `egg-onilink.json`.
+
+### Easier file-based setup for additional BDS servers
+
+You do not need to add or edit Endstone egg variables for a second native BDS server. In the OniLink dashboard, open **Configuration → Add BDS Backend**. The wizard creates a unique key under OniLink's `secrets/` directory, appends the validated route, and downloads the matching key plus complete `onibridge.toml` for the Endstone container.
+
+Upload both downloads to:
+
+```text
+/home/container/plugins/onibridge/
+├── <backend>.key
+└── onibridge.toml
+```
+
+The generated configuration uses `active_secret_file`, so `active_secret_env` remains empty and no panel startup variable is required. The current Linux plugin changes the selected key file to owner-only (`0600`) before reading it. Start Endstone first, confirm its native hook is active, then restart OniLink.
+
+See [Adding another BDS backend](ADDING_BACKEND.md) for the complete field-by-field workflow and worked routing examples.
 
 ## OniLink server files
 
@@ -155,11 +171,12 @@ The relevant layout is:
 ├── plugins/
 │   ├── onibridge-0.1.0-bds-1.26.44.3-linux-x86_64.so
 │   └── onibridge/
+│       ├── survival.key          # when using the dashboard/file method
 │       └── onibridge.toml
 └── worlds/
 ```
 
-The panel startup process must inherit `ONIBRIDGE_SURVIVAL_SECRET`. The TOML uses only the variable name:
+For the original environment-variable method, the panel startup process must inherit `ONIBRIDGE_SURVIVAL_SECRET`. The TOML contains the variable name, not the secret value:
 
 ```toml
 bridge_id = "survival-main"
@@ -178,6 +195,17 @@ allow_unknown_endstone = false
 ```
 
 Use the complete TOML from [`examples/single-bds/onibridge.toml`](../examples/single-bds/onibridge.toml), not only this excerpt.
+
+For the dashboard-generated file method, use the downloaded TOML unchanged:
+
+```toml
+[forwarding]
+active_key_id = "key-1"
+active_secret_env = ""
+active_secret_file = "survival.key"
+```
+
+Configure exactly one source. A non-empty `active_secret_env` plus a non-empty `active_secret_file` is rejected.
 
 ## Geyser server files
 

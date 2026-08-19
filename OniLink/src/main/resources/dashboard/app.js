@@ -10,6 +10,7 @@ const model = {
   players: [],
   backends: [],
   config: null,
+  backendSetup: null,
   action: null,
   totpSecret: ""
 };
@@ -24,6 +25,31 @@ function formBody(values) {
   const body = new URLSearchParams();
   Object.entries(values).forEach(([key, value]) => body.set(key, value ?? ""));
   return body;
+}
+
+function downloadText(name, content) {
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(new Blob([content], {type: "text/plain;charset=UTF-8"}));
+  link.download = name;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(link.href), 2000);
+}
+
+async function copyText(value) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+  const temporary = document.createElement("textarea");
+  temporary.value = value;
+  temporary.style.position = "fixed";
+  temporary.style.opacity = "0";
+  document.body.appendChild(temporary);
+  temporary.select();
+  if (!document.execCommand("copy")) throw new Error("Clipboard access is unavailable; copy the field manually");
+  temporary.remove();
 }
 
 async function api(path, options = {}) {
@@ -245,6 +271,17 @@ async function loadConfig() {
   $("#config-revision").textContent = `Revision ${model.config.revision.slice(0, 12)}`;
 }
 
+function showBackendSetup(result) {
+  model.backendSetup = result;
+  $("#backend-setup-title").textContent = `${result.backendName} files ready`;
+  $("#backend-secret-label").textContent = result.secretFileName;
+  $("#backend-secret-result").value = result.secret;
+  $("#backend-toml-result").value = result.onibridgeToml;
+  $("#backend-test-command").textContent = `/server ${result.backendName}`;
+  $("#backend-setup-result").hidden = false;
+  $("#backend-setup-result").scrollIntoView({behavior: "smooth", block: "start"});
+}
+
 async function loadLogs() {
   const result = await api("/api/logs?limit=400");
   $("#log-output").textContent = result.lines.join("\n") || "Log is empty.";
@@ -320,6 +357,36 @@ $("#action-form").addEventListener("submit", async event => {
 $("#alert-form").addEventListener("submit", async event => {
   event.preventDefault();
   try { const result = await api("/api/action/alert", {method: "POST", body: Object.fromEntries(new FormData(event.currentTarget))}); notice(result.message); event.currentTarget.reset(); }
+  catch (error) { notice(error.message, true); }
+});
+$("#add-backend-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  if (!model.config) return;
+  const data = Object.fromEntries(new FormData(event.currentTarget));
+  data.revision = model.config.revision;
+  try {
+    const result = await api("/api/config/backends", {method: "POST", body: data});
+    model.config = result;
+    $("#config-content").value = result.content;
+    $("#config-revision").textContent = `Revision ${result.revision.slice(0, 12)}`;
+    showBackendSetup(result);
+    notice(`${result.backendName} was added. Install the generated Endstone files, then restart OniLink.`);
+  } catch (error) { notice(error.message, true); }
+});
+$("#download-backend-secret").addEventListener("click", () => {
+  if (!model.backendSetup) return;
+  downloadText(model.backendSetup.secretFileName, `${model.backendSetup.secret}\n`);
+});
+$("#download-backend-toml").addEventListener("click", () => {
+  if (!model.backendSetup) return;
+  downloadText("onibridge.toml", model.backendSetup.onibridgeToml);
+});
+$("#copy-backend-secret").addEventListener("click", async () => {
+  try { await copyText($("#backend-secret-result").value); notice("Backend secret copied."); }
+  catch (error) { notice(error.message, true); }
+});
+$("#copy-backend-toml").addEventListener("click", async () => {
+  try { await copyText($("#backend-toml-result").value); notice("onibridge.toml copied."); }
   catch (error) { notice(error.message, true); }
 });
 $("#save-config").addEventListener("click", async () => {

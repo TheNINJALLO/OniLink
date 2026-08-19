@@ -74,6 +74,23 @@ class OniLinkDashboardTest {
             assertEquals(200, state.statusCode());
             assertTrue(state.body().contains("\"players\":2"));
             assertTrue(state.body().contains("\"role\":\"owner\""));
+
+            HttpResponse<String> config = client.send(HttpRequest.newBuilder(base.resolve("/api/config"))
+                    .header("Authorization", "Bearer " + token.group(1)).GET().build(),
+                    HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, config.statusCode());
+            Matcher revision = Pattern.compile("\\\"revision\\\":\\\"([^\\\"]+)\\\"").matcher(config.body());
+            assertTrue(revision.find());
+            HttpResponse<String> backend = post(client, base.resolve("/api/config/backends"), Map.of(
+                    "revision", revision.group(1),
+                    "name", "creative",
+                    "host", "127.0.0.1",
+                    "port", "19134",
+                    "trustedProxyCidr", "127.0.0.1/32"), Map.of(
+                    "Authorization", "Bearer " + token.group(1)));
+            assertEquals(201, backend.statusCode());
+            assertTrue(backend.body().contains("\"backendName\":\"creative\""));
+            assertTrue(Files.isRegularFile(directory.resolve("secrets/creative.key")));
         }
     }
 

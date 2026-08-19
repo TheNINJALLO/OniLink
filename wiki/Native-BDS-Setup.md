@@ -3,7 +3,7 @@
 This walkthrough installs the Linux native bridge for one BDS backend. The complete operator manual, including backups, systemd, Pterodactyl, rotation, rollback, and multi-backend examples, is in the [installation guide](https://github.com/TheNINJALLO/OniLink/blob/main/docs/INSTALLATION.md).
 
 > [!WARNING]
-> `v0.1.0-candidate.1` is for controlled acceptance testing. Use only BDS `1.26.44.3` Linux x86-64 with Endstone `0.11.9`; a nearby version is not compatible. The exact profile remains `production_ready=false` until its live gates are complete.
+> `v0.1.0-candidate.2` is for controlled acceptance testing. Use only BDS `1.26.44.3` Linux x86-64 with Endstone `0.11.9`; a nearby version is not compatible. The exact profile remains `production_ready=false` until its formal review and recorded live gates are complete.
 
 ## Example network
 

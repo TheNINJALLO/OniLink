@@ -16,6 +16,7 @@ Use this page as the canonical map for operators, testers, and contributors. The
 | Understand the system in five minutes | [Project README](../README.md) |
 | Test the current Linux candidate | [Quick start](QUICKSTART.md) |
 | Install and configure the complete network | [Installation](INSTALLATION.md) |
+| Add another BDS server automatically | [Adding a BDS backend](ADDING_BACKEND.md) |
 | Copy a complete working configuration | [Deployment examples](../examples/README.md) |
 | Import the OniLink Pterodactyl egg | [Pterodactyl](PTERODACTYL.md) |
 | Configure and secure the operations UI | [Dashboard](DASHBOARD.md) |
@@ -25,6 +26,7 @@ Use this page as the canonical map for operators, testers, and contributors. The
 ## Operator guides
 
 - [Configuration](CONFIGURATION.md) — shared IDs, keys, token lifetime, listener trust, and rotation.
+- [Adding a BDS backend](ADDING_BACKEND.md) — dashboard wizard, generated secrets/TOML, Pterodactyl upload, routing, and manual fallback.
 - [Linux](LINUX.md) — supported ABI, runtime requirements, and Linux evidence.
 - [Windows](WINDOWS.md) — Windows candidate status and required validation.
 - [Pterodactyl](PTERODACTYL.md) — process separation, allocations, environment secrets, and startup order.
@@ -55,7 +57,7 @@ Use this page as the canonical map for operators, testers, and contributors. The
 
 | Item | Current value |
 | --- | --- |
-| Candidate release | `v0.1.0-candidate.1` |
+| Candidate release | `v0.1.0-candidate.2` |
 | Locked BDS | `1.26.44.3` |
 | Endstone | `0.11.9` |
 | Public proxy runtime | Java 21 |

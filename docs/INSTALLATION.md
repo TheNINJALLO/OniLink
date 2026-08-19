@@ -3,7 +3,7 @@
 This is the full operator guide for installing OniLink and configuring either a native BDS + Endstone backend or a Geyser-backed Java server. If you only need the shortest path, use [Quick start](QUICKSTART.md). If you want ready-to-copy files, start in [`examples/`](../examples/README.md).
 
 > [!IMPORTANT]
-> `v0.1.0-candidate.1` is for controlled acceptance testing. The Linux artifact builds and passes its synthetic hook harness, but the exact profile remains `production_ready=false` until human review and live BDS join/storage testing are complete.
+> `v0.1.0-candidate.2` is for controlled acceptance testing. The Linux artifact builds and passes its synthetic hook harness, but the exact profile remains `production_ready=false` until formal human review and the complete live acceptance matrix are recorded.
 
 ## Contents
 
@@ -73,7 +73,7 @@ Container NAT may change the source address observed by the backend. Do not assu
 
 ```bash
 mkdir -p ~/onilink-download
-gh release download v0.1.0-candidate.1 \
+gh release download v0.1.0-candidate.2 \
   --repo TheNINJALLO/OniLink \
   --dir ~/onilink-download
 cd ~/onilink-download
@@ -84,7 +84,7 @@ Every listed file must report `OK`. Stop if any file is missing or mismatched.
 
 ### Browser download
 
-Download every required file from the [candidate release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.0-candidate.1), including `SHA256SUMS`. On Linux:
+Download every required file from the [candidate release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.0-candidate.2), including `SHA256SUMS`. On Linux:
 
 ```bash
 cd /path/to/downloads
@@ -504,15 +504,25 @@ The focused guide is [Geyser integration](GEYSER.md).
 
 ## 8. Configure multiple backends
 
-The complete mixed example is [`examples/mixed-bds-geyser/`](../examples/mixed-bds-geyser/README.md).
+For another native BDS server, use **Configuration → Add BDS Backend** in the OniLink dashboard. The wizard:
 
-Key rules:
+1. Preserves the existing backend list and appends the new route.
+2. Generates a different 32-byte secret for the new backend.
+3. Stores OniLink's copy as `secrets/<backend>.key` with owner-only permissions.
+4. Validates the complete candidate configuration and creates `config.properties.dashboard.bak`.
+5. Produces the matching `<backend>.key` and complete `onibridge.toml` to upload to Endstone.
+
+Follow [Adding another BDS backend](ADDING_BACKEND.md) for every field, the exact Pterodactyl paths, a worked example, success messages, routing choices, removal steps, and a manual fallback.
+
+The complete mixed BDS + Geyser example is [`examples/mixed-bds-geyser/`](../examples/mixed-bds-geyser/README.md). Add Geyser-backed Java servers manually because they use the extension configuration rather than native `onibridge.toml`.
+
+The rules are the same for either path:
 
 1. List every backend once in `backends`.
 2. Configure `backend.<name>.host` and `.port` for every named backend.
 3. Use a unique bridge ID and a unique secret source per backend.
 4. The OniLink backend name must match that validator's `backend_name`.
-5. Set per-backend failover order deliberately.
+5. Set hub, initial join order, and failover deliberately; adding a route does not change them automatically.
 6. Set `dropSubChunkRequests=true` only on Geyser-like backends.
 
 Example failover:

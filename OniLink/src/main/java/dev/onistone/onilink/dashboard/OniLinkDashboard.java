@@ -232,6 +232,16 @@ public final class OniLinkDashboard implements AutoCloseable {
                         Map.of("revision", result.get("revision")));
                 sendJson(exchange, 200, result);
             }
+            case "/api/config/backends" -> {
+                requireRole(principal, DashboardAccounts.Role.ADMIN);
+                requireMutation(exchange, "POST");
+                Map<String, String> form = form(exchange);
+                Map<String, Object> result = configFile.addBackend(form.get("revision"), form);
+                audit(exchange, principal, "configuration.backend_add", "success", Map.of(
+                        "backend", result.get("backendName"),
+                        "restartRequired", result.get("restartRequired")));
+                sendJson(exchange, 201, result);
+            }
             case "/api/users" -> handleUsers(exchange, principal);
             case "/api/account/password" -> handlePassword(exchange, principal);
             case "/api/account/totp/begin" -> {

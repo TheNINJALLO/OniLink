@@ -122,6 +122,24 @@ std::vector<std::byte> load_secret(const SecretSource& source) {
         if (raw == nullptr) throw std::runtime_error("configured secret environment variable is not set");
         value = raw;
     } else if (source.environment_variable.empty() && !source.restricted_file.empty()) {
+        if (!std::filesystem::is_regular_file(source.restricted_file)
+            || std::filesystem::is_symlink(std::filesystem::symlink_status(source.restricted_file))) {
+            throw std::runtime_error("configured secret file must be a regular file, not a symlink");
+        }
+#ifndef _WIN32
+        // Pterodactyl's browser editor and SFTP uploads commonly create files as 0644. The operator
+        // explicitly selected this path as a secret source, so tighten it to owner-only before
+        // reading it. A filesystem that refuses the change still fails closed below.
+        std::error_code permission_error;
+        std::filesystem::permissions(
+            source.restricted_file,
+            std::filesystem::perms::owner_read | std::filesystem::perms::owner_write,
+            std::filesystem::perm_options::replace,
+            permission_error);
+        if (permission_error) {
+            throw std::runtime_error("cannot restrict configured secret file to owner-only access");
+        }
+#endif
         const auto permissions = std::filesystem::status(source.restricted_file).permissions();
         constexpr auto forbidden = std::filesystem::perms::group_all | std::filesystem::perms::others_all;
         if (permissions != std::filesystem::perms::unknown

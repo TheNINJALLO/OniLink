@@ -3,6 +3,7 @@
 - [[Home]]
 - [[Getting Started]]
 - [[Installation Guide]]
+- [[Adding Backends]]
 - [[Native BDS Setup]]
 - [[Geyser Java Setup]]
 - [[Pterodactyl Setup]]

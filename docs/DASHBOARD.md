@@ -12,7 +12,7 @@ The dashboard is built into `OniLink.jar`; there is no second service, database,
 | Overview | Proxy version, uptime, player count, JVM use, listener, backend status, and RakNet probe latency |
 | Players | Authenticated identity summary, route, protocol, join state, transfer, disconnect, and bounded packet trace |
 | Backends | Population, routing flags, forwarding state, endpoint visibility by role, and live health |
-| Configuration | Redacted editor, optimistic revision check, parser validation, automatic backup, and rollback |
+| Configuration | Guided BDS backend setup, protected secret creation, redacted editor, optimistic revision check, parser validation, automatic backup, and rollback |
 | Operations | Network alert, bounded log tail, redacted support bundle, and graceful shutdown |
 | Security | First-run owner claim, PBKDF2 password hashes, expiring bearer sessions, roles, optional TOTP, login throttling, and append-only audit records |
 | Integration | Prometheus-format `/metrics` for authenticated viewers and JSON APIs used by the bundled UI |
@@ -119,6 +119,23 @@ Open **Players**, select **Transfer**, and choose a configured backend. OniLink 
 ### Capture a packet trace
 
 Select **Trace** for one player and choose 1,000–60,000 milliseconds. Tracing is deliberately bounded and uses OniLink's existing per-connection diagnostic path.
+
+### Add a BDS backend
+
+Open **Configuration → Add BDS Backend** as an admin or owner. Enter a lowercase route name, the private BDS endpoint, the proxy source CIDR observed by that backend, and optional bridge/key IDs.
+
+On generation, OniLink:
+
+1. Rejects stale configuration revisions and duplicate routes.
+2. Generates a unique standard-Base64 secret from 32 random bytes.
+3. Creates `secrets/<backend>.key` beside `config.properties` with owner-only POSIX permissions.
+4. Appends the matched backend block without changing the hub, join order, or failover policy.
+5. Parses the complete configuration and creates `config.properties.dashboard.bak`.
+6. Returns the matching `<backend>.key` and full `onibridge.toml` for Endstone.
+
+The result is shown once. Download both files and place them in `/home/container/plugins/onibridge/` on the new BDS server. Start Endstone, confirm the native hook is active, restart OniLink, then test `/server <backend>`.
+
+The secret is never written into `config.properties` or the audit record. See [Adding another BDS backend](ADDING_BACKEND.md) for a worked Pterodactyl example, manual setup, routing/failover choices, and troubleshooting.
 
 ### Edit configuration safely
 
