@@ -37,6 +37,17 @@ def forbidden_libstdcxx_symbols(readelf_output: str) -> list[str]:
     return sorted(forbidden)
 
 
+def libcxx_abi_symbols(readelf_output: str) -> list[str]:
+    evidence: set[str] = set()
+    for line in readelf_output.splitlines():
+        if " UND " not in line:
+            continue
+        for token in line.split():
+            if "St3__1" in token:
+                evidence.add(token)
+    return sorted(evidence)
+
+
 def _readelf(binary: Path, readelf: str, *arguments: str) -> str:
     result = subprocess.run(
         [readelf, *arguments, "--wide", str(binary)],
@@ -68,8 +79,9 @@ def inspect_glibc_requirements(
     compatible = version_tuple(highest) <= maximum_version
     libraries = needed_libraries(dynamic_output)
     forbidden_symbols = forbidden_libstdcxx_symbols(symbol_output)
+    libcxx_symbols = libcxx_abi_symbols(symbol_output)
     cxx_runtime_compatible = (
-        "libc++.so.1" in libraries
+        ("libc++.so.1" in libraries or bool(libcxx_symbols))
         and "libstdc++.so.6" not in libraries
         and not forbidden_symbols
     )
@@ -78,8 +90,10 @@ def inspect_glibc_requirements(
         "glibc_policy_maximum": maximum,
         "glibc_versions_required": versions,
         "glibc_policy_passed": compatible,
-        "cxx_runtime_policy": "libc++ only; no libstdc++ or unresolved std::__cxx11 symbols",
+        "cxx_runtime_policy": "direct or host-provided libc++; no libstdc++ or unresolved std::__cxx11 symbols",
         "cxx_runtime_needed_libraries": libraries,
+        "cxx_runtime_libcxx_symbol_count": len(libcxx_symbols),
+        "cxx_runtime_libcxx_symbol_evidence": libcxx_symbols[:10],
         "cxx_runtime_forbidden_symbols": forbidden_symbols,
         "cxx_runtime_policy_passed": cxx_runtime_compatible,
     }
@@ -101,7 +115,8 @@ def main() -> int:
     )
     print(
         "OniBridge C++ runtime requirement: "
-        f"{', '.join(report['cxx_runtime_needed_libraries'])} "
+        f"needed={report['cxx_runtime_needed_libraries']}, "
+        f"libc++ symbols={report['cxx_runtime_libcxx_symbol_count']} "
         f"(libc++-only policy {'passed' if report['cxx_runtime_policy_passed'] else 'failed'})"
     )
     if not report["glibc_policy_passed"]:

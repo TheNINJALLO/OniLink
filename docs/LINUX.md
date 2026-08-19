@@ -25,7 +25,7 @@ The corrected `v0.1.0-candidate.1` library is ELF64 little-endian x86-64 and has
 
 Verify it against the release's `SHA256SUMS`; the Linux compatibility manifest records `GLIBC_2.35` as both the highest required symbol version and the enforced maximum.
 
-The build uses LLVM/libc++ 18 packages compiled for Ubuntu 22.04. The release gate requires `libc++.so.1` and rejects `libstdc++.so.6` or unresolved `std::__cxx11` symbols so a mixed C++ runtime cannot be published. Deploy it only in an Endstone environment providing glibc 2.35 or newer plus the matching C++ runtime libraries.
+The build uses LLVM/libc++ 18 packages compiled for Ubuntu 22.04. Endstone provides libc++ to native plugins through the host process, so the release gate requires libc++ ABI (`std::__1`) symbol evidence while rejecting `libstdc++.so.6` or unresolved `std::__cxx11` symbols. Deploy it only in an Endstone environment providing glibc 2.35 or newer plus the matching C++ runtime libraries.
 
 ## Remaining validation
 

@@ -5,6 +5,7 @@ import unittest
 from check_linux_abi import (
     forbidden_libstdcxx_symbols,
     glibc_versions,
+    libcxx_abi_symbols,
     needed_libraries,
     version_tuple,
 )
@@ -44,6 +45,14 @@ class LinuxAbiTests(unittest.TestCase):
     def test_ignores_normal_libcxx_undefined_symbols(self) -> None:
         output = "  108: 0000000000000000 0 NOTYPE GLOBAL DEFAULT UND _ZNSt3__16localeD1Ev"
         self.assertEqual(forbidden_libstdcxx_symbols(output), [])
+        self.assertEqual(libcxx_abi_symbols(output), ["_ZNSt3__16localeD1Ev"])
+
+    def test_libcxx_evidence_only_uses_undefined_symbols(self) -> None:
+        output = """
+  108: 0000000000000000 0 NOTYPE GLOBAL DEFAULT UND _ZNSt3__16localeD1Ev
+  109: 0000000000001000 4 FUNC GLOBAL DEFAULT 12 _ZNSt3__16vectorIiNS_9allocatorIiEEE5clearEv
+"""
+        self.assertEqual(libcxx_abi_symbols(output), ["_ZNSt3__16localeD1Ev"])
 
 
 if __name__ == "__main__":
