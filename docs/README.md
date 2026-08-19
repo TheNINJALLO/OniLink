@@ -17,6 +17,7 @@ Use this page as the canonical map for operators, testers, and contributors. The
 | Test the current Linux candidate | [Quick start](QUICKSTART.md) |
 | Install and configure the complete network | [Installation](INSTALLATION.md) |
 | Add another BDS server automatically | [Adding a BDS backend](ADDING_BACKEND.md) |
+| Review Candidate 2 changes and upgrade steps | [Candidate 2 release notes](releases/v0.1.0-candidate.2.md) |
 | Copy a complete working configuration | [Deployment examples](../examples/README.md) |
 | Import the OniLink Pterodactyl egg | [Pterodactyl](PTERODACTYL.md) |
 | Configure and secure the operations UI | [Dashboard](DASHBOARD.md) |
