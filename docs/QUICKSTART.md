@@ -122,6 +122,8 @@ Start the backend first, then OniLink:
 java -jar OniLink.jar config.properties
 ```
 
+On first start, OniLink also prints its loopback dashboard URL and creates `dashboard/FIRST_RUN_SETUP.txt`. Copy its one-time code, open `http://127.0.0.1:8080/` on the proxy host, and create the owner account. For remote administration, follow the [dashboard HTTPS guide](DASHBOARD.md) before exposing it.
+
 Connect a test client to OniLink and record the results for:
 
 1. Valid proxied join.
@@ -139,4 +141,5 @@ Use the full [testing checklist](TESTING.md). Do not change the profile to produ
 - Add more BDS backends by repeating the backend-specific settings with a unique secret.
 - For a Java backend, follow [Geyser integration](GEYSER.md) instead of installing the native `.so`.
 - For panel deployment, continue with [Pterodactyl](PTERODACTYL.md).
+- To configure accounts, roles, TOTP, and the web control plane, continue with [Dashboard](DASHBOARD.md).
 - If startup or joins fail, use [Troubleshooting](TROUBLESHOOTING.md).

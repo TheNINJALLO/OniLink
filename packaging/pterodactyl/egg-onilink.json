@@ -7,7 +7,7 @@
     "exported_at": "2026-08-18T18:30:00-04:00",
     "name": "OniLink Bedrock Proxy",
     "author": "TheNINJALLO@users.noreply.github.com",
-    "description": "OniLink is a Java 21 Bedrock proxy with fail-closed OniForward identity forwarding for native BDS/Endstone and Geyser-backed Java servers. This egg verifies its bootstrap release and automatically installs the newest checksum-verified OniLink JAR on every container start.",
+    "description": "OniLink is a Java 21 Bedrock proxy with fail-closed OniForward identity forwarding and an authenticated operations dashboard. This egg verifies its bootstrap release, automatically installs the newest checksum-verified JAR, and serves Bedrock UDP plus dashboard TCP on the primary allocation.",
     "features": [
         "java_version",
         "pid_limit"
@@ -19,14 +19,14 @@
     "file_denylist": [],
     "startup": "bash ./start-onilink.sh",
     "config": {
-        "files": "{\n    \"config.properties\": {\n        \"parser\": \"properties\",\n        \"find\": {\n            \"listener.host\": \"0.0.0.0\",\n            \"listener.port\": \"{{server.build.default.port}}\",\n            \"backend.host\": \"{{env.BACKEND_HOST}}\",\n            \"backend.port\": \"{{env.BACKEND_PORT}}\",\n            \"backend.default.host\": \"{{env.BACKEND_HOST}}\",\n            \"backend.default.port\": \"{{env.BACKEND_PORT}}\",\n            \"motd\": \"{{env.SERVER_MOTD}}\",\n            \"maxPlayers\": \"{{env.MAX_PLAYERS}}\"\n        }\n    }\n}",
+        "files": "{\n    \"config.properties\": {\n        \"parser\": \"properties\",\n        \"find\": {\n            \"listener.host\": \"0.0.0.0\",\n            \"listener.port\": \"{{server.build.default.port}}\",\n            \"dashboard.enabled\": \"{{env.DASHBOARD_ENABLED}}\",\n            \"dashboard.host\": \"0.0.0.0\",\n            \"dashboard.port\": \"{{server.build.default.port}}\",\n            \"backend.host\": \"{{env.BACKEND_HOST}}\",\n            \"backend.port\": \"{{env.BACKEND_PORT}}\",\n            \"backend.default.host\": \"{{env.BACKEND_HOST}}\",\n            \"backend.default.port\": \"{{env.BACKEND_PORT}}\",\n            \"motd\": \"{{env.SERVER_MOTD}}\",\n            \"maxPlayers\": \"{{env.MAX_PLAYERS}}\"\n        }\n    }\n}",
         "startup": "{\n    \"done\": \"OniLink listening on\"\n}",
         "logs": "{}",
         "stop": "stop"
     },
     "scripts": {
         "installation": {
-            "script": "#!/bin/bash\nset -euo pipefail\n\ninstall_root=/mnt/server\nmkdir -p \"${install_root}\"\ncd \"${install_root}\"\n\ncase \"${ONILINK_VERSION}\" in\n    *[!A-Za-z0-9._-]*|'')\n        echo \"Invalid ONILINK_VERSION: ${ONILINK_VERSION}\" >&2\n        exit 2\n        ;;\nesac\n\nbase_url=\"https://github.com/TheNINJALLO/OniLink/releases/download/${ONILINK_VERSION}\"\n\ndownload() {\n    asset=$1\n    destination=$2\n    echo \"Downloading ${asset} from ${ONILINK_VERSION}...\"\n    curl -fL --retry 3 --retry-delay 2 --connect-timeout 15 \\\n        \"${base_url}/${asset}\" -o \"${destination}\"\n}\n\nrm -f OniLink.jar.download onilink.properties.example.download start-onilink.sh.download SHA256SUMS.download\ndownload OniLink.jar OniLink.jar.download\ndownload onilink.properties.example onilink.properties.example.download\ndownload start-onilink.sh start-onilink.sh.download\ndownload SHA256SUMS SHA256SUMS.download\n\njar_sha=$(awk '$2 == \"OniLink.jar\" { print $1 }' SHA256SUMS.download)\nconfig_sha=$(awk '$2 == \"onilink.properties.example\" { print $1 }' SHA256SUMS.download)\nstartup_sha=$(awk '$2 == \"start-onilink.sh\" { print $1 }' SHA256SUMS.download)\nif [[ ! \"${jar_sha}\" =~ ^[0-9a-fA-F]{64}$ ]] || [[ ! \"${config_sha}\" =~ ^[0-9a-fA-F]{64}$ ]] || [[ ! \"${startup_sha}\" =~ ^[0-9a-fA-F]{64}$ ]]; then\n    echo \"Release checksum entries are missing or malformed.\" >&2\n    exit 3\nfi\nprintf '%s  %s\\n' \"${jar_sha}\" OniLink.jar.download | sha256sum -c -\nprintf '%s  %s\\n' \"${config_sha}\" onilink.properties.example.download | sha256sum -c -\nprintf '%s  %s\\n' \"${startup_sha}\" start-onilink.sh.download | sha256sum -c -\n\nmv OniLink.jar.download \"${SERVER_JARFILE}\"\nmv onilink.properties.example.download onilink.properties.example\nmv start-onilink.sh.download start-onilink.sh\nmv SHA256SUMS.download SHA256SUMS\nchmod 0755 start-onilink.sh\n\nif [[ ! -f \"${CONFIG_FILE}\" ]]; then\n    cp onilink.properties.example \"${CONFIG_FILE}\"\n    echo \"Created ${CONFIG_FILE} from the release template.\"\nelse\n    echo \"Preserved existing ${CONFIG_FILE}. Compare it with onilink.properties.example after upgrades.\"\nfi\n\nmkdir -p cache logs plugins resource-packs\necho \"OniLink bootstrap ${ONILINK_VERSION} installed and verified.\"\necho \"Each container start now checks for the newest published OniLink JAR.\"\necho \"Set the admin-only ONIBRIDGE_FORWARDING_SECRET before starting the proxy.\"",
+            "script": "#!/bin/bash\nset -euo pipefail\n\ninstall_root=/mnt/server\nmkdir -p \"${install_root}\"\ncd \"${install_root}\"\n\ncase \"${ONILINK_VERSION}\" in\n    *[!A-Za-z0-9._-]*|'')\n        echo \"Invalid ONILINK_VERSION: ${ONILINK_VERSION}\" >&2\n        exit 2\n        ;;\nesac\n\nbase_url=\"https://github.com/TheNINJALLO/OniLink/releases/download/${ONILINK_VERSION}\"\n\ndownload() {\n    asset=$1\n    destination=$2\n    echo \"Downloading ${asset} from ${ONILINK_VERSION}...\"\n    curl -fL --retry 3 --retry-delay 2 --connect-timeout 15 \\\n        \"${base_url}/${asset}\" -o \"${destination}\"\n}\n\nrm -f OniLink.jar.download onilink.properties.example.download start-onilink.sh.download SHA256SUMS.download\ndownload OniLink.jar OniLink.jar.download\ndownload onilink.properties.example onilink.properties.example.download\ndownload start-onilink.sh start-onilink.sh.download\ndownload SHA256SUMS SHA256SUMS.download\n\njar_sha=$(awk '$2 == \"OniLink.jar\" { print $1 }' SHA256SUMS.download)\nconfig_sha=$(awk '$2 == \"onilink.properties.example\" { print $1 }' SHA256SUMS.download)\nstartup_sha=$(awk '$2 == \"start-onilink.sh\" { print $1 }' SHA256SUMS.download)\nif [[ ! \"${jar_sha}\" =~ ^[0-9a-fA-F]{64}$ ]] || [[ ! \"${config_sha}\" =~ ^[0-9a-fA-F]{64}$ ]] || [[ ! \"${startup_sha}\" =~ ^[0-9a-fA-F]{64}$ ]]; then\n    echo \"Release checksum entries are missing or malformed.\" >&2\n    exit 3\nfi\nprintf '%s  %s\\n' \"${jar_sha}\" OniLink.jar.download | sha256sum -c -\nprintf '%s  %s\\n' \"${config_sha}\" onilink.properties.example.download | sha256sum -c -\nprintf '%s  %s\\n' \"${startup_sha}\" start-onilink.sh.download | sha256sum -c -\n\nmv OniLink.jar.download \"${SERVER_JARFILE}\"\nmv onilink.properties.example.download onilink.properties.example\nmv start-onilink.sh.download start-onilink.sh\nmv SHA256SUMS.download SHA256SUMS\nchmod 0755 start-onilink.sh\n\nif [[ ! -f \"${CONFIG_FILE}\" ]]; then\n    cp onilink.properties.example \"${CONFIG_FILE}\"\n    echo \"Created ${CONFIG_FILE} from the release template.\"\nelse\n    echo \"Preserved existing ${CONFIG_FILE}. Compare it with onilink.properties.example after upgrades.\"\nfi\n\nmkdir -p cache dashboard logs plugins resource-packs\necho \"OniLink bootstrap ${ONILINK_VERSION} installed and verified.\"\necho \"Each container start now checks for the newest published OniLink JAR.\"\necho \"Set the admin-only ONIBRIDGE_FORWARDING_SECRET before starting the proxy.\"",
             "container": "ghcr.io/ptero-eggs/installers:debian",
             "entrypoint": "bash"
         }
@@ -60,6 +60,16 @@
             "user_viewable": false,
             "user_editable": false,
             "rules": "required|string|in:config.properties",
+            "field_type": "text"
+        },
+        {
+            "name": "Enable operations dashboard",
+            "description": "Serves the authenticated dashboard over TCP on the same numeric primary allocation used by Bedrock UDP. Disable it if dashboard access is provided another way.",
+            "env_variable": "DASHBOARD_ENABLED",
+            "default_value": "true",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
             "field_type": "text"
         },
         {

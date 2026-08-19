@@ -6,3 +6,4 @@ OniBridge denies identity forwarding when its runtime/profile/hash/expected-byte
 
 The project never accepts Minecraft server terms for an operator. BDS downloads require the exact environment value `MINECRAFT_EULA_ACCEPTED=TRUE`.
 
+The embedded dashboard listens on loopback by default. Do not expose its HTTP listener directly to the public Internet: terminate HTTPS at a maintained reverse proxy, restrict administrator source networks, use unique passwords and TOTP, and protect `dashboard/accounts.properties`, `dashboard/audit.jsonl`, and their backups. Support bundles redact configured secret values but can contain player names and operational history, so inspect them before sharing.

@@ -411,6 +411,8 @@ java -jar OniLink.jar config.properties
 
 Keep this terminal private because shell history and process-management mistakes can expose secrets. Move to systemd, a panel secret, or a protected environment file after the first controlled test.
 
+OniLink also starts its embedded dashboard on `127.0.0.1:8080` by default. Open `dashboard/FIRST_RUN_SETUP.txt`, copy the one-time setup code, and create the owner from a browser on the proxy host. Do not publish the HTTP listener directly; use the [dashboard guide](DASHBOARD.md) for SSH tunnels, HTTPS reverse proxies, roles, TOTP, and recovery.
+
 ## 7. Install a Geyser backend
 
 Use this path instead of native OniBridge for a Geyser-backed Java server.
@@ -597,7 +599,7 @@ Create `/etc/onilink/survival.env` with mode `0600`, reload systemd, and restart
 
 Use separate Pterodactyl servers for OniLink and each backend.
 
-Import the released [`egg-onilink.json`](../packaging/pterodactyl/egg-onilink.json) through **Admin Panel → Nests → Import Egg**, create an OniLink server using its Java 21 image, and give it one public UDP allocation. The egg verifies its bootstrap JAR, updater, and template against `SHA256SUMS`, preserves an existing configuration on reinstall, and maps the primary allocation to `listener.port`. On every container start, it checks the newest published OniLink release and atomically installs the JAR only after checksum validation; a failed check falls back to the existing JAR.
+Import the released [`egg-onilink.json`](../packaging/pterodactyl/egg-onilink.json) through **Admin Panel → Nests → Import Egg**, create an OniLink server using its Java 21 image, and give it one public allocation. The egg verifies its bootstrap JAR, updater, and template against `SHA256SUMS`, preserves existing configuration/dashboard data on reinstall, maps the primary number to Bedrock UDP and dashboard TCP, and checks the newest published OniLink release on every start. A failed check falls back to the existing JAR.
 
 Set the egg's backend host/port to the private allocation reachable through Wings. Before first start, an administrator must fill the non-user-viewable `ONIBRIDGE_FORWARDING_SECRET` variable with standard Base64 for at least 32 random bytes and set the same value on the backend validator.
 
@@ -605,7 +607,7 @@ Set the egg's backend host/port to the private allocation reachable through Wing
 
 | Pterodactyl server | Allocation | Exposure |
 | --- | --- | --- |
-| OniLink | `19132/udp` | Public |
+| OniLink | `19132/udp` + `19132/tcp` | Bedrock public; dashboard restricted/HTTPS |
 | Survival BDS | `19133/udp` | Private/firewalled to proxy |
 | Geyser | `19134/udp` | Private/firewalled to proxy |
 
@@ -631,7 +633,8 @@ Startup order:
 1. BDS/Endstone or Geyser backend
 2. Confirm validator active
 3. OniLink
-4. Test client
+4. Claim the owner with `dashboard/FIRST_RUN_SETUP.txt` from a trusted network
+5. Test client
 
 See [Pterodactyl](PTERODACTYL.md) for the security summary.
 

@@ -1,6 +1,7 @@
 package dev.onistone.onilink;
 
 import dev.onistone.onilink.config.ProxyConfig;
+import dev.onistone.onilink.dashboard.OniLinkDashboard;
 import dev.onistone.onilink.listener.BedrockProxyListener;
 import dev.onistone.onilink.logging.ProxyLogFile;
 import dev.onistone.onilink.permissions.ProxyPermissions;
@@ -24,7 +25,7 @@ public final class OniLink {
 
     public static void main(String[] args) throws Exception {
         Path configPath = args.length > 0 ? Path.of(args[0]) : Path.of("config.properties");
-        ProxyLogFile.install(configPath);
+        Path logPath = ProxyLogFile.install(configPath);
         ProxyConfig config = ProxyConfig.loadOrCreate(configPath);
         Path configDirectory = configPath.toAbsolutePath().getParent();
         // Runtime grants live beside the config they extend, so a deployment copies one directory.
@@ -42,8 +43,23 @@ public final class OniLink {
                 pluginManager
         );
 
-        Runtime.getRuntime().addShutdownHook(new Thread(listener::stop, "onilink-shutdown"));
         listener.start();
-        listener.awaitShutdown();
+        OniLinkDashboard dashboard;
+        try {
+            dashboard = OniLinkDashboard.start(configPath, logPath, config, listener);
+        } catch (Exception exception) {
+            listener.stop();
+            throw exception;
+        }
+
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            if (dashboard != null) dashboard.close();
+            listener.stop();
+        }, "onilink-shutdown"));
+        try {
+            listener.awaitShutdown();
+        } finally {
+            if (dashboard != null) dashboard.close();
+        }
     }
 }

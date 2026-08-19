@@ -6,6 +6,7 @@
 - [[Native BDS Setup]]
 - [[Geyser Java Setup]]
 - [[Pterodactyl Setup]]
+- [[Operations Dashboard|Dashboard]]
 - [[Configuration]]
 - [[Architecture and Security]]
 - [[Compatibility and Testing]]

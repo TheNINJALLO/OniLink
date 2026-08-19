@@ -37,7 +37,8 @@ public record ProxyConfig(
         Path backendPackCacheDir,
         boolean crossBackendPalette,
         Path crossBackendPaletteCacheFile,
-        String publicAddress
+        String publicAddress,
+        DashboardConfig dashboard
 ) {
     private static final String DEFAULT_LISTEN_HOST = "0.0.0.0";
     private static final int DEFAULT_LISTEN_PORT = 19132;
@@ -91,6 +92,9 @@ public record ProxyConfig(
         }
         if (compressionThreshold < 0) {
             throw new IllegalArgumentException("compressionThreshold cannot be negative");
+        }
+        if (dashboard == null) {
+            throw new IllegalArgumentException("dashboard cannot be null");
         }
         // resourcePacksDir may be null (no packs configured)
     }
@@ -257,7 +261,8 @@ public record ProxyConfig(
                 backendPackCacheDir,
                 crossBackendPalette,
                 crossBackendPaletteCacheFile,
-                ConfigValues.stripInlineComment(properties.getProperty("publicAddress", "")).trim()
+                ConfigValues.stripInlineComment(properties.getProperty("publicAddress", "")).trim(),
+                DashboardConfig.from(properties, configDir)
         );
     }
 
@@ -322,6 +327,13 @@ public record ProxyConfig(
         properties.setProperty("resourcePacks.dir", "");
         properties.setProperty("resourcePacks.cacheBackendPacks", "true");
         properties.setProperty("crossBackendPalette", "true");
+        properties.setProperty("dashboard.enabled", "true");
+        properties.setProperty("dashboard.host", "127.0.0.1");
+        properties.setProperty("dashboard.port", "8080");
+        properties.setProperty("dashboard.sessionMinutes", "480");
+        properties.setProperty("dashboard.dataDirectory", "dashboard");
+        properties.setProperty("dashboard.maxRequestBytes", "262144");
+        properties.setProperty("dashboard.logTailLines", "400");
         return properties;
     }
 

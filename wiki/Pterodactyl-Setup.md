@@ -8,7 +8,7 @@ Download [`egg-onilink.json`](https://github.com/TheNINJALLO/OniLink/releases/do
 
 Create an **OniLink Bedrock Proxy** server with the Java 21 image and one public UDP allocation. Set the private backend host/port and enter a generated Base64 secret in the administrator-only `ONIBRIDGE_FORWARDING_SECRET` variable. Put the same value on the backend validator.
 
-The egg verifies its bootstrap downloads, creates `config.properties` only when missing, and preserves it on reinstall. Every container start checks the newest published OniLink release, including prereleases, and replaces the JAR only after checksum validation. A failed update starts the existing JAR; a successful one keeps `OniLink.jar.previous` for rollback. The BDS/Endstone and Geyser processes still use separate servers/eggs.
+The egg verifies its bootstrap downloads, creates `config.properties` only when missing, and preserves it on reinstall. Every container start checks the newest published OniLink release, including prereleases, and replaces the JAR only after checksum validation. A failed update starts the existing JAR; a successful one keeps `OniLink.jar.previous` for rollback. It also maps the primary allocation number to Bedrock UDP and the authenticated dashboard over TCP. The BDS/Endstone and Geyser processes still use separate servers/eggs.
 
 ## Allocations
 
@@ -37,7 +37,7 @@ The egg declares blank, non-user-viewable fields for the default, survival, and 
 java -jar OniLink.jar config.properties
 ```
 
-Persist `config.properties`, `cache/`, `logs/`, and resource packs.
+Persist `config.properties`, `cache/`, `dashboard/`, `logs/`, and resource packs. Open `dashboard/FIRST_RUN_SETUP.txt` after the first start to claim the owner account, then put remote dashboard access behind restricted HTTPS. See [[Operations Dashboard|Dashboard]].
 
 ## Backend networking
 

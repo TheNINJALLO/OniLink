@@ -36,7 +36,7 @@
 
 | Component | Role | Runtime |
 | --- | --- | --- |
-| **OniLink** | Authenticates the public Xbox client, routes sessions, and creates a short-lived signed `OniForward` claim | Java 21 |
+| **OniLink** | Authenticates the public Xbox client, routes sessions, creates `OniForward` claims, and serves the secured operations dashboard | Java 21 |
 | **OniBridge** | Validates `OniForward` locally and restores the verified XUID before BDS chooses player storage | Native C++20 Endstone plugin |
 | **OniBridge-Geyser** | Applies the same fail-closed claim validation before Geyser connects to a Java backend | Geyser 2.11 extension, Java 21 |
 | **BDS tooling** | Locks official archives, generates exact per-platform candidates, validates profiles, and packages releasable files | Python 3.11+ |
@@ -78,7 +78,13 @@ gh release download v0.1.0-candidate.1 \
   --dir onilink-candidate
 ```
 
-Pterodactyl administrators can import [`egg-onilink.json`](packaging/pterodactyl/egg-onilink.json) from the same release. The egg verifies its bootstrap files, preserves the live proxy configuration during reinstall, and checks for the newest published OniLink JAR on every container start.
+Pterodactyl administrators can import [`egg-onilink.json`](packaging/pterodactyl/egg-onilink.json) from the same release. The egg verifies its bootstrap files, preserves live configuration and dashboard data, checks for the newest published OniLink JAR on every container start, and serves the authenticated dashboard over TCP on the primary allocation alongside Bedrock UDP.
+
+## Operations dashboard
+
+`OniLink.jar` includes a responsive control plane for live players, backend health, transfers, alerts, bounded traces, safe configuration editing, logs, audit records, accounts, TOTP, metrics, and redacted support bundles. It defaults to `127.0.0.1:8080`; first-run owner setup uses a one-time code written to `dashboard/FIRST_RUN_SETUP.txt`.
+
+For remote use, put the dashboard behind HTTPS and restrict it to administrator networks. See the [complete dashboard guide](docs/DASHBOARD.md) for standalone, reverse-proxy, account, role, recovery, and Pterodactyl examples.
 
 ## Choose a backend path
 
@@ -112,8 +118,9 @@ Exact executable hashes, profile IDs, and remaining gates are maintained in [Com
 | [Quick start](docs/QUICKSTART.md) | [Linux](docs/LINUX.md) | [Identity flow](docs/IDENTITY_FLOW.md) |
 | [Installation](docs/INSTALLATION.md) | [Geyser](docs/GEYSER.md) | [OniForward protocol](docs/ONIFORWARD_PROTOCOL.md) |
 | [Deployment examples](examples/README.md) | [Windows status](docs/WINDOWS.md) | [Compatibility](docs/COMPATIBILITY.md) |
-| [Troubleshooting](docs/TROUBLESHOOTING.md) | [Pterodactyl](docs/PTERODACTYL.md) | [Building](docs/BUILDING.md) |
-| [GitHub Wiki](https://github.com/TheNINJALLO/OniLink/wiki) | [Migration](docs/MIGRATION.md) | [Source audit](docs/SOURCE_AUDIT.md) |
+| [Troubleshooting](docs/TROUBLESHOOTING.md) | [Dashboard](docs/DASHBOARD.md) | [Building](docs/BUILDING.md) |
+| [GitHub Wiki](https://github.com/TheNINJALLO/OniLink/wiki) | [Pterodactyl](docs/PTERODACTYL.md) | [Source audit](docs/SOURCE_AUDIT.md) |
+| [Migration](docs/MIGRATION.md) | [Testing](docs/TESTING.md) | [Feature parity](docs/FEATURE_PARITY.md) |
 
 ## Build and test
 
@@ -129,6 +136,7 @@ This builds and tests OniLink, OniBridge, and OniBridge-Geyser, then writes the 
 
 - BDS archives and executables are never committed or released.
 - Real forwarding secrets, production addresses, player identifiers, and complete tokens must stay out of issues and source control.
+- Keep the dashboard loopback-only or behind restricted HTTPS; protect `dashboard/` and its backups as credential material.
 - Unknown executable hashes, hook bytes, layouts, Endstone builds, token contexts, or proxy sources fail closed.
 - Report vulnerabilities using the [security policy](SECURITY.md).
 

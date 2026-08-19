@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="Secure operations dashboard for the OniLink Bedrock proxy">
+  <title>OniLink Control Plane</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="brand" href="#overview" aria-label="OniLink dashboard home">
+        <span class="brand-mark" aria-hidden="true"><i></i></span>
+        <span><strong>OniLink</strong><small>CONTROL PLANE</small></span>
+      </a>
+      <nav id="nav" aria-label="Dashboard sections">
+        <button class="nav-link active" data-page="overview"><span>01</span>Overview</button>
+        <button class="nav-link" data-page="players"><span>02</span>Players</button>
+        <button class="nav-link" data-page="backends"><span>03</span>Backends</button>
+        <button class="nav-link admin-only" data-page="configuration"><span>04</span>Configuration</button>
+        <button class="nav-link operator-only" data-page="operations"><span>05</span>Operations</button>
+        <button class="nav-link admin-only" data-page="audit"><span>06</span>Audit</button>
+        <button class="nav-link" data-page="accounts"><span>07</span>Account</button>
+      </nav>
+      <div class="sidebar-foot">
+        <div class="identity"><span class="avatar" id="avatar">?</span><span><b id="identity-name">Not signed in</b><small id="identity-role">Offline</small></span></div>
+        <button class="text-button" id="logout" hidden>Sign out</button>
+      </div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div><p class="eyebrow">BEDROCK NETWORK OPERATIONS</p><h1 id="page-title">Overview</h1></div>
+        <div class="top-actions"><span id="refresh-time">Waiting for connection</span><span class="status-pill"><i id="status-dot"></i><b id="status-text">Offline</b></span></div>
+      </header>
+
+      <div id="notice" class="notice" hidden role="status"></div>
+
+      <section class="page active" id="page-overview">
+        <div class="hero-card">
+          <div><p class="eyebrow">LIVE NETWORK</p><h2>One control plane.<br><em>Every Bedrock route.</em></h2><p>Watch the proxy, inspect backend health, and take deliberate action without leaving your browser.</p></div>
+          <div class="signal" aria-hidden="true"><span></span><span></span><span></span><b>OL</b></div>
+        </div>
+        <div class="metric-grid">
+          <article class="metric"><span>Online players</span><strong id="metric-players">—</strong><small id="metric-capacity">Awaiting runtime</small></article>
+          <article class="metric"><span>Backends</span><strong id="metric-backends">—</strong><small id="metric-healthy">Health scan pending</small></article>
+          <article class="metric"><span>Uptime</span><strong id="metric-uptime">—</strong><small id="metric-started">Process not connected</small></article>
+          <article class="metric"><span>Memory</span><strong id="metric-memory">—</strong><small id="metric-memory-max">JVM allocation</small></article>
+        </div>
+        <div class="split">
+          <article class="panel"><div class="panel-head"><div><p class="eyebrow">ROUTE STATUS</p><h3>Backend health</h3></div><button class="quiet-button" data-goto="backends">Inspect all</button></div><div id="overview-backends" class="health-list empty">No runtime data yet.</div></article>
+          <article class="panel"><div class="panel-head"><div><p class="eyebrow">PROXY RUNTIME</p><h3>System details</h3></div></div><dl class="facts" id="runtime-facts"><div><dt>Version</dt><dd>—</dd></div><div><dt>Listener</dt><dd>—</dd></div><div><dt>Threads</dt><dd>—</dd></div><div><dt>CPU load</dt><dd>—</dd></div></dl></article>
+        </div>
+      </section>
+
+      <section class="page" id="page-players">
+        <div class="section-lead"><div><p class="eyebrow">CONNECTED SESSIONS</p><h2>Players</h2><p>See where each player is routed and manage live sessions.</p></div><button class="button" id="refresh-players">Refresh players</button></div>
+        <article class="panel table-panel"><div class="table-wrap"><table><thead><tr><th>Player</th><th>Backend</th><th>Protocol</th><th>Connected</th><th>Status</th><th class="operator-only">Action</th></tr></thead><tbody id="players-body"><tr><td colspan="6" class="empty">No player data yet.</td></tr></tbody></table></div></article>
+      </section>
+
+      <section class="page" id="page-backends">
+        <div class="section-lead"><div><p class="eyebrow">BDS ROUTES</p><h2>Backends</h2><p>Latency, availability, routing role, and live population.</p></div><button class="button" id="refresh-backends">Refresh health</button></div>
+        <div id="backend-grid" class="backend-grid"><article class="panel empty">No backend data yet.</article></div>
+      </section>
+
+      <section class="page" id="page-configuration">
+        <div class="section-lead"><div><p class="eyebrow">SAFE EDITOR</p><h2>Configuration</h2><p>Protected values remain server-side. Every save is validated and backed up.</p></div><span class="revision" id="config-revision">Revision —</span></div>
+        <article class="panel"><div class="warning"><b>Restart required</b><span>Saved proxy settings take effect on the next OniLink restart. Secrets shown as managed placeholders are preserved.</span></div><label class="field"><span>config.properties</span><textarea id="config-content" class="code-editor" spellcheck="false" rows="28"></textarea></label><div class="button-row"><button class="button primary" id="save-config">Validate &amp; save</button><button class="button danger-outline" id="rollback-config">Restore last backup</button></div></article>
+      </section>
+
+      <section class="page" id="page-operations">
+        <div class="section-lead"><div><p class="eyebrow">OPERATOR TOOLKIT</p><h2>Operations</h2><p>Broadcast to connected players, review logs, or export a redacted support bundle.</p></div></div>
+        <div class="split">
+          <article class="panel"><div class="panel-head"><div><p class="eyebrow">NETWORK ALERT</p><h3>Broadcast message</h3></div></div><form id="alert-form"><label class="field"><span>Message</span><textarea name="message" rows="4" maxlength="500" required placeholder="Maintenance begins in 10 minutes."></textarea></label><button class="button primary" type="submit">Send to all players</button></form></article>
+          <article class="panel"><div class="panel-head"><div><p class="eyebrow">SUPPORT</p><h3>Diagnostics</h3></div></div><p class="muted">The bundle includes redacted configuration, runtime state, backend health, and bounded log tails.</p><div class="button-stack"><button class="button" id="download-support">Download support bundle</button><button class="button danger-outline owner-only" id="shutdown-proxy">Gracefully stop OniLink</button></div></article>
+        </div>
+        <article class="panel log-panel"><div class="panel-head"><div><p class="eyebrow">LATEST.LOG</p><h3>Runtime log</h3></div><button class="quiet-button" id="refresh-logs">Refresh</button></div><pre id="log-output">Waiting for log access…</pre></article>
+      </section>
+
+      <section class="page" id="page-audit">
+        <div class="section-lead"><div><p class="eyebrow">ACCOUNTABILITY</p><h2>Audit log</h2><p>Append-only records for sign-ins and privileged dashboard actions.</p></div><button class="button" id="refresh-audit">Refresh audit</button></div>
+        <article class="panel log-panel"><pre id="audit-output">Waiting for audit access…</pre></article>
+      </section>
+
+      <section class="page" id="page-accounts">
+        <div class="section-lead"><div><p class="eyebrow">ACCESS CONTROL</p><h2>Accounts</h2><p>Assign the minimum role each operator needs. Passwords are never displayed.</p></div></div>
+        <div class="split">
+          <article class="panel owner-only"><div class="panel-head"><div><p class="eyebrow">TEAM</p><h3>Dashboard users</h3></div></div><div id="user-list" class="user-list empty">No account data yet.</div></article>
+          <article class="panel owner-only"><div class="panel-head"><div><p class="eyebrow">NEW ACCESS</p><h3>Create account</h3></div></div><form id="create-user-form"><label class="field"><span>Username</span><input name="username" autocomplete="off" required></label><label class="field"><span>Temporary password</span><input name="password" type="password" minlength="12" autocomplete="new-password" required></label><label class="field"><span>Role</span><select name="role"><option value="viewer">Viewer</option><option value="operator">Operator</option><option value="admin">Admin</option></select></label><button class="button primary" type="submit">Create account</button></form></article>
+        </div>
+        <div class="split">
+          <article class="panel"><div class="panel-head"><div><p class="eyebrow">CREDENTIALS</p><h3>Change my password</h3></div></div><form id="password-form"><label class="field"><span>Current password</span><input name="currentPassword" type="password" autocomplete="current-password" required></label><label class="field"><span>New password</span><input name="newPassword" type="password" minlength="12" autocomplete="new-password" required></label><button class="button" type="submit">Change &amp; sign out</button></form></article>
+          <article class="panel"><div class="panel-head"><div><p class="eyebrow">SECOND FACTOR</p><h3>Authenticator protection</h3></div></div><p class="muted">Enable TOTP using any standards-compatible authenticator. Credential changes end existing sessions.</p><div id="totp-setup" class="totp-box" hidden><code id="totp-secret"></code><small id="totp-uri"></small><label class="field"><span>Six-digit code</span><input id="totp-code" inputmode="numeric" maxlength="6"></label><button class="button primary" id="enable-totp">Confirm and enable</button></div><div class="button-row"><button class="button" id="begin-totp">Set up TOTP</button><button class="button danger-outline" id="disable-totp">Disable TOTP</button></div></article>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="auth-dialog">
+    <div class="dialog-brand"><span class="brand-mark"><i></i></span><div><strong>OniLink</strong><small>SECURE CONTROL PLANE</small></div></div>
+    <section id="login-view"><p class="eyebrow">AUTHENTICATION REQUIRED</p><h2>Welcome back.</h2><p>Sign in with a dashboard account to operate this proxy.</p><form id="login-form"><label class="field"><span>Username</span><input name="username" autocomplete="username" autofocus required></label><label class="field"><span>Password</span><input name="password" type="password" autocomplete="current-password" required></label><label class="field" id="login-totp-field"><span>Authenticator code <small>(when enabled)</small></span><input name="totp" inputmode="numeric" autocomplete="one-time-code" maxlength="6"></label><button class="button primary wide" type="submit">Sign in</button></form></section>
+    <section id="setup-view" hidden><p class="eyebrow">FIRST-RUN SETUP</p><h2>Claim this proxy.</h2><p>Copy the one-time code from <code>dashboard/FIRST_RUN_SETUP.txt</code> or the OniLink console.</p><form id="setup-form"><label class="field"><span>One-time setup code</span><input name="setupCode" autocomplete="off" required></label><label class="field"><span>Owner username</span><input name="username" autocomplete="username" required></label><label class="field"><span>Owner password</span><input name="password" type="password" minlength="12" autocomplete="new-password" required></label><button class="button primary wide" type="submit">Create owner account</button></form></section>
+    <p id="auth-error" class="form-error" hidden></p>
+  </dialog>
+
+  <dialog id="action-dialog"><form method="dialog" class="dialog-close"><button aria-label="Close">×</button></form><p class="eyebrow">PLAYER ACTION</p><h2 id="action-title">Manage player</h2><form id="action-form"><input type="hidden" name="player"><label class="field" id="action-backend-field"><span>Destination backend</span><select name="backend"></select></label><label class="field" id="action-reason-field"><span>Disconnect reason</span><input name="reason" maxlength="200" value="Disconnected by an OniLink operator"></label><label class="field" id="action-duration-field"><span>Trace duration (milliseconds)</span><input name="milliseconds" type="number" min="1000" max="60000" value="15000"></label><div class="button-row"><button class="button primary" type="submit" id="action-submit">Apply</button><button class="button" type="button" id="action-cancel">Cancel</button></div></form></dialog>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>

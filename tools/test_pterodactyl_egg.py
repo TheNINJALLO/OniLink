@@ -34,6 +34,12 @@ class PterodactylEggTests(unittest.TestCase):
         self.assertEqual("properties", files["config.properties"]["parser"])
         self.assertEqual("{{server.build.default.port}}",
                          files["config.properties"]["find"]["listener.port"])
+        self.assertEqual("{{server.build.default.port}}",
+                         files["config.properties"]["find"]["dashboard.port"])
+        self.assertEqual("0.0.0.0",
+                         files["config.properties"]["find"]["dashboard.host"])
+        self.assertEqual("{{env.DASHBOARD_ENABLED}}",
+                         files["config.properties"]["find"]["dashboard.enabled"])
         self.assertEqual("OniLink listening on", startup["done"])
         self.assertEqual({}, logs)
 
@@ -50,6 +56,7 @@ class PterodactylEggTests(unittest.TestCase):
         self.assertLess(script.index("sha256sum -c -"),
                         script.index('mv OniLink.jar.download "${SERVER_JARFILE}"'))
         self.assertIn('if [[ ! -f "${CONFIG_FILE}" ]]', script)
+        self.assertIn("mkdir -p cache dashboard logs plugins resource-packs", script)
         self.assertNotIn("releases/latest", script)
         self.assertNotIn("bedrock_server", script)
 
@@ -174,10 +181,11 @@ printf '%s\\n' \"$*\" > \"$JAVA_LOG\"
         self.assertEqual(len(variables), len(self.egg["variables"]))
         for required in (
                 "ONILINK_VERSION", "SERVER_JARFILE", "CONFIG_FILE", "BACKEND_HOST",
-                "BACKEND_PORT", "ONIBRIDGE_FORWARDING_SECRET"):
+                "BACKEND_PORT", "DASHBOARD_ENABLED", "ONIBRIDGE_FORWARDING_SECRET"):
             self.assertIn(required, variables)
 
         self.assertEqual("v0.1.0-candidate.1", variables["ONILINK_VERSION"]["default_value"])
+        self.assertEqual("true", variables["DASHBOARD_ENABLED"]["default_value"])
         for name in (
                 "ONIBRIDGE_FORWARDING_SECRET", "ONIBRIDGE_SURVIVAL_SECRET",
                 "ONIBRIDGE_JAVA_SECRET"):

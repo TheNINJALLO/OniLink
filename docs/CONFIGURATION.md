@@ -106,6 +106,20 @@ The complete deployment sequence and operating-system examples are in [Installat
 
 Use `backend.protocol=auto` unless you have a deliberate, tested reason to pin. A stale version pin is harder to diagnose than a failed probe.
 
+## Dashboard keys
+
+| Key | Safe default | Meaning |
+| --- | --- | --- |
+| `dashboard.enabled` | `true` | Starts the embedded control plane with OniLink |
+| `dashboard.host` | `127.0.0.1` | Local TCP interface; keep loopback unless deliberately publishing through a protected route |
+| `dashboard.port` | `8080` | Dashboard HTTP TCP port; may use the same numeric port as Bedrock UDP |
+| `dashboard.sessionMinutes` | `480` | Browser-session lifetime, allowed range 15–10,080 minutes |
+| `dashboard.dataDirectory` | `dashboard` | Account, audit, and first-run setup data beside the proxy configuration |
+| `dashboard.maxRequestBytes` | `262144` | Maximum dashboard request body, allowed range 16 KiB–1 MiB |
+| `dashboard.logTailLines` | `400` | Maximum log lines returned, allowed range 50–5,000 |
+
+The dashboard is plain HTTP. Use loopback plus an SSH tunnel or a restricted HTTPS reverse proxy for remote administration. The [dashboard guide](DASHBOARD.md) covers first-run setup, roles, TOTP, Pterodactyl, backups, and recovery.
+
 ## OniLink forwarding keys
 
 For backend `survival`, the prefix is `backend.survival.forwarding.`.

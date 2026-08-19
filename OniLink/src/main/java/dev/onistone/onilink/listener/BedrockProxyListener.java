@@ -16,6 +16,7 @@ import org.cloudburstmc.protocol.bedrock.netty.initializer.BedrockServerInitiali
 import dev.onistone.onilink.auth.ClientLoginAuthenticator;
 import dev.onistone.onilink.auth.OfflineLoginForge;
 import dev.onistone.onilink.backend.BackendDirectory;
+import dev.onistone.onilink.backend.BackendSwitcher;
 import dev.onistone.onilink.backend.BackendConnector;
 import dev.onistone.onilink.command.NetworkCommands;
 import dev.onistone.onilink.command.ProxyCommandRegistry;
@@ -58,6 +59,8 @@ public final class BedrockProxyListener {
     private final ProxyCommandRegistry commandRegistry = ProxyCommandRegistry.defaults();
     private final long serverId = ThreadLocalRandom.current().nextLong();
     private final ConnectedPlayerRegistry connectedPlayers;
+    private BackendDirectory backendDirectory;
+    private BackendSwitcher backendSwitcher;
     private final ConnectionThrottle connectionThrottle;
     private final ProxyPlayerEnum playerEnum;
     private final ProxyPermissions permissions;
@@ -139,7 +142,7 @@ public final class BedrockProxyListener {
     public void start() throws IOException {
         InetSocketAddress listen = config.listenAddress();
         legacyVerificationServer.start();
-        BackendDirectory backendDirectory = new BackendDirectory(
+        backendDirectory = new BackendDirectory(
                 config.backends(),
                 config.backend().name(),
                 config.hubBackendName()
@@ -192,10 +195,11 @@ public final class BedrockProxyListener {
                 config.publicAddress(),
                 listen.getPort()
         );
+        backendSwitcher = backendConnector.switcher();
         NetworkCommands networkCommands = new NetworkCommands(
                 connectedPlayers,
                 backendDirectory,
-                backendConnector.switcher(),
+                backendSwitcher,
                 permissions,
                 commandRegistry,
                 playerEnum::broadcast
@@ -473,6 +477,18 @@ public final class BedrockProxyListener {
     /** Everyone currently past login. Exposed so an end-to-end test can observe a join without parsing logs. */
     public ConnectedPlayerRegistry connectedPlayers() {
         return connectedPlayers;
+    }
+
+    /** Runtime backend registry used by the authenticated operator dashboard. */
+    public BackendDirectory backendDirectory() {
+        if (backendDirectory == null) throw new IllegalStateException("Proxy listener has not started");
+        return backendDirectory;
+    }
+
+    /** Runtime switch coordinator used by authenticated dashboard transfer actions. */
+    public BackendSwitcher backendSwitcher() {
+        if (backendSwitcher == null) throw new IllegalStateException("Proxy listener has not started");
+        return backendSwitcher;
     }
 
     public void awaitShutdown() throws InterruptedException {

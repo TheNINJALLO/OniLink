@@ -50,6 +50,8 @@ val standaloneJar by tasks.registering(Jar::class) {
 
     manifest {
         attributes["Main-Class"] = application.mainClass.get()
+        attributes["Implementation-Title"] = "OniLink"
+        attributes["Implementation-Version"] = project.version
     }
 
     from(sourceSets.main.get().output)

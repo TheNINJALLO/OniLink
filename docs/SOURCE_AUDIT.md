@@ -1,6 +1,6 @@
 # Source audit
 
-Inspection date: 2026-08-17 (America/New_York)
+Inspection date: 2026-08-18 (America/New_York)
 
 This is an internal engineering record. The workspace contained no implementation files before this audit. Each repository below was cloned at its exact `main` HEAD, every tracked file was included in a SHA-256 inventory, and the behavior-bearing paths were inspected before product code was created.
 
@@ -14,6 +14,12 @@ This is an internal engineering record. The workspace contained no implementatio
 | <https://github.com/EndstoneMC/cpp-example-plugin> | `d3b19d401570b8921f125c4e9ab0d53919561bc9` | 10 | `df0d5ee83fcae172d6c8838fb8e304cb911abe109ab90b6f11ba7df7a82fdccc` | MIT |
 
 The inventory digest is the SHA-256 of sorted lines containing each tracked file's SHA-256 and normalized path. It is an audit completeness marker, not an upstream Git tree ID.
+
+## Supplemental dashboard reference
+
+The public [`TheNINJALLO/NinjOS-Proxie-Edge-Fabric`](https://github.com/TheNINJALLO/NinjOS-Proxie-Edge-Fabric) repository was separately inspected at commit `2d25c346a0d4a217932434eff3a98e278bb30f7c` to understand the operator experience requested for OniLink. The audit covered its standalone Go dashboard, embedded frontend, SQLite-backed accounts, setup flow, roles, TOTP, sessions, backend/player views, configuration handling, packet tools, transfers, audit records, and service controls.
+
+That repository is AGPL-licensed. No dashboard source, generated asset, or styling was copied into OniLink. OniLink's dashboard is an original dependency-free Java implementation under this repository's license, designed around OniLink's own runtime objects and narrower proxy responsibilities. It intentionally omits NinjOS-only gateway, companion, and host-service features that OniLink cannot truthfully provide.
 
 ## Proxy reference audit
 
