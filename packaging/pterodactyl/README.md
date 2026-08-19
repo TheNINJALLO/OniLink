@@ -75,6 +75,11 @@ After a successful change, the updater writes the release tag to `.onilink-versi
 
 The runtime updater cannot replace the egg definition stored by the Pterodactyl panel. Reimport a newer `egg-onilink.json` when you want newly added panel variables or install-script changes. Existing servers can still receive new runtime JARs without an egg reimport.
 
+An existing `v0.1.7` updater is stable-only and cannot discover a prerelease. Back up the server,
+reimport the beta egg, confirm the `beta` channel, and run **Reinstall Server** once to bootstrap the
+beta JAR and channel-aware updater. Reimporting without reinstalling does not change the existing
+`/home/container/start-onilink.sh`. After that one bootstrap, ordinary reboots follow newer betas.
+
 If the release lookup, download, or checksum validation fails, the updater logs a warning and starts the existing verified JAR. A brand-new server with no usable JAR stops instead of starting an unknown file.
 
 No application update channel overrides native-profile approval. Complete the exact-profile and live acceptance gates in the [testing guide](../../docs/TESTING.md).

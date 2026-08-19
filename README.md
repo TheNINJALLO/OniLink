@@ -81,7 +81,7 @@ gh release download v0.2.0-beta.1 \
   --dir onilink-release
 ```
 
-Pterodactyl administrators can import [`egg-onilink.json`](packaging/pterodactyl/egg-onilink.json) from the same release. The beta egg verifies its bootstrap files, preserves live configuration and dashboard data, and checksum-updates the JAR, updater, and reference configuration from its selected `stable`, `beta`, or `pinned` channel. Existing stable eggs continue to ignore prereleases. Runtime updates do not rewrite the panel's stored egg definition, so reimport the beta egg to receive the channel selector.
+Pterodactyl administrators can import [`egg-onilink.json`](packaging/pterodactyl/egg-onilink.json) from the same release. The beta egg verifies its bootstrap files, preserves live configuration and dashboard data, and checksum-updates the JAR, updater, and reference configuration from its selected `stable`, `beta`, or `pinned` channel. Existing stable eggs continue to ignore prereleases. To move an existing stable install into beta, back it up, reimport the beta egg, and run **Reinstall Server** once so the channel-aware updater is bootstrapped; later reboots update normally.
 
 ## Operations dashboard
 

@@ -38,7 +38,19 @@ The installer downloads the exact `ONILINK_VERSION` bootstrap tag, verifies `Oni
 
 If GitHub is unavailable or verification fails, startup keeps the currently installed JAR. A successful replacement retains the prior version as `OniLink.jar.previous`, preserves active `config.properties`, updates only `onilink.properties.example`, and records the active release tag in `.onilink-version`. A changed updater is saved as `start-onilink.sh.previous` and takes over on the next restart.
 
-Existing updater-enabled containers without `ONILINK_UPDATE_CHANNEL` remain on `stable` and do not discover this beta. Reimport the `v0.2.0-beta.1` egg, confirm its channel is `beta`, and restart to participate. Runtime updates do not rewrite Pterodactyl's stored egg definition; reimport the egg whenever you need newly added panel variables or install-script changes.
+Existing updater-enabled containers without `ONILINK_UPDATE_CHANNEL` remain on `stable` and do not
+discover this beta. To cross that stable-to-beta boundary:
+
+1. Back up `config.properties`, `dashboard/`, `allowlist.properties`, and forwarding keys.
+2. Reimport the `v0.2.0-beta.1` egg and confirm `ONILINK_VERSION=v0.2.0-beta.1` and
+   `ONILINK_UPDATE_CHANNEL=beta`.
+3. Run **Reinstall Server** once so the verified beta installer replaces the old stable-only
+   `start-onilink.sh`. The installer preserves an existing `config.properties`.
+4. Start the container. Later normal reboots follow the selected beta channel automatically.
+
+Reimporting an egg changes the definition stored by Pterodactyl; it does not by itself replace a
+runtime updater already in `/home/container`. Reimport again only when you need later panel variables
+or install-script changes.
 
 ### Enable the authenticated allowlist
 
