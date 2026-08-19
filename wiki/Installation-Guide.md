@@ -3,7 +3,7 @@
 This page is the operator path from an empty host to the stable OniLink release. The repository's [complete installation manual](https://github.com/TheNINJALLO/OniLink/blob/main/docs/INSTALLATION.md) includes every command, setting table, systemd example, rotation procedure, and rollback step.
 
 > [!IMPORTANT]
-> `v0.1.2` is the production release for the exact BDS `1.26.44.3` Linux executable and Endstone `0.11.9`. Keep the unreviewed-profile override disabled; mismatched native targets remain blocked.
+> `v0.1.3` is the production release for the exact BDS `1.26.44.3` Linux executable and Endstone `0.11.9`. Keep the unreviewed-profile override disabled; mismatched native targets remain blocked.
 
 ## 1. Pick a topology
 
@@ -37,7 +37,7 @@ Backend name, bridge ID, key ID, and secret bytes must match on OniLink and the 
 ## 3. Download and verify
 
 ```bash
-gh release download v0.1.2 \
+gh release download v0.1.3 \
   --repo TheNINJALLO/OniLink \
   --dir onilink-release
 cd onilink-release
@@ -85,7 +85,7 @@ Native BDS:
 ```text
 <BDS root>/
 └── plugins/
-    ├── onibridge-0.1.2-bds-1.26.44.3-linux-x86_64.so
+    ├── onibridge-0.1.3-bds-1.26.44.3-linux-x86_64.so
     └── onibridge/
         └── onibridge.toml
 ```
@@ -109,7 +109,7 @@ Start each validator once to create its data directory, then stop and configure 
 
 Then read [[Native BDS Setup]] or [[Geyser Java Setup]] for the exact validator settings.
 
-Once the first server works, use **Configuration → Add BDS Backend** in the dashboard. It updates OniLink, creates a unique protected secret, and produces the two files to upload to the new Endstone server. Follow [[Adding Backends]] for the exact panel paths, field examples, routing options, and manual fallback.
+Once the first server works, use the dedicated **Add Backend** page in the dashboard. It updates OniLink, creates a unique protected secret, shows the saved proxy properties, and produces the two files to upload to the new Endstone server. Follow [[Adding Backends]] for the exact panel paths, field examples, routing options, and manual fallback.
 
 ## 7. Lock down networking
 

@@ -126,9 +126,7 @@ final class DashboardConfigFile {
         String line = System.lineSeparator();
         String candidate = replaceProperty(original, "backends", String.join(",", backends));
         if (!candidate.endsWith("\n") && !candidate.endsWith("\r")) candidate += line;
-        candidate += line
-                + "# Added by the OniLink dashboard backend wizard." + line
-                + prefix + "host=" + host + line
+        String backendProperties = prefix + "host=" + host + line
                 + prefix + "port=" + port + line
                 + prefix + "forwarding.enabled=true" + line
                 + prefix + "forwarding.bridgeId=" + bridgeId + line
@@ -136,6 +134,11 @@ final class DashboardConfigFile {
                 + prefix + "forwarding.activeSecretEnv=" + line
                 + prefix + "forwarding.activeSecretFile=" + secretRelativePath + line
                 + prefix + "forwarding.tokenLifetimeMillis=5000" + line;
+        candidate += line
+                + "# Added by the OniLink dashboard backend wizard." + line
+                + backendProperties;
+        String onilinkProperties = "backends=" + String.join(",", backends) + line + line
+                + backendProperties;
 
         Path temporary = path.resolveSibling(path.getFileName() + ".dashboard.backend.tmp");
         Files.writeString(temporary, candidate, StandardCharsets.UTF_8);
@@ -187,6 +190,7 @@ final class DashboardConfigFile {
         result.put("secret", secret);
         result.put("secretFileName", secretFileName);
         result.put("onilinkSecretFile", secretRelativePath);
+        result.put("onilinkProperties", onilinkProperties);
         result.put("onibridgeToml", onibridgeToml(
                 name, bridgeId, keyId, trustedProxyCidr, secretFileName));
         result.put("restartRequired", true);

@@ -208,7 +208,7 @@ printf '%s\\n' \"$*\" > \"$JAVA_LOG\"
                 "ONIBRIDGE_FORWARDING_SECRET"):
             self.assertIn(required, variables)
 
-        self.assertEqual("v0.1.2", variables["ONILINK_VERSION"]["default_value"])
+        self.assertEqual("v0.1.3", variables["ONILINK_VERSION"]["default_value"])
         self.assertEqual("true", variables["DASHBOARD_ENABLED"]["default_value"])
         self.assertEqual("false", variables["ALLOWLIST_ENABLED"]["default_value"])
         for name in (

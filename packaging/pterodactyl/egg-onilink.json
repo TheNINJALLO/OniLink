@@ -36,7 +36,7 @@
             "name": "OniLink bootstrap release tag",
             "description": "Exact public GitHub release used only during create/reinstall. Normal starts query GitHub's latest stable non-prerelease release and install its checksum-verified runtime files.",
             "env_variable": "ONILINK_VERSION",
-            "default_value": "v0.1.2",
+            "default_value": "v0.1.3",
             "user_viewable": true,
             "user_editable": true,
             "rules": "required|string|max:64|regex:/^[A-Za-z0-9][A-Za-z0-9._-]*$/",

@@ -30,7 +30,7 @@
 <!-- onilink-professional-header:end -->
 
 > [!IMPORTANT]
-> `v0.1.2` is the current production release. It adds an authenticated proxy-level XUID allowlist and stable Pterodactyl updates while retaining the production-approved Linux BDS `1.26.44.3` + Endstone `0.11.9` profile. Unknown binaries, platforms, Endstone versions, and profile IDs still fail closed.
+> `v0.1.3` is the current production release. It makes secure multi-backend onboarding a first-class control-plane workflow while retaining the authenticated XUID allowlist, stable Pterodactyl updates, and production-approved Linux BDS `1.26.44.3` + Endstone `0.11.9` profile. Unknown binaries, platforms, Endstone versions, and profile IDs still fail closed.
 
 ## What this repository provides
 
@@ -63,19 +63,19 @@ OniLink preserves the authenticated name, XUID, UUID, and observed client addres
 
 ## Quick start
 
-1. Read the [v0.1.2 release notes](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.2) and download only the files for your backend path.
+1. Read the [v0.1.3 release notes](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.3) and download only the files for your backend path.
 2. Verify the download directory against `SHA256SUMS`.
 3. Generate a unique 32-byte-or-stronger secret for each backend and expose it through an environment variable—not a committed configuration file.
 4. Configure matching backend name, bridge ID, key ID, and secret environment variable on both sides.
 5. Keep the backend listener private and restrict its trusted proxy CIDRs to OniLink.
 6. Choose a ready-to-copy [deployment example](examples/README.md), follow the [complete installation guide](docs/INSTALLATION.md), then complete the [acceptance checklist](docs/TESTING.md).
 
-After the first server works, use the dashboard's **Add BDS Backend** wizard to generate every additional route, unique secret, and matching Endstone configuration. See [Adding another BDS backend](docs/ADDING_BACKEND.md) for the complete Pterodactyl and manual walkthrough.
+After the first server works, open the dashboard's dedicated **Add Backend** page to generate every additional route, unique secret, proxy properties, and matching Endstone configuration. See [Adding another BDS backend](docs/ADDING_BACKEND.md) for the complete Pterodactyl and manual walkthrough.
 
 Download the current release with GitHub CLI:
 
 ```bash
-gh release download v0.1.2 \
+gh release download v0.1.3 \
   --repo TheNINJALLO/OniLink \
   --dir onilink-release
 ```
@@ -92,7 +92,7 @@ For remote use, put the dashboard behind HTTPS and restrict it to administrator 
 
 ### Native BDS + Endstone
 
-Use `onibridge-0.1.2-bds-1.26.44.3-linux-x86_64.so` with the exact BDS `1.26.44.3` Linux executable and Endstone `0.11.9`. Install the matching profile JSON, start once to generate `onibridge.toml`, configure it, and keep `allow_unreviewed_profile=false` for this production-approved profile.
+Use `onibridge-0.1.3-bds-1.26.44.3-linux-x86_64.so` with the exact BDS `1.26.44.3` Linux executable and Endstone `0.11.9`. Install the matching profile JSON, start once to generate `onibridge.toml`, configure it, and keep `allow_unreviewed_profile=false` for this production-approved profile.
 
 [Native installation guide →](docs/INSTALLATION.md)
 

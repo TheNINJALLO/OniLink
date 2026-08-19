@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 0.1.3 - 2026-08-19
+
+- Promoted secure native-backend onboarding into a dedicated **Add Backend** control-plane page with direct entry points from Backends and Configuration.
+- Added a three-stage guided workflow that explains the BDS endpoint, trusted OniLink source CIDR, bridge ID, and key ID without requiring raw configuration edits.
+- Added an explicit post-generation view for the proxy properties already saved, the one-time backend key, the complete Endstone `onibridge.toml`, exact upload paths, restart order, and `/server` test command.
+- Prevented duplicate wizard submissions while key generation and validated configuration changes are in progress.
+- Expanded the dashboard API response and regression coverage for the generated non-secret OniLink properties while continuing to keep secret material out of `config.properties` and audit records.
+- Updated the installation guides and Wiki to use the first-class backend workflow.
+- Bumped OniLink, OniBridge, OniBridge-Geyser, the Pterodactyl bootstrap, and Linux release automation to `0.1.3`.
+
 ## 0.1.2 - 2026-08-19
 
 - Added a persistent, fail-closed OniLink XUID allowlist enforced immediately after Xbox login-chain authentication and before session/backend allocation.

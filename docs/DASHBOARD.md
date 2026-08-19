@@ -129,7 +129,7 @@ Before turning enforcement on, add your own account and confirm it appears in th
 
 ### Add a BDS backend
 
-Open **Configuration → Add BDS Backend** as an admin or owner. Enter a lowercase route name, the private BDS endpoint, the proxy source CIDR observed by that backend, and optional bridge/key IDs.
+Open the dedicated **Add Backend** page as an admin or owner. It is also linked from **Backends** and **Configuration**. Enter a lowercase route name, the private BDS endpoint, the proxy source CIDR observed by that backend, and optional bridge/key IDs.
 
 On generation, OniLink:
 
@@ -138,7 +138,8 @@ On generation, OniLink:
 3. Creates `secrets/<backend>.key` beside `config.properties` with owner-only POSIX permissions.
 4. Appends the matched backend block without changing the hub, join order, or failover policy.
 5. Parses the complete configuration and creates `config.properties.dashboard.bak`.
-6. Returns the matching `<backend>.key` and full `onibridge.toml` for Endstone.
+6. Shows the exact non-secret OniLink properties that were saved.
+7. Returns the matching `<backend>.key` and full `onibridge.toml` for Endstone.
 
 The result is shown once. Download both files and place them in `/home/container/plugins/onibridge/` on the new BDS server. Start Endstone, confirm the native hook is active, restart OniLink, then test `/server <backend>`.
 

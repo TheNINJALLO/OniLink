@@ -4,7 +4,7 @@ Use a separate Pterodactyl server for OniLink and for every BDS or Geyser backen
 
 ## Import the OniLink egg
 
-Download `egg-onilink.json` from the [current release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.2) or [`packaging/pterodactyl`](../packaging/pterodactyl/README.md).
+Download `egg-onilink.json` from the [current release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.3) or [`packaging/pterodactyl`](../packaging/pterodactyl/README.md).
 
 1. Open **Admin Panel → Nests**.
 2. Select or create a nest and choose **Import Egg**.
@@ -22,7 +22,7 @@ The installer downloads the exact `ONILINK_VERSION` bootstrap tag, verifies `Oni
 
 If GitHub is unavailable or verification fails, startup keeps the currently installed JAR. A successful replacement retains the prior version as `OniLink.jar.previous`, preserves active `config.properties`, updates only `onilink.properties.example`, and records the active release tag in `.onilink-version`. A changed updater is saved as `start-onilink.sh.previous` and takes over on the next restart.
 
-Existing v0.1.1 containers already discover the normal v0.1.2 release and replace `OniLink.jar` on restart. Reimport the v0.1.2 egg (or reinstall after first backing up the server) once to receive the new panel variable and self-updating startup script; normal runtime updates do not rewrite Pterodactyl's stored egg definition.
+Existing v0.1.1 and v0.1.2 containers discover the normal v0.1.3 release and replace `OniLink.jar` on restart. No egg reimport is required for the new backend page. Reimport the v0.1.3 egg only when creating a new server or when an older panel installation still lacks the v0.1.2 updater and allowlist variables; runtime updates do not rewrite Pterodactyl's stored egg definition.
 
 ### Enable the authenticated allowlist
 
@@ -75,7 +75,7 @@ When using the mixed example, the survival and Java values must be different. An
 
 ### Easier file-based setup for additional BDS servers
 
-You do not need to add or edit Endstone egg variables for a second native BDS server. In the OniLink dashboard, open **Configuration → Add BDS Backend**. The wizard creates a unique key under OniLink's `secrets/` directory, appends the validated route, and downloads the matching key plus complete `onibridge.toml` for the Endstone container.
+You do not need to add or edit Endstone egg variables for a second native BDS server. In the OniLink dashboard, open the dedicated **Add Backend** page. The wizard creates a unique key under OniLink's `secrets/` directory, appends the validated route, shows the saved proxy properties, and downloads the matching key plus complete `onibridge.toml` for the Endstone container.
 
 Upload both downloads to:
 
@@ -182,7 +182,7 @@ The relevant layout is:
 /home/container/
 ├── bedrock_server
 ├── plugins/
-│   ├── onibridge-0.1.2-bds-1.26.44.3-linux-x86_64.so
+│   ├── onibridge-0.1.3-bds-1.26.44.3-linux-x86_64.so
 │   └── onibridge/
 │       ├── survival.key          # when using the dashboard/file method
 │       └── onibridge.toml

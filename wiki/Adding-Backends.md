@@ -13,7 +13,7 @@ The OniLink dashboard can add a BDS + Endstone route, generate a unique secret, 
 
 1. Prepare the new BDS `1.26.44.3` + Endstone `0.11.9` server and install the current OniBridge `.so` in `plugins/`.
 2. Sign in to OniLink as an admin or owner.
-3. Open **Configuration → Add BDS Backend**.
+3. Open **Add Backend** in the main navigation. The same wizard is linked from **Backends** and **Configuration**.
 4. Enter:
 
    | Field | Example |
@@ -25,7 +25,7 @@ The OniLink dashboard can add a BDS + Endstone route, generate a unique secret, 
    | Bridge ID | `creative-main` |
    | Key ID | `key-1` |
 
-5. Select **Generate backend setup** and immediately download both files.
+5. Select **Generate key + both configs**. Confirm the proxy side says **Installed automatically**, then immediately download the key and `onibridge.toml`.
 6. Stop the new BDS server and upload the files here:
 
    ```text
@@ -38,7 +38,7 @@ The OniLink dashboard can add a BDS + Endstone route, generate a unique secret, 
 8. Restart OniLink.
 9. Join through OniLink and run `/server creative`.
 
-OniLink has already created its own `secrets/creative.key` and updated `config.properties`. Do not copy the secret text into `active_secret_env`; the wizard uses `active_secret_file` on both sides. The current Linux plugin automatically restricts an uploaded key to owner-only access.
+OniLink has already created its own `secrets/creative.key` and updated `config.properties`; the result page shows the exact non-secret properties for reference. Do not copy the secret text into `active_secret_env`; the wizard uses `active_secret_file` on both sides. The current Linux plugin automatically restricts an uploaded key to owner-only access.
 
 Adding the backend does not change the hub. Use the raw configuration editor only when you deliberately want to update `hubBackend`, `join.try`, or failover settings.
 

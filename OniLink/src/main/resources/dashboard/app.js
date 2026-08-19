@@ -266,10 +266,16 @@ async function refreshRuntime(showNotice = false) {
   }
 }
 
+function renderConfig(config) {
+  $("#config-content").value = config.content;
+  const revision = `Revision ${config.revision.slice(0, 12)}`;
+  $("#config-revision").textContent = revision;
+  $("#backend-config-revision").textContent = revision;
+}
+
 async function loadConfig() {
   model.config = await api("/api/config");
-  $("#config-content").value = model.config.content;
-  $("#config-revision").textContent = `Revision ${model.config.revision.slice(0, 12)}`;
+  renderConfig(model.config);
 }
 
 async function loadAllowlist() {
@@ -300,6 +306,8 @@ function showBackendSetup(result) {
   model.backendSetup = result;
   $("#backend-setup-title").textContent = `${result.backendName} files ready`;
   $("#backend-secret-label").textContent = result.secretFileName;
+  $("#backend-proxy-secret-path").textContent = result.onilinkSecretFile;
+  $("#backend-proxy-result").value = result.onilinkProperties;
   $("#backend-secret-result").value = result.secret;
   $("#backend-toml-result").value = result.onibridgeToml;
   $("#backend-test-command").textContent = `/server ${result.backendName}`;
@@ -331,7 +339,7 @@ async function navigate(page) {
   $$(".page").forEach(item => item.classList.toggle("active", item.id === `page-${page}`));
   $("#page-title").textContent = button.textContent.replace(/^\d+/, "").trim();
   try {
-    if (page === "configuration") await loadConfig();
+    if (["add-backend", "configuration"].includes(page)) await loadConfig();
     if (page === "allowlist") await loadAllowlist();
     if (page === "operations") await loadLogs();
     if (page === "audit") await loadAudit();
@@ -409,17 +417,21 @@ $("#alert-form").addEventListener("submit", async event => {
 });
 $("#add-backend-form").addEventListener("submit", async event => {
   event.preventDefault();
-  if (!model.config) return;
-  const data = Object.fromEntries(new FormData(event.currentTarget));
+  if (!model.config) return notice("Configuration is still loading. Try again in a moment.", true);
+  const form = event.currentTarget;
+  const submit = form.querySelector("[type=submit]");
+  const data = Object.fromEntries(new FormData(form));
   data.revision = model.config.revision;
+  submit.disabled = true;
+  submit.textContent = "Generating secure setup…";
   try {
     const result = await api("/api/config/backends", {method: "POST", body: data});
     model.config = result;
-    $("#config-content").value = result.content;
-    $("#config-revision").textContent = `Revision ${result.revision.slice(0, 12)}`;
+    renderConfig(result);
     showBackendSetup(result);
     notice(`${result.backendName} was added. Install the generated Endstone files, then restart OniLink.`);
   } catch (error) { notice(error.message, true); }
+  finally { submit.disabled = false; submit.textContent = "Generate key + both configs"; }
 });
 $("#download-backend-secret").addEventListener("click", () => {
   if (!model.backendSetup) return;
@@ -429,6 +441,10 @@ $("#download-backend-toml").addEventListener("click", () => {
   if (!model.backendSetup) return;
   downloadText("onibridge.toml", model.backendSetup.onibridgeToml);
 });
+$("#copy-backend-proxy").addEventListener("click", async () => {
+  try { await copyText($("#backend-proxy-result").value); notice("Saved OniLink properties copied."); }
+  catch (error) { notice(error.message, true); }
+});
 $("#copy-backend-secret").addEventListener("click", async () => {
   try { await copyText($("#backend-secret-result").value); notice("Backend secret copied."); }
   catch (error) { notice(error.message, true); }
@@ -437,14 +453,21 @@ $("#copy-backend-toml").addEventListener("click", async () => {
   try { await copyText($("#backend-toml-result").value); notice("onibridge.toml copied."); }
   catch (error) { notice(error.message, true); }
 });
+$("#reset-backend-wizard").addEventListener("click", () => {
+  model.backendSetup = null;
+  $("#backend-setup-result").hidden = true;
+  $("#add-backend-form").reset();
+  $("#add-backend-form [name=name]").focus();
+  $("#page-add-backend").scrollIntoView({behavior: "smooth", block: "start"});
+});
 $("#save-config").addEventListener("click", async () => {
   if (!model.config) return;
-  try { model.config = await api("/api/config", {method: "POST", body: {revision: model.config.revision, content: $("#config-content").value}}); $("#config-content").value = model.config.content; $("#config-revision").textContent = `Revision ${model.config.revision.slice(0, 12)}`; notice("Configuration validated, backed up, and saved. Restart OniLink to apply it."); }
+  try { model.config = await api("/api/config", {method: "POST", body: {revision: model.config.revision, content: $("#config-content").value}}); renderConfig(model.config); notice("Configuration validated, backed up, and saved. Restart OniLink to apply it."); }
   catch (error) { notice(error.message, true); }
 });
 $("#rollback-config").addEventListener("click", async () => {
   if (!confirm("Restore the last dashboard configuration backup?")) return;
-  try { model.config = await api("/api/config/rollback", {method: "POST"}); $("#config-content").value = model.config.content; $("#config-revision").textContent = `Revision ${model.config.revision.slice(0, 12)}`; notice("Previous configuration restored. Restart OniLink to apply it."); }
+  try { model.config = await api("/api/config/rollback", {method: "POST"}); renderConfig(model.config); notice("Previous configuration restored. Restart OniLink to apply it."); }
   catch (error) { notice(error.message, true); }
 });
 $("#refresh-logs").addEventListener("click", () => loadLogs().catch(error => notice(error.message, true)));

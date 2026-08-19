@@ -3,7 +3,7 @@
 This is the full operator guide for installing OniLink and configuring either a native BDS + Endstone backend or a Geyser-backed Java server. If you only need the shortest path, use [Quick start](QUICKSTART.md). If you want ready-to-copy files, start in [`examples/`](../examples/README.md).
 
 > [!IMPORTANT]
-> `v0.1.2` is the production release for the exact Linux BDS `1.26.44.3` + Endstone `0.11.9` profile. Its manifest reports `production_ready=true`; keep `allow_unreviewed_profile=false` so unknown or unapproved profiles remain blocked.
+> `v0.1.3` is the production release for the exact Linux BDS `1.26.44.3` + Endstone `0.11.9` profile. Its manifest reports `production_ready=true`; keep `allow_unreviewed_profile=false` so unknown or unapproved profiles remain blocked.
 
 ## Contents
 
@@ -73,7 +73,7 @@ Container NAT may change the source address observed by the backend. Do not assu
 
 ```bash
 mkdir -p ~/onilink-download
-gh release download v0.1.2 \
+gh release download v0.1.3 \
   --repo TheNINJALLO/OniLink \
   --dir ~/onilink-download
 cd ~/onilink-download
@@ -84,7 +84,7 @@ Every listed file must report `OK`. Stop if any file is missing or mismatched.
 
 ### Browser download
 
-Download every required file from the [v0.1.2 release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.2), including `SHA256SUMS`. On Linux:
+Download every required file from the [v0.1.3 release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.3), including `SHA256SUMS`. On Linux:
 
 ```bash
 cd /path/to/downloads
@@ -204,8 +204,8 @@ Keep a copy of the last known working server directory so rollback is a file res
 From the BDS root:
 
 ```bash
-cp /path/to/onibridge-0.1.2-bds-1.26.44.3-linux-x86_64.so plugins/
-chmod 0644 plugins/onibridge-0.1.2-bds-1.26.44.3-linux-x86_64.so
+cp /path/to/onibridge-0.1.3-bds-1.26.44.3-linux-x86_64.so plugins/
+chmod 0644 plugins/onibridge-0.1.3-bds-1.26.44.3-linux-x86_64.so
 ```
 
 Start the server once using your normal Endstone launch command. OniBridge creates:
@@ -529,7 +529,7 @@ The focused guide is [Geyser integration](GEYSER.md).
 
 ## 8. Configure multiple backends
 
-For another native BDS server, use **Configuration → Add BDS Backend** in the OniLink dashboard. The wizard:
+For another native BDS server, use **Add Backend** in the OniLink dashboard. The dedicated wizard:
 
 1. Preserves the existing backend list and appends the new route.
 2. Generates a different 32-byte secret for the new backend.

@@ -87,7 +87,7 @@ For the full OniLink option reference, use `OniLink/onilink.example.properties`.
 
 The complete deployment sequence and operating-system examples are in [Installation](INSTALLATION.md).
 
-To add a native BDS route automatically, use **Configuration → Add BDS Backend** in the dashboard and follow [Adding another BDS backend](ADDING_BACKEND.md).
+To add a native BDS route automatically, use the dashboard's dedicated **Add Backend** page and follow [Adding another BDS backend](ADDING_BACKEND.md). The wizard saves the proxy properties and key automatically, then gives you the two matched files to upload to Endstone.
 
 ## OniLink listener and routing keys
 

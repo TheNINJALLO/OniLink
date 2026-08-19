@@ -45,6 +45,8 @@ class OniLinkDashboardTest {
                     HttpResponse.BodyHandlers.ofString());
             assertEquals(200, home.statusCode());
             assertTrue(home.body().contains("OniLink Control Plane"));
+            assertTrue(home.body().contains("data-page=\"add-backend\""));
+            assertTrue(home.body().contains("Generate key + both configs"));
             assertTrue(home.headers().firstValue("Content-Security-Policy").orElseThrow()
                     .contains("frame-ancestors 'none'"));
 
@@ -54,6 +56,7 @@ class OniLinkDashboardTest {
             assertEquals(200, application.statusCode());
             assertTrue(application.body().contains("const form = event.currentTarget;"));
             assertTrue(application.body().contains("/api/allowlist"));
+            assertTrue(application.body().contains("[\"add-backend\", \"configuration\"]"));
             assertFalse(application.body().contains("event.currentTarget.reset()"),
                     "async form handlers must retain the form before the event is released");
 
@@ -111,6 +114,8 @@ class OniLinkDashboardTest {
                     "Authorization", "Bearer " + token.group(1)));
             assertEquals(201, backend.statusCode());
             assertTrue(backend.body().contains("\"backendName\":\"creative\""));
+            assertTrue(backend.body().contains("\"onilinkProperties\""));
+            assertTrue(backend.body().contains("active_secret_file = \\\"creative.key\\\""));
             assertTrue(Files.isRegularFile(directory.resolve("secrets/creative.key")));
         }
     }

@@ -83,6 +83,10 @@ class DashboardConfigFileTest {
         assertTrue(saved.contains("backend.creative.forwarding.activeSecretEnv="));
         assertTrue(saved.contains("backend.creative.forwarding.activeSecretFile=secrets/creative.key"));
         assertTrue(!saved.contains(secret));
+        String proxyProperties = String.valueOf(result.get("onilinkProperties"));
+        assertTrue(proxyProperties.contains("backends=default,creative"));
+        assertTrue(proxyProperties.contains("backend.creative.forwarding.activeSecretFile=secrets/creative.key"));
+        assertTrue(!proxyProperties.contains(secret));
 
         ProxyConfig config = ProxyConfig.loadOrCreate(path);
         assertEquals(2, config.backends().size());

@@ -1,6 +1,6 @@
 # Add another BDS backend
 
-This guide adds a second, third, or later BDS + Endstone server to an existing OniLink network. The dashboard wizard is the recommended path: it updates OniLink, generates a unique secret, and creates the matching Endstone configuration as one operation.
+This guide adds a second, third, or later BDS + Endstone server to an existing OniLink network. The dedicated dashboard wizard is the recommended path: it updates OniLink, generates a unique secret, and creates the matching Endstone configuration as one operation.
 
 For Geyser-backed Java servers, use [Geyser integration](GEYSER.md). The BDS wizard generates a native OniBridge configuration and should not be used for Geyser.
 
@@ -33,23 +33,22 @@ Two BDS servers may share one IP if each uses a different UDP port. The backend 
 ### 1. Open the wizard
 
 1. Sign in to the OniLink dashboard.
-2. Open **Configuration**.
-3. Find **Add BDS Backend**.
-4. Fill in all required fields from the worksheet above.
-5. Select **Generate backend setup** once.
+2. Open **Add Backend** in the main navigation. You can also select **Add BDS backend** from the Backends page.
+3. Fill in all required fields from the worksheet above.
+4. Select **Generate key + both configs** once.
 
 The operation is revision-checked and validated before it changes the live file. OniLink creates `config.properties.dashboard.bak`, preserves every existing backend, and appends the new route to `backends=`.
 
 ### 2. Save the generated files
 
-The result contains two downloads:
+The result separates the completed proxy side from the files still needed by Endstone. It shows the non-secret proxy properties already saved and provides two downloads:
 
 - `<backend>.key` — the new 32-byte Base64 forwarding secret.
 - `onibridge.toml` — a complete matched Endstone configuration.
 
 Download both immediately. The secret is returned only by that setup response and is never written into `config.properties` or the audit log.
 
-The OniLink copy is already installed automatically:
+The OniLink route and its copy of the key are already installed automatically. Do not paste the displayed key into the proxy properties:
 
 ```text
 /home/container/
@@ -82,13 +81,13 @@ Open the new BDS/Endstone server in Pterodactyl and stop it. In **Files**, creat
 ```text
 /home/container/
 └── plugins/
-    ├── onibridge-0.1.2-bds-1.26.44.3-linux-x86_64.so
+    ├── onibridge-0.1.3-bds-1.26.44.3-linux-x86_64.so
     └── onibridge/
         ├── creative.key
         └── onibridge.toml
 ```
 
-The generated TOML points to the key beside it:
+The generated TOML points to the key beside it. No Endstone startup variable is required:
 
 ```toml
 bridge_id = "creative-main"
