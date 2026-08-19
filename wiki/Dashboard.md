@@ -36,9 +36,16 @@ The setup file is deleted after use. Passwords are stored as salted PBKDF2 hashe
 | Viewer | Overview, players, backends, and metrics |
 | Operator | Viewer access plus logs, alerts, transfers, disconnects, and packet traces |
 | Admin | Operator access plus configuration, audit, endpoints, and support bundles |
-| Owner | Admin access plus accounts and graceful proxy shutdown |
+| Owner | Admin access plus accounts, tenant hosting, and graceful proxy shutdown |
 
 Use operator accounts for routine work and reserve the single owner for access administration.
+
+## Tenant hosting
+
+Hosting providers use the owner-only **Tenant Hosting** page to keep the Pterodactyl connection,
+plans, customers, node/allocation selection, isolated server creation, handoff downloads, and
+suspend/restore controls in the main panel. Provider credentials stay server-side and are redacted
+from browser responses. See [[Tenant Hosting]] before entering a real Application API key.
 
 ## Pterodactyl
 

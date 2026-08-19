@@ -49,6 +49,8 @@ class OniLinkDashboardTest {
             assertTrue(home.body().contains("Create backend setup package"));
             assertTrue(home.body().contains("OniLink needs one primary allocation"));
             assertTrue(home.body().contains("Download complete setup ZIP"));
+            assertTrue(home.body().contains("Tenant hosting"));
+            assertTrue(home.body().contains("Provision tenant and build handoff"));
             assertTrue(home.headers().firstValue("Content-Security-Policy").orElseThrow()
                     .contains("frame-ancestors 'none'"));
 
@@ -58,6 +60,7 @@ class OniLinkDashboardTest {
             assertEquals(200, application.statusCode());
             assertTrue(application.body().contains("const form = event.currentTarget;"));
             assertTrue(application.body().contains("/api/allowlist"));
+            assertTrue(application.body().contains("/api/hosting/tenants"));
             assertTrue(application.body().contains("[\"add-backend\", \"configuration\"]"));
             assertFalse(application.body().contains("event.currentTarget.reset()"),
                     "async form handlers must retain the form before the event is released");
@@ -89,6 +92,46 @@ class OniLinkDashboardTest {
             assertEquals(200, state.statusCode());
             assertTrue(state.body().contains("\"players\":2"));
             assertTrue(state.body().contains("\"role\":\"owner\""));
+
+            HttpResponse<String> hosting = client.send(HttpRequest.newBuilder(base.resolve("/api/hosting"))
+                    .header("Authorization", "Bearer " + token.group(1)).GET().build(),
+                    HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, hosting.statusCode());
+            assertTrue(hosting.body().contains("\"id\":\"starter\""));
+            assertTrue(hosting.body().contains("\"apiKeyConfigured\":false"));
+
+            String applicationKey = "ptla_test_key_that_must_not_be_returned";
+            HttpResponse<String> hostingSettings = post(client, base.resolve("/api/hosting/settings"), Map.of(
+                    "panelUrl", "https://panel.example.test",
+                    "apiKey", applicationKey,
+                    "eggId", "12",
+                    "dockerImage", "ghcr.io/ptero-eggs/yolks:java_21",
+                    "startup", "bash ./start-onilink.sh",
+                    "onilinkVersion", "v0.1.5",
+                    "bdsProfile", "test-profile"), Map.of(
+                    "Authorization", "Bearer " + token.group(1)));
+            assertEquals(200, hostingSettings.statusCode());
+            assertTrue(hostingSettings.body().contains("\"apiKeyConfigured\":true"));
+            assertFalse(hostingSettings.body().contains(applicationKey));
+            assertTrue(Files.readString(directory.resolve("dashboard/hosting/settings.properties"))
+                    .contains(applicationKey));
+
+            HttpResponse<String> viewerCreate = post(client, base.resolve("/api/users"), Map.of(
+                    "username", "tenant-viewer",
+                    "password", "a secure viewer password",
+                    "role", "viewer"), Map.of(
+                    "Authorization", "Bearer " + token.group(1)));
+            assertEquals(201, viewerCreate.statusCode());
+            HttpResponse<String> viewerLogin = post(client, base.resolve("/api/login"), Map.of(
+                    "username", "tenant-viewer",
+                    "password", "a secure viewer password",
+                    "totp", ""), Map.of());
+            Matcher viewerToken = Pattern.compile("\\\"token\\\":\\\"([^\\\"]+)\\\"").matcher(viewerLogin.body());
+            assertTrue(viewerToken.find());
+            HttpResponse<String> viewerHosting = client.send(HttpRequest.newBuilder(base.resolve("/api/hosting"))
+                    .header("Authorization", "Bearer " + viewerToken.group(1)).GET().build(),
+                    HttpResponse.BodyHandlers.ofString());
+            assertEquals(403, viewerHosting.statusCode());
 
             HttpResponse<String> allowlist = client.send(HttpRequest.newBuilder(base.resolve("/api/allowlist"))
                     .header("Authorization", "Bearer " + token.group(1)).GET().build(),

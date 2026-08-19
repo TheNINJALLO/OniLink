@@ -145,6 +145,18 @@ The result is shown once. Download both files and place them in `/home/container
 
 The secret is never written into `config.properties` or the audit record. See [Adding another BDS backend](ADDING_BACKEND.md) for a worked Pterodactyl example, manual setup, routing/failover choices, and troubleshooting.
 
+### Operate commercial tenants
+
+Owners can open **Tenant Hosting** to connect a Pterodactyl Application API, define resource plans,
+create or select customer accounts, choose live unassigned node allocations, and provision one
+isolated OniLink server per customer. The same page synchronizes state, retries interrupted creates,
+suspends/restores service, and downloads the customer's private backend/setup handoff.
+
+The Pterodactyl key remains server-side and is redacted from every dashboard response. Tenant
+records and handoffs are stored beneath `dashboard/hosting/`; treat that directory as credential
+material. Use this provider page only through restricted HTTPS. The complete field-by-field and
+security guide is [Commercial tenant hosting](TENANT_HOSTING.md).
+
 ### Edit configuration safely
 
 Open **Configuration** as an admin or owner. The browser receives a redacted view; keys recognized as passwords, tokens, webhooks, private keys, or secrets cannot be changed or removed there.
@@ -188,6 +200,7 @@ Set **Enable operations dashboard** to `false` when no web listener should be ex
 dashboard/
 ├── accounts.properties       # password hashes, roles, and permission-protected TOTP material
 ├── audit.jsonl               # append-only operator activity
+├── hosting/                  # owner-only panel key, plans, tenant records, and handoffs
 └── FIRST_RUN_SETUP.txt       # present only until owner setup
 ```
 

@@ -5,14 +5,20 @@ gets one proxy process, one primary allocation, one dashboard account store, and
 backend routes and forwarding keys. Dashboard roles inside a proxy are not a cross-customer security
 boundary.
 
-`tools/tenantctl.py` prepares and provisions those isolated instances through Pterodactyl's
-Application API. It never places multiple customers in one `config.properties` file.
+The owner-only **Tenant Hosting** page in OniLink's main control plane is the normal provisioning
+workflow. It discovers Pterodactyl customers, nodes, eggs, and free allocations; manages plans;
+creates isolated servers; and provides lifecycle controls in one place. See
+[`docs/TENANT_HOSTING.md`](../../docs/TENANT_HOSTING.md) for that guided setup.
+
+`tools/tenantctl.py` is the offline recovery and scripted-automation fallback. It prepares and
+provisions the same isolated instances through Pterodactyl's Application API and never places
+multiple customers in one `config.properties` file.
 
 The GitHub release ships `tenantctl.py`, `tenantctl.example.json`, and this guide as separate
 checksum-covered assets. Commands below use the cloned-repository path; when using the release
 assets from one directory, replace `tools/tenantctl.py` with `tenantctl.py`.
 
-## Prerequisites
+## CLI fallback prerequisites
 
 - Import the current `packaging/pterodactyl/egg-onilink.json` into the panel.
 - Create a non-administrator Pterodactyl user for the customer.

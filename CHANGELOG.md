@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.1.5 - 2026-08-19
+
+- Moved commercial Pterodactyl tenancy into an owner-only main control-plane page with redacted
+  connection storage, customer/node/egg/allocation discovery, customer creation, reusable resource
+  plans, isolated server provisioning, private handoffs, retry/reconciliation, and lifecycle state.
+- Added regression coverage for full Pterodactyl discovery/provision/suspend behavior, one-allocation
+  isolation, valid forwarding secrets, credential redaction, handoff contents, and restart persistence.
+
 ## 0.1.4 - 2026-08-19
 
 - Simplified native-backend onboarding to three normal inputs: backend name, BDS allocation, and

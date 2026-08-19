@@ -12,6 +12,8 @@ const model = {
   allowlist: null,
   config: null,
   backendSetup: null,
+  hosting: null,
+  hostingDiscovery: null,
   action: null,
   totpSecret: "",
 };
@@ -513,6 +515,176 @@ async function loadUsers() {
     .join("");
 }
 
+function renderHostingSettings() {
+  const settings = model.hosting?.settings;
+  if (!settings) return;
+  const form = $("#hosting-settings-form");
+  form.elements.panelUrl.value = settings.panelUrl || "";
+  form.elements.onilinkVersion.value = settings.onilinkVersion || "v0.1.5";
+  form.elements.bdsProfile.value = settings.bdsProfile || "";
+  form.elements.dockerImage.value = settings.dockerImage || "";
+  form.elements.startup.value = settings.startup || "";
+  form.elements.apiKey.value = "";
+  $("#hosting-key-status").textContent = settings.apiKeyConfigured
+    ? `Saved securely · ${settings.apiKeyHint}`
+    : "No key saved";
+  const badge = $("#hosting-connection-badge");
+  badge.textContent = settings.configured ? "READY" : "SETUP REQUIRED";
+  badge.classList.toggle("warn", !settings.configured);
+}
+
+function renderHostingPlans() {
+  const plans = model.hosting?.plans || [];
+  const list = $("#hosting-plan-list");
+  list.className = plans.length
+    ? "hosting-plan-list"
+    : "hosting-plan-list empty";
+  list.innerHTML = plans.length
+    ? plans
+        .map(
+          (plan) => `
+          <div class="hosting-plan-row">
+            <div><b>${escapeHtml(plan.name)}</b><small>${escapeHtml(plan.id)} · ${escapeHtml(plan.memory)} MB RAM · ${escapeHtml(plan.disk)} MB disk · ${escapeHtml(plan.cpu)}% CPU · ${escapeHtml(plan.maxPlayers)} players</small></div>
+            <button class="mini-button" data-edit-hosting-plan="${escapeHtml(plan.id)}">Edit</button>
+            <button class="mini-button" data-delete-hosting-plan="${escapeHtml(plan.id)}">Remove</button>
+          </div>`,
+        )
+        .join("")
+    : "Create a plan before provisioning a tenant.";
+  const select = $("#hosting-plan-select");
+  const selected = select.value;
+  select.innerHTML = plans
+    .map(
+      (plan) =>
+        `<option value="${escapeHtml(plan.id)}">${escapeHtml(plan.name)} · ${escapeHtml(plan.memory)} MB</option>`,
+    )
+    .join("");
+  if (plans.some((plan) => plan.id === selected)) select.value = selected;
+}
+
+function renderHostingTenants() {
+  const tenants = model.hosting?.tenants || [];
+  const body = $("#hosting-tenants-body");
+  if (!tenants.length) {
+    body.innerHTML = `<tr><td colspan="6" class="empty">No tenants provisioned.</td></tr>`;
+    return;
+  }
+  body.innerHTML = tenants
+    .map((tenant) => {
+      const state = tenant.suspended ? "suspended" : tenant.status || "unknown";
+      const canRetry = ["error", "provisioning"].includes(tenant.status);
+      const lifecycle = tenant.suspended
+        ? `<button class="mini-button" data-hosting-action="unsuspend" data-tenant="${escapeHtml(tenant.id)}">Restore</button>`
+        : `<button class="mini-button" data-hosting-action="suspend" data-tenant="${escapeHtml(tenant.id)}">Suspend</button>`;
+      return `
+        <tr>
+          <td><b>${escapeHtml(tenant.customerLabel)}</b><small>${escapeHtml(tenant.id)} · ${escapeHtml(tenant.userDisplay || `user ${tenant.userId}`)}</small></td>
+          <td><code>${escapeHtml(tenant.proxyAddress)}</code><small>Backend ${escapeHtml(tenant.backendAddress)}</small></td>
+          <td>${escapeHtml(tenant.plan)}</td>
+          <td><b class="hosting-state-${escapeHtml(state)}">${escapeHtml(state)}</b>${tenant.lastError ? `<small class="hosting-last-error">${escapeHtml(tenant.lastError)}</small>` : ""}</td>
+          <td>${tenant.serverId ? `#${escapeHtml(tenant.serverId)}` : "Pending"}<small>${escapeHtml(tenant.uuid || "No UUID yet")}</small></td>
+          <td><div class="button-row">
+            ${canRetry ? `<button class="mini-button" data-hosting-action="retry" data-tenant="${escapeHtml(tenant.id)}">Retry</button>` : lifecycle}
+            <button class="mini-button" data-hosting-action="refresh" data-tenant="${escapeHtml(tenant.id)}">Sync</button>
+            <button class="mini-button" data-hosting-handoff="${escapeHtml(tenant.id)}">Handoff ZIP</button>
+          </div></td>
+        </tr>`.trim();
+    })
+    .join("");
+}
+
+async function loadHosting() {
+  if (!hasRole("owner")) return;
+  model.hosting = await api("/api/hosting");
+  renderHostingSettings();
+  renderHostingPlans();
+  renderHostingTenants();
+}
+
+function renderHostingDiscovery() {
+  const discovery = model.hostingDiscovery;
+  if (!discovery) return;
+  const userSelect = $("#hosting-user-select");
+  const selectedUser = userSelect.value;
+  userSelect.innerHTML = discovery.users.length
+    ? discovery.users
+        .map(
+          (user) =>
+            `<option value="${escapeHtml(user.id)}" data-display="${escapeHtml(user.username)}">${escapeHtml(user.name)} · ${escapeHtml(user.username)} · ${escapeHtml(user.email)}</option>`,
+        )
+        .join("")
+    : `<option value="">No Pterodactyl customers found</option>`;
+  if (discovery.users.some((user) => String(user.id) === selectedUser))
+    userSelect.value = selectedUser;
+
+  const nodeSelect = $("#hosting-node-select");
+  const selectedNode = nodeSelect.value;
+  nodeSelect.innerHTML = `<option value="">Select a node</option>${discovery.nodes
+    .map(
+      (node) =>
+        `<option value="${escapeHtml(node.id)}">${escapeHtml(node.name)} · ${escapeHtml(node.fqdn)}</option>`,
+    )
+    .join("")}`;
+  if (discovery.nodes.some((node) => String(node.id) === selectedNode))
+    nodeSelect.value = selectedNode;
+
+  const eggSelect = $("#hosting-egg-select");
+  const configuredEgg = String(model.hosting?.settings?.eggId || 0);
+  const selectedEgg = eggSelect.value !== "0" ? eggSelect.value : configuredEgg;
+  eggSelect.innerHTML = `<option value="0">Select the OniLink egg</option>${discovery.eggs
+    .map(
+      (egg) =>
+        `<option value="${escapeHtml(egg.id)}">${escapeHtml(egg.nest)} · ${escapeHtml(egg.name)}</option>`,
+    )
+    .join("")}`;
+  if (discovery.eggs.some((egg) => String(egg.id) === selectedEgg)) {
+    eggSelect.value = selectedEgg;
+  }
+}
+
+async function loadHostingDiscovery() {
+  model.hostingDiscovery = await api("/api/hosting/discovery");
+  renderHostingDiscovery();
+}
+
+async function loadHostingAllocations(nodeId) {
+  const select = $("#hosting-allocation-select");
+  if (!nodeId) {
+    select.innerHTML = `<option value="">Select a node first</option>`;
+    return;
+  }
+  select.innerHTML = `<option value="">Loading available allocations…</option>`;
+  const result = await api(
+    `/api/hosting/allocations?nodeId=${encodeURIComponent(nodeId)}`,
+  );
+  select.innerHTML = result.allocations.length
+    ? `<option value="">Select an unassigned allocation</option>${result.allocations
+        .map(
+          (allocation) =>
+            `<option value="${escapeHtml(allocation.id)}">${escapeHtml(allocation.address)}</option>`,
+        )
+        .join("")}`
+    : `<option value="">No free allocations on this node</option>`;
+}
+
+async function downloadHostingHandoff(tenant) {
+  const response = await fetch(
+    `/api/hosting/handoff?tenant=${encodeURIComponent(tenant)}`,
+    { headers: { Authorization: `Bearer ${model.token}` }, cache: "no-store" },
+  );
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error || "Handoff download failed");
+  }
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(await response.blob());
+  link.download = `${tenant}.handoff.zip`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(link.href), 2000);
+}
+
 async function navigate(page) {
   const button = $(`.nav-link[data-page="${page}"]`);
   if (!button || button.classList.contains("role-hidden")) return;
@@ -528,6 +700,10 @@ async function navigate(page) {
     if (page === "allowlist") await loadAllowlist();
     if (page === "operations") await loadLogs();
     if (page === "audit") await loadAudit();
+    if (page === "hosting") {
+      await loadHosting();
+      if (model.hosting.settings.apiKeyConfigured) await loadHostingDiscovery();
+    }
     if (page === "accounts") await loadUsers();
     if (["overview", "players", "backends"].includes(page))
       await refreshRuntime();
@@ -802,6 +978,215 @@ $("#refresh-logs").addEventListener("click", () =>
 $("#refresh-audit").addEventListener("click", () =>
   loadAudit().catch((error) => notice(error.message, true)),
 );
+$("#hosting-settings-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const submit = form.querySelector("[type=submit]");
+  submit.disabled = true;
+  submit.textContent = "Connecting…";
+  try {
+    let data = Object.fromEntries(new FormData(form));
+    await api("/api/hosting/settings", { method: "POST", body: data });
+    await loadHosting();
+    const result = await api("/api/hosting/test", { method: "POST" });
+    await loadHostingDiscovery();
+    if (String(data.eggId || "0") === "0") {
+      const candidates = model.hostingDiscovery.eggs.filter((egg) =>
+        egg.name.toLowerCase().includes("onilink"),
+      );
+      if (candidates.length === 1) {
+        $("#hosting-egg-select").value = String(candidates[0].id);
+        $("#hosting-settings-form [name=dockerImage]").value =
+          candidates[0].dockerImage;
+        $("#hosting-settings-form [name=startup]").value =
+          candidates[0].startup;
+        data = Object.fromEntries(new FormData(form));
+        await api("/api/hosting/settings", { method: "POST", body: data });
+        await loadHosting();
+        renderHostingDiscovery();
+        notice(`${result.message} OniLink egg selected and saved.`);
+      } else {
+        notice(
+          `${result.message} Select the OniLink egg, then save once more.`,
+        );
+      }
+    } else {
+      notice(result.message);
+    }
+  } catch (error) {
+    notice(error.message, true);
+  } finally {
+    submit.disabled = false;
+    submit.textContent = "Save and load Pterodactyl";
+  }
+});
+$("#hosting-test").addEventListener("click", async () => {
+  try {
+    const result = await api("/api/hosting/test", { method: "POST" });
+    await loadHostingDiscovery();
+    notice(result.message);
+  } catch (error) {
+    notice(error.message, true);
+  }
+});
+$("#hosting-egg-select").addEventListener("change", (event) => {
+  const egg = model.hostingDiscovery?.eggs.find(
+    (item) => String(item.id) === event.currentTarget.value,
+  );
+  if (!egg) return;
+  $("#hosting-settings-form [name=dockerImage]").value = egg.dockerImage;
+  $("#hosting-settings-form [name=startup]").value = egg.startup;
+});
+$("#hosting-plan-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  try {
+    await api("/api/hosting/plans", {
+      method: "POST",
+      body: Object.fromEntries(new FormData(form)),
+    });
+    form.reset();
+    await loadHosting();
+    $("#hosting-plan-editor").open = false;
+    notice("Hosting plan saved.");
+  } catch (error) {
+    notice(error.message, true);
+  }
+});
+$("#hosting-plan-list").addEventListener("click", async (event) => {
+  const edit = event.target.closest("[data-edit-hosting-plan]");
+  if (edit) {
+    const plan = model.hosting.plans.find(
+      (item) => item.id === edit.dataset.editHostingPlan,
+    );
+    if (!plan) return;
+    const form = $("#hosting-plan-form");
+    Object.entries(plan).forEach(([key, value]) => {
+      if (form.elements[key]) form.elements[key].value = value;
+    });
+    $("#hosting-plan-editor").open = true;
+    form.elements.name.focus();
+    return;
+  }
+  const remove = event.target.closest("[data-delete-hosting-plan]");
+  if (
+    !remove ||
+    !confirm(`Remove hosting plan ${remove.dataset.deleteHostingPlan}?`)
+  )
+    return;
+  try {
+    await api("/api/hosting/plans", {
+      method: "DELETE",
+      body: { id: remove.dataset.deleteHostingPlan },
+    });
+    await loadHosting();
+    notice("Hosting plan removed.");
+  } catch (error) {
+    notice(error.message, true);
+  }
+});
+$("#hosting-customer-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const submit = form.querySelector("[type=submit]");
+  submit.disabled = true;
+  try {
+    const result = await api("/api/hosting/customers", {
+      method: "POST",
+      body: Object.fromEntries(new FormData(form)),
+    });
+    form.reset();
+    await loadHostingDiscovery();
+    $("#hosting-user-select").value = String(result.user.id);
+    notice(`Pterodactyl customer ${result.user.username} created.`);
+  } catch (error) {
+    notice(error.message, true);
+  } finally {
+    submit.disabled = false;
+  }
+});
+$("#hosting-node-select").addEventListener("change", (event) => {
+  loadHostingAllocations(event.currentTarget.value).catch((error) =>
+    notice(error.message, true),
+  );
+});
+$("#hosting-tenant-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const submit = form.querySelector("[type=submit]");
+  const selectedUser = $("#hosting-user-select").selectedOptions[0];
+  form.elements.userDisplay.value = selectedUser?.dataset.display || "";
+  submit.disabled = true;
+  submit.textContent = "Provisioning isolated server…";
+  try {
+    const result = await api("/api/hosting/tenants", {
+      method: "POST",
+      body: Object.fromEntries(new FormData(form)),
+    });
+    form.reset();
+    await loadHosting();
+    renderHostingDiscovery();
+    notice(`${result.message} Download its handoff ZIP from the tenant list.`);
+  } catch (error) {
+    await loadHosting().catch(() => {});
+    notice(error.message, true);
+  } finally {
+    submit.disabled = false;
+    submit.textContent = "Provision tenant and build handoff";
+  }
+});
+$("#hosting-tenants-body").addEventListener("click", async (event) => {
+  const handoff = event.target.closest("[data-hosting-handoff]");
+  if (handoff) {
+    try {
+      await downloadHostingHandoff(handoff.dataset.hostingHandoff);
+      notice("Private tenant handoff downloaded.");
+    } catch (error) {
+      notice(error.message, true);
+    }
+    return;
+  }
+  const button = event.target.closest("[data-hosting-action]");
+  if (!button) return;
+  const action = button.dataset.hostingAction;
+  const tenant = button.dataset.tenant;
+  if (
+    action === "suspend" &&
+    !confirm(`Suspend ${tenant}? Their OniLink server will be stopped.`)
+  )
+    return;
+  button.disabled = true;
+  try {
+    await api("/api/hosting/tenants/action", {
+      method: "POST",
+      body: { tenant, action },
+    });
+    await loadHosting();
+    notice(`${tenant} ${action} completed.`);
+  } catch (error) {
+    notice(error.message, true);
+  } finally {
+    button.disabled = false;
+  }
+});
+$("#hosting-refresh").addEventListener("click", async () => {
+  const tenants = model.hosting?.tenants || [];
+  try {
+    await Promise.all(
+      tenants.map((tenant) =>
+        api("/api/hosting/tenants/action", {
+          method: "POST",
+          body: { tenant: tenant.id, action: "refresh" },
+        }),
+      ),
+    );
+    await loadHosting();
+    notice("Tenant states synchronized with Pterodactyl.");
+  } catch (error) {
+    await loadHosting().catch(() => {});
+    notice(error.message, true);
+  }
+});
 $("#download-support").addEventListener("click", async () => {
   try {
     const response = await fetch("/api/support-bundle", {

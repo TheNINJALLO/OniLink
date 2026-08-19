@@ -1,7 +1,7 @@
 FROM ubuntu:22.04 AS build
 
 ARG DEBIAN_FRONTEND=noninteractive
-ARG RELEASE_VERSION=0.1.4
+ARG RELEASE_VERSION=0.1.5
 RUN apt-get update && apt-get install -y --no-install-recommends \
     binutils ca-certificates curl git gnupg lsb-release ninja-build \
     openjdk-21-jdk-headless python3 python3-pip \

@@ -31,7 +31,7 @@
 <!-- onilink-professional-header:end -->
 
 > [!IMPORTANT]
-> `v0.1.4` is the current production release. It streamlines secure backend onboarding and adds isolated Pterodactyl tenant provisioning while retaining the authenticated XUID allowlist, stable updates, and production-approved Linux BDS `1.26.44.3` + Endstone `0.11.9` profile. Unknown binaries, platforms, Endstone versions, and profile IDs still fail closed.
+> `v0.1.5` is the current production release. It moves isolated Pterodactyl tenant hosting into the owner-only OniLink control plane while retaining secure backend onboarding, the authenticated XUID allowlist, stable updates, and the production-approved Linux BDS `1.26.44.3` + Endstone `0.11.9` profile. Unknown binaries, platforms, Endstone versions, and profile IDs still fail closed.
 
 ## What this repository provides
 
@@ -64,7 +64,7 @@ OniLink preserves the authenticated name, XUID, UUID, and observed client addres
 
 ## Quick start
 
-1. Read the [v0.1.4 release notes](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.4) and download only the files for your backend path.
+1. Read the [v0.1.5 release notes](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.5) and download only the files for your backend path.
 2. Verify the download directory against `SHA256SUMS`.
 3. Generate a unique 32-byte-or-stronger secret for each backend and expose it through an environment variable—not a committed configuration file.
 4. Configure matching backend name, bridge ID, key ID, and secret environment variable on both sides.
@@ -76,7 +76,7 @@ After the first server works, open the dashboard's dedicated **Add Backend** pag
 Download the current release with GitHub CLI:
 
 ```bash
-gh release download v0.1.4 \
+gh release download v0.1.5 \
   --repo TheNINJALLO/OniLink \
   --dir onilink-release
 ```
@@ -85,15 +85,19 @@ Pterodactyl administrators can import [`egg-onilink.json`](packaging/pterodactyl
 
 ## Operations dashboard
 
-`OniLink.jar` includes a responsive control plane for live players, authenticated XUID allowlisting, backend health, transfers, alerts, bounded traces, guided BDS backend setup, safe configuration editing, logs, audit records, accounts, TOTP, metrics, and redacted support bundles. It defaults to `127.0.0.1:8080`; first-run owner setup uses a one-time code written to `dashboard/FIRST_RUN_SETUP.txt`.
+`OniLink.jar` includes a responsive control plane for live players, authenticated XUID allowlisting, backend health, transfers, alerts, bounded traces, guided BDS backend setup, owner-managed Pterodactyl tenant hosting, safe configuration editing, logs, audit records, accounts, TOTP, metrics, and redacted support bundles. It defaults to `127.0.0.1:8080`; first-run owner setup uses a one-time code written to `dashboard/FIRST_RUN_SETUP.txt`.
 
 For remote use, put the dashboard behind HTTPS and restrict it to administrator networks. See the [complete dashboard guide](docs/DASHBOARD.md) for standalone, reverse-proxy, account, role, recovery, and Pterodactyl examples.
+
+Hosting providers can use the owner-only **Tenant Hosting** page to keep panel connection, plans,
+customers, free allocation selection, isolated server provisioning, handoffs, and suspension in one
+place. See [Commercial tenant hosting](docs/TENANT_HOSTING.md).
 
 ## Choose a backend path
 
 ### Native BDS + Endstone
 
-Use `onibridge-0.1.4-bds-1.26.44.3-linux-x86_64.so` with the exact BDS `1.26.44.3` Linux executable and Endstone `0.11.9`. Install the matching profile JSON, start once to generate `onibridge.toml`, configure it, and keep `allow_unreviewed_profile=false` for this production-approved profile.
+Use `onibridge-0.1.5-bds-1.26.44.3-linux-x86_64.so` with the exact BDS `1.26.44.3` Linux executable and Endstone `0.11.9`. Install the matching profile JSON, start once to generate `onibridge.toml`, configure it, and keep `allow_unreviewed_profile=false` for this production-approved profile.
 
 [Native installation guide →](docs/INSTALLATION.md)
 

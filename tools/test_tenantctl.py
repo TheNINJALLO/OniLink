@@ -15,7 +15,7 @@ SETTINGS = {
     "egg_id": 12,
     "docker_image": "ghcr.io/ptero-eggs/yolks:java_21",
     "startup": "bash ./start-onilink.sh",
-    "onilink_version": "v0.1.4",
+    "onilink_version": "v0.1.5",
     "bds_profile": "profile-test",
     "plans": {
         "starter": {

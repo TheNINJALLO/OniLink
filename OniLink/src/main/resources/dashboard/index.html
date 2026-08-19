@@ -43,8 +43,11 @@
           <button class="nav-link admin-only" data-page="audit">
             <span>08</span>Audit
           </button>
+          <button class="nav-link owner-only" data-page="hosting">
+            <span>09</span>Tenant Hosting
+          </button>
           <button class="nav-link" data-page="accounts">
-            <span>09</span>Account
+            <span>10</span>Account
           </button>
         </nav>
         <div class="sidebar-foot">
@@ -775,6 +778,344 @@
           </div>
           <article class="panel log-panel">
             <pre id="audit-output">Waiting for audit access…</pre>
+          </article>
+        </section>
+
+        <section class="page owner-only" id="page-hosting">
+          <div class="section-lead">
+            <div>
+              <p class="eyebrow">ISOLATED CUSTOMER SERVERS</p>
+              <h2>Tenant hosting</h2>
+              <p>
+                Connect Pterodactyl once, then create customers, plans, and
+                dedicated OniLink servers without leaving this control plane.
+              </p>
+            </div>
+            <span class="badge" id="hosting-connection-badge"
+              >NOT CONNECTED</span
+            >
+          </div>
+
+          <article class="panel hosting-connection">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">STEP 1 · PANEL CONNECTION</p>
+                <h3>Pterodactyl application API</h3>
+              </div>
+              <small id="hosting-key-status" class="muted">No key saved</small>
+            </div>
+            <div class="warning">
+              <b>Owner only</b
+              ><span
+                >Use this page through HTTPS. The application API key is stored
+                server-side in the dashboard data directory, protected as an
+                owner-only file, and never sent back to the browser.</span
+              >
+            </div>
+            <form id="hosting-settings-form">
+              <div class="form-columns">
+                <label class="field"
+                  ><span>Panel URL</span
+                  ><input
+                    name="panelUrl"
+                    type="url"
+                    placeholder="https://panel.example.com"
+                    required /></label
+                ><label class="field"
+                  ><span>Application API key</span
+                  ><input
+                    name="apiKey"
+                    type="password"
+                    autocomplete="new-password"
+                    placeholder="Leave blank to keep the saved key"
+                /></label>
+              </div>
+              <label class="field"
+                ><span>OniLink egg</span
+                ><select name="eggId" id="hosting-egg-select">
+                  <option value="0">Connect to load eggs</option>
+                </select></label
+              >
+              <div class="form-columns">
+                <label class="field"
+                  ><span>OniLink install version</span
+                  ><input
+                    name="onilinkVersion"
+                    value="v0.1.5"
+                    required /></label
+                ><label class="field"
+                  ><span>Approved BDS profile</span
+                  ><input
+                    name="bdsProfile"
+                    value="bds-1.26.44.3-linux-x86_64-06effdd00067f1ae"
+                    required
+                /></label>
+              </div>
+              <details class="advanced-setup">
+                <summary>Advanced egg values</summary>
+                <label class="field"
+                  ><span>Docker image</span
+                  ><input
+                    name="dockerImage"
+                    value="ghcr.io/ptero-eggs/yolks:java_21"
+                    required /></label
+                ><label class="field"
+                  ><span>Startup command</span
+                  ><input
+                    name="startup"
+                    value="bash ./start-onilink.sh"
+                    required
+                /></label>
+              </details>
+              <div class="button-row">
+                <button class="button primary" type="submit">
+                  Save and load Pterodactyl
+                </button>
+                <button class="button" type="button" id="hosting-test">
+                  Test saved connection
+                </button>
+              </div>
+            </form>
+          </article>
+
+          <div class="split hosting-workspace">
+            <article class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">STEP 2 · PACKAGES</p>
+                  <h3>Hosting plans</h3>
+                </div>
+              </div>
+              <div id="hosting-plan-list" class="hosting-plan-list empty">
+                Loading plans…
+              </div>
+              <details class="advanced-setup" id="hosting-plan-editor">
+                <summary>Add or update a plan</summary>
+                <form id="hosting-plan-form" class="hosting-inner-form">
+                  <div class="form-columns">
+                    <label class="field"
+                      ><span>Plan ID</span
+                      ><input name="id" placeholder="starter" required /></label
+                    ><label class="field"
+                      ><span>Display name</span
+                      ><input name="name" placeholder="Starter" required
+                    /></label>
+                  </div>
+                  <div class="hosting-resource-grid">
+                    <label class="field"
+                      ><span>Memory (MB)</span
+                      ><input
+                        name="memory"
+                        type="number"
+                        min="128"
+                        value="1024"
+                        required /></label
+                    ><label class="field"
+                      ><span>Disk (MB)</span
+                      ><input
+                        name="disk"
+                        type="number"
+                        min="128"
+                        value="1024"
+                        required /></label
+                    ><label class="field"
+                      ><span>CPU (%)</span
+                      ><input
+                        name="cpu"
+                        type="number"
+                        min="1"
+                        value="100"
+                        required /></label
+                    ><label class="field"
+                      ><span>Max players</span
+                      ><input
+                        name="maxPlayers"
+                        type="number"
+                        min="1"
+                        value="20"
+                        required /></label
+                    ><label class="field"
+                      ><span>Backups</span
+                      ><input
+                        name="backups"
+                        type="number"
+                        min="0"
+                        value="1" /></label
+                    ><label class="field"
+                      ><span>Databases</span
+                      ><input name="databases" type="number" min="0" value="0"
+                    /></label>
+                  </div>
+                  <input name="swap" type="hidden" value="0" />
+                  <input name="io" type="hidden" value="500" />
+                  <input name="threads" type="hidden" value="" />
+                  <button class="button" type="submit">Save plan</button>
+                </form>
+              </details>
+            </article>
+
+            <article class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">OPTIONAL · NEW CUSTOMER</p>
+                  <h3>Create Pterodactyl login</h3>
+                </div>
+              </div>
+              <p class="muted">
+                Skip this when the customer already exists in Pterodactyl. The
+                password is sent directly to Pterodactyl and is not saved by
+                OniLink.
+              </p>
+              <form id="hosting-customer-form">
+                <div class="form-columns">
+                  <label class="field"
+                    ><span>First name</span
+                    ><input name="firstName" required /></label
+                  ><label class="field"
+                    ><span>Last name</span><input name="lastName" required
+                  /></label>
+                </div>
+                <div class="form-columns">
+                  <label class="field"
+                    ><span>Username</span
+                    ><input name="username" required /></label
+                  ><label class="field"
+                    ><span>Email</span
+                    ><input name="email" type="email" required
+                  /></label>
+                </div>
+                <label class="field"
+                  ><span>Temporary password</span
+                  ><input
+                    name="password"
+                    type="password"
+                    minlength="12"
+                    autocomplete="new-password"
+                    required /></label
+                ><button class="button" type="submit">Create customer</button>
+              </form>
+            </article>
+          </div>
+
+          <article class="panel hosting-provision">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">STEP 3 · PROVISION</p>
+                <h3>Create an isolated OniLink server</h3>
+              </div>
+            </div>
+            <div class="port-answer">
+              <b>ONE ONILINK ALLOCATION PER CUSTOMER</b>
+              <span
+                >The selected number carries Bedrock over UDP and the tenant's
+                dashboard over TCP. Their BDS server keeps its own allocation;
+                OniBridge does not require another port.</span
+              >
+            </div>
+            <form id="hosting-tenant-form">
+              <div class="form-columns">
+                <label class="field"
+                  ><span>Customer</span
+                  ><select name="userId" id="hosting-user-select" required>
+                    <option value="">Connect to load customers</option>
+                  </select></label
+                ><label class="field"
+                  ><span>Hosting plan</span
+                  ><select
+                    name="plan"
+                    id="hosting-plan-select"
+                    required
+                  ></select
+                ></label>
+              </div>
+              <div class="form-columns">
+                <label class="field"
+                  ><span>Customer label</span
+                  ><input
+                    name="customerLabel"
+                    placeholder="Acme Network"
+                    required /></label
+                ><label class="field"
+                  ><span>Tenant ID</span
+                  ><input
+                    name="tenant"
+                    pattern="[a-z][a-z0-9-]{1,31}"
+                    placeholder="acme"
+                    required
+                /></label>
+              </div>
+              <div class="form-columns">
+                <label class="field"
+                  ><span>Pterodactyl node</span
+                  ><select name="nodeId" id="hosting-node-select" required>
+                    <option value="">Connect to load nodes</option>
+                  </select></label
+                >
+                ><label class="field"
+                  ><span>Available OniLink allocation</span
+                  ><select
+                    name="allocationId"
+                    id="hosting-allocation-select"
+                    required
+                  >
+                    <option value="">Select a node first</option>
+                  </select></label
+                >
+              </div>
+              <div class="form-columns">
+                <label class="field"
+                  ><span>Customer BDS address</span
+                  ><input
+                    name="backendAddress"
+                    placeholder="10.0.0.25:19132"
+                    required /></label
+                ><label class="field"
+                  ><span>Proxy source IP seen by BDS</span
+                  ><input
+                    name="proxySourceIp"
+                    placeholder="Optional · defaults to allocation IP"
+                /></label>
+              </div>
+              <input
+                name="userDisplay"
+                id="hosting-user-display"
+                type="hidden"
+              />
+              <button class="button primary" type="submit">
+                Provision tenant and build handoff
+              </button>
+            </form>
+          </article>
+
+          <article class="panel table-panel hosting-tenants-panel">
+            <div class="panel-head hosting-table-head">
+              <div>
+                <p class="eyebrow">CUSTOMER FLEET</p>
+                <h3>Tenant servers</h3>
+              </div>
+              <button class="button" id="hosting-refresh" type="button">
+                Refresh list
+              </button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Tenant</th>
+                    <th>Player address</th>
+                    <th>Plan</th>
+                    <th>State</th>
+                    <th>Server</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="hosting-tenants-body">
+                  <tr>
+                    <td colspan="6" class="empty">No tenants provisioned.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </article>
         </section>
 

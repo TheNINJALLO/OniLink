@@ -828,6 +828,64 @@ textarea {
   margin: 8px 0 14px;
   color: var(--muted);
 }
+.hosting-connection,
+.hosting-provision,
+.hosting-tenants-panel {
+  margin-top: 14px;
+}
+.hosting-workspace {
+  align-items: start;
+}
+.hosting-inner-form {
+  padding: 15px;
+}
+.hosting-resource-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.hosting-plan-list {
+  display: grid;
+  gap: 9px;
+}
+.hosting-plan-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.hosting-plan-row:first-child {
+  border-top: 0;
+}
+.hosting-plan-row small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+}
+.hosting-table-head {
+  padding: 20px 23px 0;
+}
+.hosting-tenants-panel td:last-child {
+  min-width: 235px;
+}
+.hosting-state-error {
+  color: #ff9aa2;
+}
+.hosting-state-active {
+  color: var(--accent);
+}
+.hosting-state-suspended {
+  color: var(--amber);
+}
+.hosting-last-error {
+  display: block;
+  max-width: 260px;
+  margin-top: 4px;
+  color: #ff9aa2;
+  overflow-wrap: anywhere;
+}
 .setup-grid {
   align-items: start;
   margin-bottom: 14px;
@@ -1191,6 +1249,7 @@ dialog form {
   .split,
   .backend-grid,
   .form-columns,
+  .hosting-resource-grid,
   .result-grid,
   .setup-status-grid {
     grid-template-columns: 1fr;
