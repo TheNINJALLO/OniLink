@@ -25,7 +25,8 @@
   <a href="#choose-a-backend-path">Backend paths</a> &bull;
   <a href="docs/README.md">Documentation</a> &bull;
   <a href="https://github.com/TheNINJALLO/OniLink/wiki">Wiki</a> &bull;
-  <a href="https://github.com/TheNINJALLO/OniLink/releases">Releases</a>
+  <a href="https://github.com/TheNINJALLO/OniLink/releases">Releases</a> &bull;
+  <a href="CONTRIBUTING.md">Contributing</a>
 </p>
 <!-- onilink-professional-header:end -->
 
@@ -123,6 +124,7 @@ Exact executable hashes, profile IDs, and remaining gates are maintained in [Com
 | [Troubleshooting](docs/TROUBLESHOOTING.md) | [Dashboard](docs/DASHBOARD.md) | [Building](docs/BUILDING.md) |
 | [GitHub Wiki](https://github.com/TheNINJALLO/OniLink/wiki) | [Pterodactyl](docs/PTERODACTYL.md) | [Source audit](docs/SOURCE_AUDIT.md) |
 | [Migration](docs/MIGRATION.md) | [Testing](docs/TESTING.md) | [Feature parity](docs/FEATURE_PARITY.md) |
+|  |  | [Contributing](CONTRIBUTING.md) |
 
 ## Build and test
 

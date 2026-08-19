@@ -5,6 +5,26 @@ on:
     branches: [main]
 
 jobs:
+  style:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - uses: actions/setup-node@v4
+        with: {node-version: "22"}
+      - run: pip install ruff==0.15.7
+      - run: ruff format --check tools OniBridge/tools/bdsctl OniBridge/tools/sdkgen
+      - run: >-
+          npx --yes prettier@3.6.2 --check
+          OniLink/src/main/resources/dashboard/index.html
+          OniLink/src/main/resources/dashboard/styles.css
+          OniLink/src/main/resources/dashboard/app.js
+      - run: sudo apt-get update && sudo apt-get install --yes clang-format-18
+      - run: >-
+          find OniBridge/src OniBridge/include OniBridge/tests -type f
+          \( -name '*.cpp' -o -name '*.hpp' \) -print0
+          | xargs -0 clang-format-18 --dry-run --Werror --style=file
   python-fixtures:
     runs-on: ubuntu-24.04
     steps:

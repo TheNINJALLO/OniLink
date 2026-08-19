@@ -41,30 +41,30 @@ struct HookProfile {
 };
 
 class BdsRuntimeDetector final {
-public:
+  public:
     [[nodiscard]] static ModuleFingerprint inspect(const std::filesystem::path& module);
 };
 
 class HookProfileRegistry final {
-public:
+  public:
     void add(HookProfile profile);
     [[nodiscard]] std::optional<HookProfile> select(const ModuleFingerprint& module) const;
 
-private:
+  private:
     std::unordered_map<std::string, HookProfile> profiles_;
 };
 
 class HookProfileValidator final {
-public:
-    [[nodiscard]] static std::optional<std::string> validate(
-        const HookProfile& profile,
-        const ModuleFingerprint& module,
-        std::span<const std::byte> loaded_module,
-        bool allow_unreviewed = false);
+  public:
+    [[nodiscard]] static std::optional<std::string>
+    validate(const HookProfile& profile,
+             const ModuleFingerprint& module,
+             std::span<const std::byte> loaded_module,
+             bool allow_unreviewed = false);
 };
 
 class NativeLoginHook {
-public:
+  public:
     virtual ~NativeLoginHook() = default;
     virtual bool install(const HookProfile& profile, std::string& error) = 0;
     virtual bool uninstall(std::string& error) = 0;
@@ -72,13 +72,15 @@ public:
 };
 
 class HookManager final {
-public:
+  public:
     explicit HookManager(NativeLoginHook& hook) : hook_(hook) {}
     bool start(const HookProfile& profile, std::string& error);
     bool stop(std::string& error);
-    [[nodiscard]] bool active() const noexcept { return hook_.installed(); }
+    [[nodiscard]] bool active() const noexcept {
+        return hook_.installed();
+    }
 
-private:
+  private:
     NativeLoginHook& hook_;
 };
 

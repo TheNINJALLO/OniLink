@@ -8,7 +8,14 @@ from typing import Any
 
 from . import __version__
 from .binary import Image, load_image
-from .profile import PROFILE_SCHEMA, PRODUCTION_GATES, ProfileError, find_matches, parse_pattern, write_json
+from .profile import (
+    PROFILE_SCHEMA,
+    PRODUCTION_GATES,
+    ProfileError,
+    find_matches,
+    parse_pattern,
+    write_json,
+)
 
 
 def _capstone():
@@ -34,8 +41,12 @@ def _direct_call_target(image: Image, rva: int) -> int:
     instructions = _instructions(image, rva, 5)
     _, immediate, _, _ = _capstone()
     instruction = instructions[0]
-    if instruction.mnemonic != "call" or instruction.size != 5 or len(instruction.operands) != 1 \
-            or instruction.operands[0].type != immediate:
+    if (
+        instruction.mnemonic != "call"
+        or instruction.size != 5
+        or len(instruction.operands) != 1
+        or instruction.operands[0].type != immediate
+    ):
         raise ProfileError(f"0x{rva:x} is not a five-byte direct call")
     return int(instruction.operands[0].imm)
 
@@ -45,7 +56,7 @@ def _direct_xrefs(image: Image, target_rva: int) -> list[int]:
     for section in image.sections:
         if not section.executable:
             continue
-        content = image.data[section.file_offset:section.file_offset + section.size]
+        content = image.data[section.file_offset : section.file_offset + section.size]
         offset = 0
         while True:
             offset = content.find(b"\xe8", offset)
@@ -53,7 +64,9 @@ def _direct_xrefs(image: Image, target_rva: int) -> list[int]:
                 break
             if offset + 5 <= len(content):
                 source = section.rva + offset
-                destination = source + 5 + struct.unpack_from("<i", content, offset + 1)[0]
+                destination = (
+                    source + 5 + struct.unpack_from("<i", content, offset + 1)[0]
+                )
                 if destination == target_rva:
                     result.append(source)
             offset += 1
@@ -62,34 +75,87 @@ def _direct_xrefs(image: Image, target_rva: int) -> list[int]:
 
 def _verify_prologue(instructions, platform: str) -> dict[str, str]:
     expected = (
-        ["push rbp", "push r15", "push r14", "push r13", "push r12", "push rbx", "sub rsp, 0x538",
-         "mov r12, rcx", "mov r15, rdx", "mov r14, rsi", "mov rbx, rdi"]
-        if platform == "linux-x86_64" else
-        ["push rbp", "push r15", "push r14", "push r13", "push r12", "push rsi", "push rdi", "push rbx",
-         "sub rsp, 0x728", "lea rbp, [rsp + 0x80]", "movaps xmmword ptr [rbp + 0x690], xmm6",
-         "mov qword ptr [rbp + 0x688], 0xfffffffffffffffe", "mov r14, r9", "mov rdi, r8", "mov rsi, rdx"]
+        [
+            "push rbp",
+            "push r15",
+            "push r14",
+            "push r13",
+            "push r12",
+            "push rbx",
+            "sub rsp, 0x538",
+            "mov r12, rcx",
+            "mov r15, rdx",
+            "mov r14, rsi",
+            "mov rbx, rdi",
+        ]
+        if platform == "linux-x86_64"
+        else [
+            "push rbp",
+            "push r15",
+            "push r14",
+            "push r13",
+            "push r12",
+            "push rsi",
+            "push rdi",
+            "push rbx",
+            "sub rsp, 0x728",
+            "lea rbp, [rsp + 0x80]",
+            "movaps xmmword ptr [rbp + 0x690], xmm6",
+            "mov qword ptr [rbp + 0x688], 0xfffffffffffffffe",
+            "mov r14, r9",
+            "mov rdi, r8",
+            "mov rsi, rdx",
+        ]
     )
-    observed = [f"{item.mnemonic} {item.op_str}".strip() for item in instructions[:len(expected)]]
+    observed = [
+        f"{item.mnemonic} {item.op_str}".strip()
+        for item in instructions[: len(expected)]
+    ]
     if observed != expected:
-        raise ProfileError(f"validation prologue/calling convention mismatch: {observed!r}")
+        raise ProfileError(
+            f"validation prologue/calling convention mismatch: {observed!r}"
+        )
     if platform == "linux-x86_64":
-        return {"this": "r14", "network_identifier": "r15", "login_packet": "r12", "optional_result": "rbx"}
-    return {"this": "rbx", "network_identifier": "rdi", "login_packet": "r14", "optional_result": "rsi"}
+        return {
+            "this": "r14",
+            "network_identifier": "r15",
+            "login_packet": "r12",
+            "optional_result": "rbx",
+        }
+    return {
+        "this": "rbx",
+        "network_identifier": "rdi",
+        "login_packet": "r14",
+        "optional_result": "rsi",
+    }
 
 
-def _verify_string_xrefs(image: Image, xrefs: dict[str, int]) -> dict[str, dict[str, int]]:
+def _verify_string_xrefs(
+    image: Image, xrefs: dict[str, int]
+) -> dict[str, dict[str, int]]:
     _, _, memory, rip = _capstone()
     result: dict[str, dict[str, int]] = {}
     for expected, instruction_rva in xrefs.items():
         instruction = _instructions(image, instruction_rva, 15)[0]
-        operands = [operand for operand in instruction.operands if operand.type == memory and operand.mem.base == rip]
+        operands = [
+            operand
+            for operand in instruction.operands
+            if operand.type == memory and operand.mem.base == rip
+        ]
         if instruction.mnemonic != "lea" or len(operands) != 1:
-            raise ProfileError(f"string evidence 0x{instruction_rva:x} is not a RIP-relative LEA")
+            raise ProfileError(
+                f"string evidence 0x{instruction_rva:x} is not a RIP-relative LEA"
+            )
         string_rva = instruction.address + instruction.size + operands[0].mem.disp
         observed = image.bytes_at_rva(string_rva, len(expected) + 1)
         if observed != expected.encode("ascii") + b"\0":
-            raise ProfileError(f"string xref 0x{instruction_rva:x} does not resolve to {expected!r}")
-        result[expected] = {"instruction_rva": instruction_rva, "string_rva": string_rva}
+            raise ProfileError(
+                f"string xref 0x{instruction_rva:x} does not resolve to {expected!r}"
+            )
+        result[expected] = {
+            "instruction_rva": instruction_rva,
+            "string_rva": string_rva,
+        }
     return result
 
 
@@ -102,8 +168,13 @@ def _verify_move_helper(
     string_size: int,
 ) -> dict[str, Any]:
     instructions = _instructions(image, helper_rva, helper_size)
-    if instructions[-1].mnemonic != "ret" or instructions[-1].address + instructions[-1].size != helper_rva + helper_size:
-        raise ProfileError("authentication move helper does not end at the reviewed RET boundary")
+    if (
+        instructions[-1].mnemonic != "ret"
+        or instructions[-1].address + instructions[-1].size != helper_rva + helper_size
+    ):
+        raise ProfileError(
+            "authentication move helper does not end at the reviewed RET boundary"
+        )
     _, immediate, memory, _ = _capstone()
     source_register = "rsi" if platform == "linux-x86_64" else "rdx"
     destination_registers = {"rdi"} if platform == "linux-x86_64" else {"rcx", "rax"}
@@ -119,26 +190,39 @@ def _verify_move_helper(
                 source_offsets.add(int(operand.mem.disp))
             if register in destination_registers:
                 destination_offsets.add(int(operand.mem.disp))
-        if instruction.mnemonic == "mov" and len(instruction.operands) == 2 \
-                and instruction.operands[0].type == memory and instruction.operands[1].type == immediate:
+        if (
+            instruction.mnemonic == "mov"
+            and len(instruction.operands) == 2
+            and instruction.operands[0].type == memory
+            and instruction.operands[1].type == immediate
+        ):
             destination = instruction.reg_name(instruction.operands[0].mem.base)
-            if destination in destination_registers \
-                    and int(instruction.operands[0].mem.disp) == authentication_size \
-                    and int(instruction.operands[1].imm) == 1:
+            if (
+                destination in destination_registers
+                and int(instruction.operands[0].mem.disp) == authentication_size
+                and int(instruction.operands[1].imm) == 1
+            ):
                 flag_write = True
     field_offsets = [index * string_size for index in range(10)]
-    if any(offset not in source_offsets for offset in field_offsets) \
-            or any(offset not in destination_offsets for offset in field_offsets):
-        raise ProfileError("move helper does not independently cover all ten authentication strings")
+    if any(offset not in source_offsets for offset in field_offsets) or any(
+        offset not in destination_offsets for offset in field_offsets
+    ):
+        raise ProfileError(
+            "move helper does not independently cover all ten authentication strings"
+        )
     permissions_offset = 10 * string_size
     public_key_offset = permissions_offset + 8
     uuid_offset = public_key_offset + string_size
     host_offset = uuid_offset + 16
     for required in (permissions_offset, public_key_offset, uuid_offset, host_offset):
         if required not in source_offsets or required not in destination_offsets:
-            raise ProfileError(f"move helper does not cover required authentication offset 0x{required:x}")
+            raise ProfileError(
+                f"move helper does not cover required authentication offset 0x{required:x}"
+            )
     if not flag_write:
-        raise ProfileError("move helper does not set the optional authentication-result engaged flag")
+        raise ProfileError(
+            "move helper does not set the optional authentication-result engaged flag"
+        )
     return {
         "instruction_count": len(instructions),
         "string_count": 10,
@@ -172,27 +256,42 @@ def generate_auth_artifacts(
     if image.abi != expected_abi:
         raise ProfileError(f"binary ABI {image.abi} does not match platform {platform}")
     if image.executable_section_for_rva(validation_rva, validation_size) is None:
-        raise ProfileError("validation function is not wholly inside one executable section")
+        raise ProfileError(
+            "validation function is not wholly inside one executable section"
+        )
     validation_instructions = _instructions(image, validation_rva, validation_size)
     register_contract = _verify_prologue(validation_instructions, platform)
-    call = next((item for item in validation_instructions if item.address == call_rva), None)
+    call = next(
+        (item for item in validation_instructions if item.address == call_rva), None
+    )
     if call is None or call.mnemonic != "call" or call.size != 5:
-        raise ProfileError("selected call site is not an instruction in the validation function")
+        raise ProfileError(
+            "selected call site is not an instruction in the validation function"
+        )
     if _direct_call_target(image, call_rva) != helper_rva:
-        raise ProfileError("selected call site does not target the authentication move helper")
+        raise ProfileError(
+            "selected call site does not target the authentication move helper"
+        )
     helper_xrefs = _direct_xrefs(image, helper_rva)
     if helper_xrefs != [call_rva]:
-        raise ProfileError(f"authentication move helper has unexpected direct callers: {helper_xrefs!r}")
+        raise ProfileError(
+            f"authentication move helper has unexpected direct callers: {helper_xrefs!r}"
+        )
     move_evidence = _verify_move_helper(
-        image, platform, helper_rva, helper_size, authentication_size, string_size)
+        image, platform, helper_rva, helper_size, authentication_size, string_size
+    )
     string_evidence = _verify_string_xrefs(image, xrefs)
     pattern = parse_pattern(signature)
     matches = find_matches(image, pattern)
     target_section = image.executable_section_for_rva(call_rva, 5)
     if matches != [(target_section.name if target_section else "", call_rva)]:
-        raise ProfileError(f"call-site signature is not unique at the selected target: {matches!r}")
+        raise ProfileError(
+            f"call-site signature is not unique at the selected target: {matches!r}"
+        )
     if len(pattern.bytes) < 10:
-        raise ProfileError("reviewed call-site signature must include at least ten bytes")
+        raise ProfileError(
+            "reviewed call-site signature must include at least ten bytes"
+        )
 
     now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     offsets = {
@@ -201,10 +300,14 @@ def generate_auth_artifacts(
         "PlayerAuthenticationInfo.best_display_name": 9 * string_size,
         "PlayerAuthenticationInfo.permissions": move_evidence["permissions_offset"],
         "PlayerAuthenticationInfo.public_key": move_evidence["public_key_offset"],
-        "PlayerAuthenticationInfo.authenticated_uuid": move_evidence["authenticated_uuid_offset"],
+        "PlayerAuthenticationInfo.authenticated_uuid": move_evidence[
+            "authenticated_uuid_offset"
+        ],
         "PlayerAuthenticationInfo.is_host": move_evidence["is_host_offset"],
         "PlayerAuthenticationInfo.is_local": move_evidence["is_local_offset"],
-        "optional<PlayerAuthenticationInfo>.engaged": move_evidence["optional_engaged_offset"],
+        "optional<PlayerAuthenticationInfo>.engaged": move_evidence[
+            "optional_engaged_offset"
+        ],
     }
     abi = {
         "schema": 1,
@@ -213,7 +316,10 @@ def generate_auth_artifacts(
         "platform": platform,
         "executable_sha256": image.sha256,
         "compiler_abi": image.abi,
-        "sizes": {"std::string": string_size, "PlayerAuthenticationInfo": authentication_size},
+        "sizes": {
+            "std::string": string_size,
+            "PlayerAuthenticationInfo": authentication_size,
+        },
         "alignments": {"PlayerAuthenticationInfo": 8},
         "offsets": offsets,
         "binary_evidence": move_evidence,
@@ -242,7 +348,9 @@ def generate_auth_artifacts(
         "helper_function_size": helper_size,
         "candidate_symbol_name": "ServerNetworkHandler::_validateLoginPacket / unique authentication-result move helper",
         "expected_prologue_bytes": image.bytes_at_rva(call_rva, 5).hex(" "),
-        "expected_target_bytes": image.bytes_at_rva(call_rva, len(pattern.bytes)).hex(" "),
+        "expected_target_bytes": image.bytes_at_rva(call_rva, len(pattern.bytes)).hex(
+            " "
+        ),
         "masked_byte_signature": pattern.text,
         "signature_match_count": 1,
         "minimum_patch_length": 5,
@@ -268,9 +376,15 @@ def generate_auth_artifacts(
         "platform": platform,
         "executable_sha256": image.sha256,
         "symbols": {
-            "ServerNetworkHandler::_validateLoginPacket": {"rva": validation_rva, "size": validation_size},
-            "PlayerAuthenticationInfo optional move helper": {"rva": helper_rva, "size": helper_size,
-                                                               "direct_callers": helper_xrefs},
+            "ServerNetworkHandler::_validateLoginPacket": {
+                "rva": validation_rva,
+                "size": validation_size,
+            },
+            "PlayerAuthenticationInfo optional move helper": {
+                "rva": helper_rva,
+                "size": helper_size,
+                "direct_callers": helper_xrefs,
+            },
             "successful authentication move call": {"rva": call_rva, "size": 5},
         },
     }
@@ -279,8 +393,14 @@ def generate_auth_artifacts(
         "bds_version": version,
         "platform": platform,
         "executable_sha256": image.sha256,
-        "signatures": [{"role": profile["target_function_role"], "pattern": pattern.text,
-                         "match_count": 1, "target_rva": call_rva}],
+        "signatures": [
+            {
+                "role": profile["target_function_role"],
+                "pattern": pattern.text,
+                "match_count": 1,
+                "target_rva": call_rva,
+            }
+        ],
     }
     output.mkdir(parents=True, exist_ok=True)
     paths = {
@@ -308,4 +428,3 @@ def generate_auth_artifacts(
         encoding="utf-8",
     )
     return paths
-

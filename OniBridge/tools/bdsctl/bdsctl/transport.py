@@ -34,8 +34,13 @@ def validate_url(url: str) -> None:
     host = (parsed.hostname or "").lower().rstrip(".")
     if parsed.scheme != "https":
         raise SecurityError(f"refusing non-HTTPS URL: {url}")
-    if not host or not (host in APPROVED_HOSTS or any(host.endswith(suffix) for suffix in APPROVED_SUFFIXES)):
-        raise SecurityError(f"refusing redirect or download from unapproved host {host!r}")
+    if not host or not (
+        host in APPROVED_HOSTS
+        or any(host.endswith(suffix) for suffix in APPROVED_SUFFIXES)
+    ):
+        raise SecurityError(
+            f"refusing redirect or download from unapproved host {host!r}"
+        )
     if parsed.username or parsed.password:
         raise SecurityError("URLs containing credentials are forbidden")
 
@@ -54,7 +59,12 @@ class Response:
 
 
 class HttpTransport:
-    def __init__(self, connect_timeout: float = 120.0, total_timeout: float = 900.0, retries: int = 3):
+    def __init__(
+        self,
+        connect_timeout: float = 120.0,
+        total_timeout: float = 900.0,
+        retries: int = 3,
+    ):
         self.connect_timeout = connect_timeout
         self.total_timeout = total_timeout
         self.retries = retries
@@ -62,7 +72,13 @@ class HttpTransport:
 
     def _open(self, url: str):
         validate_url(url)
-        request = Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json, application/zip"})
+        request = Request(
+            url,
+            headers={
+                "User-Agent": USER_AGENT,
+                "Accept": "application/json, application/zip",
+            },
+        )
         return self.opener.open(request, timeout=self.connect_timeout)
 
     def get_bytes(self, url: str, max_size: int) -> Response:
@@ -86,8 +102,14 @@ class HttpTransport:
                         chunks.append(chunk)
                         size += len(chunk)
                         if size > max_size:
-                            raise ValidationError(f"response exceeds {max_size} byte limit")
-                    return Response(b"".join(chunks), response.headers.get("Content-Type", ""), response.geturl())
+                            raise ValidationError(
+                                f"response exceeds {max_size} byte limit"
+                            )
+                    return Response(
+                        b"".join(chunks),
+                        response.headers.get("Content-Type", ""),
+                        response.geturl(),
+                    )
             except HTTPError as exc:
                 last_error = exc
                 if exc.code not in TRANSIENT_HTTP:

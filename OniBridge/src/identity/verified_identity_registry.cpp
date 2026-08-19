@@ -16,9 +16,9 @@ std::string lower(std::string_view value) {
 }
 
 template <typename Predicate>
-std::optional<VerifiedIdentity> find_identity(
-    const std::unordered_map<std::string, VerifiedIdentity>& identities,
-    Predicate predicate) {
+std::optional<VerifiedIdentity>
+find_identity(const std::unordered_map<std::string, VerifiedIdentity>& identities,
+              Predicate predicate) {
     const auto found = std::find_if(identities.begin(), identities.end(), [&](const auto& item) {
         return predicate(item.second);
     });
@@ -32,10 +32,12 @@ void VerifiedIdentityRegistry::store(VerifiedIdentity identity) {
     sessions_.insert_or_assign(identity.session_id, std::move(identity));
 }
 
-std::optional<VerifiedIdentity> VerifiedIdentityRegistry::by_player_name(std::string_view name) const {
+std::optional<VerifiedIdentity>
+VerifiedIdentityRegistry::by_player_name(std::string_view name) const {
     const auto wanted = lower(name);
     std::shared_lock lock(mutex_);
-    return find_identity(sessions_, [&](const auto& identity) { return lower(identity.player_name) == wanted; });
+    return find_identity(
+        sessions_, [&](const auto& identity) { return lower(identity.player_name) == wanted; });
 }
 
 std::optional<VerifiedIdentity> VerifiedIdentityRegistry::by_xuid(std::string_view xuid) const {
@@ -43,18 +45,22 @@ std::optional<VerifiedIdentity> VerifiedIdentityRegistry::by_xuid(std::string_vi
     return find_identity(sessions_, [&](const auto& identity) { return identity.xuid == xuid; });
 }
 
-std::optional<VerifiedIdentity> VerifiedIdentityRegistry::by_backend_uuid(std::string_view uuid) const {
+std::optional<VerifiedIdentity>
+VerifiedIdentityRegistry::by_backend_uuid(std::string_view uuid) const {
     std::shared_lock lock(mutex_);
-    return find_identity(sessions_, [&](const auto& identity) { return identity.backend_uuid == uuid; });
+    return find_identity(sessions_,
+                         [&](const auto& identity) { return identity.backend_uuid == uuid; });
 }
 
-std::optional<VerifiedIdentity> VerifiedIdentityRegistry::by_session_id(std::string_view session_id) const {
+std::optional<VerifiedIdentity>
+VerifiedIdentityRegistry::by_session_id(std::string_view session_id) const {
     std::shared_lock lock(mutex_);
     const auto found = sessions_.find(std::string(session_id));
     return found == sessions_.end() ? std::nullopt : std::optional(found->second);
 }
 
-std::optional<VerifiedIdentity> VerifiedIdentityRegistry::active_player(std::string_view name) const {
+std::optional<VerifiedIdentity>
+VerifiedIdentityRegistry::active_player(std::string_view name) const {
     return by_player_name(name);
 }
 
@@ -78,4 +84,3 @@ bool PostLoginIdentityVerifier::verify(std::string_view session_id, std::string_
 }
 
 } // namespace onistone::onibridge
-

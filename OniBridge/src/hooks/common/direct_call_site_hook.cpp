@@ -22,11 +22,14 @@ namespace {
 
 constexpr std::size_t kRelayCodeSize = 14;
 
-bool relative_displacement(const void* instruction_after, const void* destination, std::int32_t& result) {
-    const auto difference = reinterpret_cast<std::intptr_t>(destination)
-        - reinterpret_cast<std::intptr_t>(instruction_after);
-    if (difference < std::numeric_limits<std::int32_t>::min()
-        || difference > std::numeric_limits<std::int32_t>::max()) return false;
+bool relative_displacement(const void* instruction_after,
+                           const void* destination,
+                           std::int32_t& result) {
+    const auto difference = reinterpret_cast<std::intptr_t>(destination) -
+                            reinterpret_cast<std::intptr_t>(instruction_after);
+    if (difference < std::numeric_limits<std::int32_t>::min() ||
+        difference > std::numeric_limits<std::int32_t>::max())
+        return false;
     result = static_cast<std::int32_t>(difference);
     return true;
 }
@@ -45,12 +48,17 @@ void* allocate_near(const void* target, std::size_t& allocation_size, std::strin
             center <= std::numeric_limits<std::uintptr_t>::max() - delta ? center + delta : 0,
         };
         for (const auto address : candidates) {
-            if (address == 0) continue;
-            auto* memory = VirtualAlloc(reinterpret_cast<void*>(address), allocation_size,
-                                        MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-            if (memory == nullptr) continue;
+            if (address == 0)
+                continue;
+            auto* memory = VirtualAlloc(reinterpret_cast<void*>(address),
+                                        allocation_size,
+                                        MEM_COMMIT | MEM_RESERVE,
+                                        PAGE_READWRITE);
+            if (memory == nullptr)
+                continue;
             std::int32_t unused = 0;
-            if (relative_displacement(static_cast<const std::byte*>(target) + 5, memory, unused)) return memory;
+            if (relative_displacement(static_cast<const std::byte*>(target) + 5, memory, unused))
+                return memory;
             VirtualFree(memory, 0, MEM_RELEASE);
         }
     }
@@ -85,7 +93,8 @@ bool write_code(void* destination, std::span<const std::byte> bytes, std::string
 }
 
 void release_relay(void* memory, std::size_t) {
-    if (memory != nullptr) VirtualFree(memory, 0, MEM_RELEASE);
+    if (memory != nullptr)
+        VirtualFree(memory, 0, MEM_RELEASE);
 }
 #else
 #ifndef MAP_FIXED_NOREPLACE
@@ -104,13 +113,19 @@ void* allocate_near(const void* target, std::size_t& allocation_size, std::strin
             center <= std::numeric_limits<std::uintptr_t>::max() - delta ? center + delta : 0,
         };
         for (const auto address : candidates) {
-            if (address == 0) continue;
-            void* memory = mmap(reinterpret_cast<void*>(address), allocation_size,
+            if (address == 0)
+                continue;
+            void* memory = mmap(reinterpret_cast<void*>(address),
+                                allocation_size,
                                 PROT_READ | PROT_WRITE,
-                                MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE, -1, 0);
-            if (memory == MAP_FAILED) continue;
+                                MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE,
+                                -1,
+                                0);
+            if (memory == MAP_FAILED)
+                continue;
             std::int32_t unused = 0;
-            if (relative_displacement(static_cast<const std::byte*>(target) + 5, memory, unused)) return memory;
+            if (relative_displacement(static_cast<const std::byte*>(target) + 5, memory, unused))
+                return memory;
             munmap(memory, allocation_size);
         }
     }
@@ -130,14 +145,17 @@ bool protect_relay(void* memory, std::size_t size, std::string& error) {
 bool write_code(void* destination, std::span<const std::byte> bytes, std::string& error) {
     const auto page_size = static_cast<std::uintptr_t>(sysconf(_SC_PAGESIZE));
     const auto begin = reinterpret_cast<std::uintptr_t>(destination) & ~(page_size - 1U);
-    const auto end = (reinterpret_cast<std::uintptr_t>(destination) + bytes.size() + page_size - 1U)
-        & ~(page_size - 1U);
-    if (mprotect(reinterpret_cast<void*>(begin), end - begin, PROT_READ | PROT_WRITE | PROT_EXEC) != 0) {
+    const auto end =
+        (reinterpret_cast<std::uintptr_t>(destination) + bytes.size() + page_size - 1U) &
+        ~(page_size - 1U);
+    if (mprotect(reinterpret_cast<void*>(begin), end - begin, PROT_READ | PROT_WRITE | PROT_EXEC) !=
+        0) {
         error = "mprotect could not unlock the reviewed call site";
         return false;
     }
     std::memcpy(destination, bytes.data(), bytes.size());
-    __builtin___clear_cache(static_cast<char*>(destination), static_cast<char*>(destination) + bytes.size());
+    __builtin___clear_cache(static_cast<char*>(destination),
+                            static_cast<char*>(destination) + bytes.size());
     if (mprotect(reinterpret_cast<void*>(begin), end - begin, PROT_READ | PROT_EXEC) != 0) {
         error = "mprotect could not restore call-site protection";
         return false;
@@ -146,7 +164,8 @@ bool write_code(void* destination, std::span<const std::byte> bytes, std::string
 }
 
 void release_relay(void* memory, std::size_t size) {
-    if (memory != nullptr) munmap(memory, size);
+    if (memory != nullptr)
+        munmap(memory, size);
 }
 #endif
 
@@ -157,18 +176,18 @@ DirectCallSiteHook::~DirectCallSiteHook() {
     uninstall(ignored);
 }
 
-bool DirectCallSiteHook::install(
-    void* module_base,
-    std::uint64_t call_rva,
-    std::uint64_t expected_destination_rva,
-    void* replacement,
-    std::span<const std::byte> expected_bytes,
-    std::string& error) {
+bool DirectCallSiteHook::install(void* module_base,
+                                 std::uint64_t call_rva,
+                                 std::uint64_t expected_destination_rva,
+                                 void* replacement,
+                                 std::span<const std::byte> expected_bytes,
+                                 std::string& error) {
     if (installed()) {
         error = "direct call-site hook is already installed";
         return false;
     }
-    if (module_base == nullptr || replacement == nullptr || expected_bytes.size() < original_bytes_.size()) {
+    if (module_base == nullptr || replacement == nullptr ||
+        expected_bytes.size() < original_bytes_.size()) {
         error = "direct call-site hook arguments are invalid";
         return false;
     }
@@ -196,7 +215,12 @@ bool DirectCallSiteHook::install(
         return false;
     }
     std::array<std::byte, kRelayCodeSize> relay_code{
-        std::byte{0xff}, std::byte{0x25}, std::byte{0}, std::byte{0}, std::byte{0}, std::byte{0},
+        std::byte{0xff},
+        std::byte{0x25},
+        std::byte{0},
+        std::byte{0},
+        std::byte{0},
+        std::byte{0},
     };
     const auto replacement_value = reinterpret_cast<std::uintptr_t>(replacement);
     std::memcpy(relay_code.data() + 6, &replacement_value, sizeof(replacement_value));
@@ -229,12 +253,14 @@ bool DirectCallSiteHook::install(
 }
 
 bool DirectCallSiteHook::uninstall(std::string& error) {
-    if (!installed()) return true;
+    if (!installed())
+        return true;
     if (!std::equal(patched_bytes_.begin(), patched_bytes_.end(), call_site_)) {
         error = "call site changed after OniBridge installation; refusing destructive rollback";
         return false;
     }
-    if (!write_code(call_site_, original_bytes_, error)) return false;
+    if (!write_code(call_site_, original_bytes_, error))
+        return false;
     release_relay(relay_, relay_size_);
     call_site_ = nullptr;
     relay_ = nullptr;

@@ -39,7 +39,10 @@ class Pattern:
 
     @property
     def text(self) -> str:
-        return " ".join(f"{value:02X}" if required else "??" for value, required in zip(self.bytes, self.mask))
+        return " ".join(
+            f"{value:02X}" if required else "??"
+            for value, required in zip(self.bytes, self.mask)
+        )
 
 
 def parse_pattern(value: str) -> Pattern:
@@ -91,7 +94,10 @@ def find_matches(image: Image, pattern: Pattern) -> list[tuple[str, int]]:
             if index < 0 or index + len(pattern.bytes) > len(content):
                 continue
             candidate = content[index : index + len(pattern.bytes)]
-            if all(not required or candidate[i] == pattern.bytes[i] for i, required in enumerate(pattern.mask)):
+            if all(
+                not required or candidate[i] == pattern.bytes[i]
+                for i, required in enumerate(pattern.mask)
+            ):
                 matches.append((section.name, section.rva + index))
     return matches
 
@@ -113,7 +119,11 @@ def create_candidate(
     matches = find_matches(image, pattern)
     target_section = matches[0][0] if len(matches) == 1 else None
     target_rva = matches[0][1] if len(matches) == 1 else None
-    observed = image.bytes_at_rva(target_rva, minimum_patch_length).hex(" ") if target_rva is not None else None
+    observed = (
+        image.bytes_at_rva(target_rva, minimum_patch_length).hex(" ")
+        if target_rva is not None
+        else None
+    )
     gates = {name: bool((evidence or {}).get(name, False)) for name in PRODUCTION_GATES}
     blockers = []
     if len(matches) != 1:
@@ -143,7 +153,9 @@ def create_candidate(
         "calling_convention": image.abi,
         "required_structure_sizes": {},
         "required_field_offsets": {},
-        "known_endstone_hook_interaction": "unverified" if not gates["endstone_chain_compatible"] else "chain-compatible",
+        "known_endstone_hook_interaction": "unverified"
+        if not gates["endstone_chain_compatible"]
+        else "chain-compatible",
         "evidence": gates,
         "validation_status": status,
         "generation_time_utc": now,
@@ -154,20 +166,37 @@ def create_candidate(
     }
 
 
-def validate_profile(profile: dict[str, Any], binary: Path, production: bool = True) -> None:
+def validate_profile(
+    profile: dict[str, Any], binary: Path, production: bool = True
+) -> None:
     image = load_image(binary)
     required = {
-        "schema", "bds_version", "executable_sha256", "executable_size", "architecture", "abi",
-        "target_section", "target_rva", "expected_prologue_bytes", "masked_byte_signature",
-        "signature_match_count", "minimum_patch_length", "evidence", "validation_status",
+        "schema",
+        "bds_version",
+        "executable_sha256",
+        "executable_size",
+        "architecture",
+        "abi",
+        "target_section",
+        "target_rva",
+        "expected_prologue_bytes",
+        "masked_byte_signature",
+        "signature_match_count",
+        "minimum_patch_length",
+        "evidence",
+        "validation_status",
     }
     missing = required - set(profile)
     if missing:
         raise ProfileError(f"profile is missing keys: {sorted(missing)}")
     if profile["schema"] != PROFILE_SCHEMA:
         raise ProfileError("unsupported profile schema")
-    if profile["executable_sha256"] != image.sha256 or profile["executable_size"] != len(image.data):
-        raise ProfileError("profile executable hash or size does not match runtime module")
+    if profile["executable_sha256"] != image.sha256 or profile[
+        "executable_size"
+    ] != len(image.data):
+        raise ProfileError(
+            "profile executable hash or size does not match runtime module"
+        )
     if profile["architecture"] != image.architecture or profile["abi"] != image.abi:
         raise ProfileError("profile architecture or ABI does not match runtime module")
     pattern = parse_pattern(profile["masked_byte_signature"])
@@ -176,7 +205,9 @@ def validate_profile(profile: dict[str, Any], binary: Path, production: bool = T
         raise ProfileError("profile signature is not unique in the executable image")
     section, rva = matches[0]
     if section != profile["target_section"] or rva != profile["target_rva"]:
-        raise ProfileError("profile target does not match the unique signature location")
+        raise ProfileError(
+            "profile target does not match the unique signature location"
+        )
     patch_length = profile["minimum_patch_length"]
     if patch_length < 5 or image.executable_section_for_rva(rva, patch_length) is None:
         raise ProfileError("target or patch range is outside an executable section")
@@ -186,7 +217,9 @@ def validate_profile(profile: dict[str, Any], binary: Path, production: bool = T
     evidence = profile["evidence"]
     missing_gates = [name for name in PRODUCTION_GATES if not evidence.get(name)]
     if production and (profile["validation_status"] != "production" or missing_gates):
-        raise ProfileError(f"profile is not production-approved; missing evidence: {missing_gates}")
+        raise ProfileError(
+            f"profile is not production-approved; missing evidence: {missing_gates}"
+        )
 
 
 def read_json(path: Path) -> dict[str, Any]:
@@ -199,5 +232,7 @@ def read_json(path: Path) -> dict[str, Any]:
 def write_json(path: Path, value: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(path.name + ".partial")
-    temporary.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    temporary.write_text(
+        json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     temporary.replace(path)

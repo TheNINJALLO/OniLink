@@ -63,7 +63,13 @@ class LockFile:
 
     @classmethod
     def from_dict(cls, value: dict[str, Any]) -> "LockFile":
-        expected = {"schema", "channel", "resolved_at_utc", "paired_version", "platforms"}
+        expected = {
+            "schema",
+            "channel",
+            "resolved_at_utc",
+            "paired_version",
+            "platforms",
+        }
         if set(value) != expected:
             raise ValueError(f"lock keys must be exactly {sorted(expected)}")
         if value["schema"] != 1:
@@ -108,5 +114,7 @@ def read_lock(path: Path) -> LockFile:
 def write_lock(path: Path, lock: LockFile) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(path.name + ".partial")
-    temporary.write_text(json.dumps(lock.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    temporary.write_text(
+        json.dumps(lock.to_dict(), indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     temporary.replace(path)

@@ -394,22 +394,8 @@ public final class ClientRelayPacketHandler implements BedrockPacketHandler {
     }
 
     /**
-     * Caps the chunk view distance the backend is asked for, from {@code -Dproxy.forceChunkRadius=2}.
-     * Zero (the default) leaves the client's request alone.
-     *
-     * <p><b>Why this exists.</b> Every drop-based experiment on the 1.26.40 disconnect is confounded,
-     * and the terrain one worst of all: dropping {@code LevelChunk} kept the session alive for
-     * minutes, but it also left the client with no chunks, and <b>a Bedrock client will not move the
-     * player until the chunk under them is loaded</b>. The tester confirmed it — zombies visible,
-     * movement input doing nothing, teleport working. So that run silently reproduced "standing
-     * still", which the symptom table has always listed as fine. It proved nothing.
-     *
-     * <p>A radius cap changes the same variable — how much terrain is streamed — while leaving the
-     * player able to fly, which is the only activity that reproduces the bug in seconds. It is the
-     * first terrain experiment that holds activity constant.
-     *
-     * <p>It is also a candidate mitigation rather than only a diagnostic: if radius 2-4 is stable and
-     * radius 8 is not, that is shippable while the root cause is still open.
+     * Optional diagnostic cap for the requested chunk radius. Zero leaves the client request
+     * unchanged.
      */
     private static final int FORCED_CHUNK_RADIUS = Integer.getInteger("proxy.forceChunkRadius", 0);
 

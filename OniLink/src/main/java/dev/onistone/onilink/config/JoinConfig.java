@@ -4,18 +4,10 @@ import java.util.List;
 import java.util.Properties;
 
 /**
- * The ordered list of backends to try when a player first joins the proxy, Velocity's {@code try}.
+ * Initial backend candidates and retry count.
  *
- * <p>Without it a player whose backend is already down is simply kicked — mid-session failover only
- * covers a backend that dies <em>under</em> someone, because it works by moving a client that is
- * already in a world.</p>
- *
- * @param tryOrder            backend names, in order. Empty means "just the one backend the player
- *                            was routed to", which is the behaviour this existed to replace
- * @param attemptsPerBackend  how many times to try each candidate before moving to the next. A
- *                            backend that is <em>down</em> fails fast, but one that is
- *                            <em>restarting</em> may refuse a connection a second before it would
- *                            have accepted it
+ * @param tryOrder backend names in priority order; empty keeps the routed backend
+ * @param attemptsPerBackend connection attempts before trying the next candidate
  */
 public record JoinConfig(List<String> tryOrder, int attemptsPerBackend) {
     public JoinConfig {
@@ -32,13 +24,7 @@ public record JoinConfig(List<String> tryOrder, int attemptsPerBackend) {
         return new JoinConfig(List.of(), 1);
     }
 
-    /**
-     * Reads {@code join.try}, defaulting to the failover chain.
-     *
-     * <p>Sharing the default is deliberate: "where does a player go when a backend is not available"
-     * is one question, and an operator who has already answered it for a backend dying should not
-     * have to answer it again for a backend that was never up.</p>
-     */
+    /** Reads {@code join.try}, using the failover chain when it is not set. */
     public static JoinConfig from(Properties properties, FailoverConfig failover) {
         List<String> tryOrder = properties.containsKey("join.try")
                 ? ConfigValues.commaList(properties.getProperty("join.try"), "join.try")

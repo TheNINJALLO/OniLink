@@ -3,8 +3,8 @@
 #include <onibridge/login_envelope.hpp>
 #include <onibridge/service.hpp>
 
-#include <atomic>
 #include <array>
+#include <atomic>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -28,7 +28,8 @@ void check(bool condition, const char* description) {
 }
 
 std::string base64url(std::string_view input) {
-    static constexpr char alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    static constexpr char alphabet[] =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
     std::string result;
     unsigned accumulator = 0;
     int bits = 0;
@@ -40,28 +41,33 @@ std::string base64url(std::string_view input) {
             result.push_back(alphabet[(accumulator >> bits) & 0x3f]);
         }
     }
-    if (bits) result.push_back(alphabet[(accumulator << (6 - bits)) & 0x3f]);
+    if (bits)
+        result.push_back(alphabet[(accumulator << (6 - bits)) & 0x3f]);
     return result;
 }
 
 void append_u32_le(std::string& output, std::size_t value) {
-    for (unsigned shift = 0; shift < 32; shift += 8) output.push_back(static_cast<char>((value >> shift) & 0xff));
+    for (unsigned shift = 0; shift < 32; shift += 8)
+        output.push_back(static_cast<char>((value >> shift) & 0xff));
 }
 
 void append_varuint(std::string& output, std::size_t value) {
     do {
         auto next = static_cast<unsigned char>(value & 0x7f);
         value >>= 7;
-        if (value) next |= 0x80;
+        if (value)
+            next |= 0x80;
         output.push_back(static_cast<char>(next));
     } while (value);
 }
 
 std::string login_payload(std::string_view name, std::string_view token) {
-    const auto json = std::string("{\"DeviceOS\":7,\"ThirdPartyName\":\"") + std::string(name)
-        + "\",\"Nested\":{\"ignored\":[true,false,null,3.5]},\"OniForward\":\"" + std::string(token) + "\"}";
+    const auto json = std::string("{\"DeviceOS\":7,\"ThirdPartyName\":\"") + std::string(name) +
+                      "\",\"Nested\":{\"ignored\":[true,false,null,3.5]},\"OniForward\":\"" +
+                      std::string(token) + "\"}";
     const auto jwt = std::string("e30.") + base64url(json) + ".AA";
-    const std::string auth = "{\"AuthenticationType\":2,\"Certificate\":\"\",\"Token\":\"placeholder\"}";
+    const std::string auth =
+        "{\"AuthenticationType\":2,\"Certificate\":\"\",\"Token\":\"placeholder\"}";
     std::string envelope;
     append_u32_le(envelope, auth.size());
     envelope += auth;
@@ -95,7 +101,8 @@ ForwardingClaims fixture() {
 ForwardingKey key() {
     const std::string secret = "correct horse battery staple";
     std::vector<std::byte> bytes(secret.size());
-    for (std::size_t i = 0; i < secret.size(); ++i) bytes[i] = static_cast<std::byte>(static_cast<unsigned char>(secret[i]));
+    for (std::size_t i = 0; i < secret.size(); ++i)
+        bytes[i] = static_cast<std::byte>(static_cast<unsigned char>(secret[i]));
     return {"key-2026-01", std::move(bytes)};
 }
 
@@ -110,32 +117,43 @@ ForwardingValidation validation() {
 
 void token_tests() {
     const auto token = sign_forwarding_token(fixture(), key());
-    check(token == "T05JRgEOAQABMgIAC2tleS0yMDI2LTAxAwAGZWRnZS0xBAAMa2luZ2RvbS1tYWluBQAHa2luZ2RvbQYAJDAxOGY0N2YyLWMwMDEtNzAwMC04MDAwLTAwMDAwMDAwMDAwMQcAIDAwMTEyMjMzNDQ1NTY2Nzc4ODk5YWFiYmNjZGRlZWZmCAAEQWxleAkAEDI1MzMyNzQ3OTAzOTU5MDQKACQxMjNlNDU2Ny1lODliLTEyZDMtYTQ1Ni00MjY2MTQxNzQwMDALAAwyMDAxOmRiODo6NDIMAAU1NDMyMQ0ADTE4MDAwMDAwMDAwMDAOAA0xODAwMDAwMDA1MDAw.922WXG-qG04OJiAFAzPSlrNh4mi7LObu0V2oDdc9KX0", "C++ output matches the shared vector");
+    check(token == "T05JRgEOAQABMgIAC2tleS0yMDI2LTAxAwAGZWRnZS0xBAAMa2luZ2RvbS1tYWluBQAHa2luZ2RvbQY"
+                   "AJDAxOGY0N2YyLWMwMDEtNzAwMC04MDAwLTAwMDAwMDAwMDAwMQcAIDAwMTEyMjMzNDQ1NTY2Nzc4OD"
+                   "k5YWFiYmNjZGRlZWZmCAAEQWxleAkAEDI1MzMyNzQ3OTAzOTU5MDQKACQxMjNlNDU2Ny1lODliLTEyZ"
+                   "DMtYTQ1Ni00MjY2MTQxNzQwMDALAAwyMDAxOmRiODo6NDIMAAU1NDMyMQ0ADTE4MDAwMDAwMDAwMDAO"
+                   "AA0xODAwMDAwMDA1MDAw.922WXG-qG04OJiAFAzPSlrNh4mi7LObu0V2oDdc9KX0",
+          "C++ output matches the shared vector");
     const auto verified = verify_forwarding_token(token, {key(), std::nullopt}, validation());
     check(static_cast<bool>(verified), "valid token verifies");
-    check(verified && verified.claims->xuid == "2533274790395904", "XUID survives canonical encoding");
+    check(verified && verified.claims->xuid == "2533274790395904",
+          "XUID survives canonical encoding");
 
     auto tampered = token;
     tampered[tampered.size() / 3] = tampered[tampered.size() / 3] == 'A' ? 'B' : 'A';
-    check(!verify_forwarding_token(tampered, {key(), std::nullopt}, validation()), "tampered token is rejected");
+    check(!verify_forwarding_token(tampered, {key(), std::nullopt}, validation()),
+          "tampered token is rejected");
 
     auto wrong_context = validation();
     wrong_context.expected_backend_name = "lobby";
-    check(!verify_forwarding_token(token, {key(), std::nullopt}, wrong_context), "backend mismatch is rejected");
+    check(!verify_forwarding_token(token, {key(), std::nullopt}, wrong_context),
+          "backend mismatch is rejected");
 
     auto expired = validation();
     expired.now_ms = fixture().expires_at_ms + expired.allowed_clock_skew_ms + 1;
-    check(!verify_forwarding_token(token, {key(), std::nullopt}, expired), "expired token is rejected");
+    check(!verify_forwarding_token(token, {key(), std::nullopt}, expired),
+          "expired token is rejected");
 
     auto future = validation();
     future.now_ms = fixture().issued_at_ms - future.allowed_clock_skew_ms - 1;
-    check(!verify_forwarding_token(token, {key(), std::nullopt}, future), "future token is rejected");
+    check(!verify_forwarding_token(token, {key(), std::nullopt}, future),
+          "future token is rejected");
 
     auto previous = key();
     auto active = key();
     active.id = "key-2026-02";
     active.secret[0] ^= std::byte{1};
-    check(static_cast<bool>(verify_forwarding_token(token, {active, previous}, validation())), "previous rotation key verifies");
+    check(static_cast<bool>(verify_forwarding_token(token, {active, previous}, validation())),
+          "previous rotation key verifies");
 }
 
 void replay_tests() {
@@ -143,8 +161,13 @@ void replay_tests() {
     auto claims = fixture();
     std::atomic_int accepted{0};
     std::vector<std::thread> threads;
-    for (int i = 0; i < 32; ++i) threads.emplace_back([&] { if (cache.consume(claims, claims.issued_at_ms)) ++accepted; });
-    for (auto& thread : threads) thread.join();
+    for (int i = 0; i < 32; ++i)
+        threads.emplace_back([&] {
+            if (cache.consume(claims, claims.issued_at_ms))
+                ++accepted;
+        });
+    for (auto& thread : threads)
+        thread.join();
     check(accepted == 1, "replay identity is consumed atomically");
     check(cache.size() == 1, "replay cache stays bounded for duplicates");
 }
@@ -172,8 +195,8 @@ void secret_file_tests() {
     }
     std::filesystem::permissions(
         path,
-        std::filesystem::perms::owner_read | std::filesystem::perms::owner_write
-            | std::filesystem::perms::group_read | std::filesystem::perms::others_read,
+        std::filesystem::perms::owner_read | std::filesystem::perms::owner_write |
+            std::filesystem::perms::group_read | std::filesystem::perms::others_read,
         std::filesystem::perm_options::replace);
     SecretSource source;
     source.restricted_file = path;
@@ -188,37 +211,45 @@ void secret_file_tests() {
 }
 
 void service_tests() {
-    OniBridgeService service("kingdom-main", "kingdom", {key(), std::nullopt}, TrustedProxyMatcher({"10.0.0.0/8"}));
+    OniBridgeService service(
+        "kingdom-main", "kingdom", {key(), std::nullopt}, TrustedProxyMatcher({"10.0.0.0/8"}));
     const auto token = sign_forwarding_token(fixture(), key());
     const auto accepted = service.verify_forwarded_login(
         token, "10.5.4.3", "alex", "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", 1'800'000'001'000);
     check(static_cast<bool>(accepted), "trusted signed forwarding identity is accepted");
-    check(service.identities().by_xuid("2533274790395904").has_value(), "verified identity lookup by XUID works");
+    check(service.identities().by_xuid("2533274790395904").has_value(),
+          "verified identity lookup by XUID works");
     check(!service.verify_forwarded_login(
-        token, "10.5.4.3", "alex", "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", 1'800'000'001'001),
-        "replayed service token is rejected");
+              token, "10.5.4.3", "alex", "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", 1'800'000'001'001),
+          "replayed service token is rejected");
 
-    OniBridgeService untrusted("kingdom-main", "kingdom", {key(), std::nullopt}, TrustedProxyMatcher({"127.0.0.1/32"}));
+    OniBridgeService untrusted(
+        "kingdom-main", "kingdom", {key(), std::nullopt}, TrustedProxyMatcher({"127.0.0.1/32"}));
     check(!untrusted.verify_forwarded_login(
-        token, "10.5.4.3", "Alex", "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", 1'800'000'001'000),
-        "valid token from an untrusted socket source is rejected");
+              token, "10.5.4.3", "Alex", "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", 1'800'000'001'000),
+          "valid token from an untrusted socket source is rejected");
 }
 
 void login_envelope_tests() {
     const auto token = sign_forwarding_token(fixture(), key());
     const auto packet = login_payload("Alex", token);
     const auto parsed = LoginEnvelopeParser::parse(packet);
-    check(static_cast<bool>(parsed), "raw Bedrock Login packet exposes a bounded OniForward envelope");
-    check(parsed && parsed.envelope->player_name == "Alex", "Login envelope preserves ThirdPartyName");
-    check(parsed && parsed.envelope->forwarding_token == token, "Login envelope preserves the exact signed token");
+    check(static_cast<bool>(parsed),
+          "raw Bedrock Login packet exposes a bounded OniForward envelope");
+    check(parsed && parsed.envelope->player_name == "Alex",
+          "Login envelope preserves ThirdPartyName");
+    check(parsed && parsed.envelope->forwarding_token == token,
+          "Login envelope preserves the exact signed token");
 
     auto bad_length = packet;
     bad_length[4] = 1;
-    check(!LoginEnvelopeParser::parse(bad_length), "Login envelope rejects a mismatched JWT length");
+    check(!LoginEnvelopeParser::parse(bad_length),
+          "Login envelope rejects a mismatched JWT length");
     check(!LoginEnvelopeParser::parse(login_payload("Alex", std::string(4'097, 'A'))),
           "Login envelope enforces the token size before verification");
 
-    OniBridgeService service("kingdom-main", "kingdom", {key(), std::nullopt}, TrustedProxyMatcher({"10.0.0.0/8"}));
+    OniBridgeService service(
+        "kingdom-main", "kingdom", {key(), std::nullopt}, TrustedProxyMatcher({"10.0.0.0/8"}));
     const auto staged = service.stage_forwarded_login(token, "10.5.4.3", "Alex", 1'800'000'001'000);
     check(static_cast<bool>(staged) && service.pending_logins() == 1,
           "packet-stage verification consumes and records one transport-bound identity");
@@ -243,6 +274,7 @@ int main() {
     secret_file_tests();
     service_tests();
     login_envelope_tests();
-    if (failures) std::cerr << failures << " test(s) failed\n";
+    if (failures)
+        std::cerr << failures << " test(s) failed\n";
     return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

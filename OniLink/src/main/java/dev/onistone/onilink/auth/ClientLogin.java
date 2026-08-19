@@ -6,7 +6,7 @@ import java.net.InetSocketAddress;
 import java.security.PublicKey;
 
 /**
- * @param bridgeClientAddress the player's real address when they arrived through the a bridged edition
+ * @param bridgeClientAddress the player's real address when they arrived through a bridged edition
  *                            bridge, or null for an ordinary Bedrock client. Bridged players all share
  *                            one loopback source address, so this is the only place their real
  *                            address exists &mdash; see {@link ClientLoginAuthenticator}
@@ -33,7 +33,7 @@ public record ClientLogin(
         }
     }
 
-    /** True when this player reached the proxy through the a bridged edition bridge. */
+    /** True when this player reached the proxy through a bridged edition bridge. */
     public boolean isJavaEdition() {
         return bridgeClientAddress != null;
     }

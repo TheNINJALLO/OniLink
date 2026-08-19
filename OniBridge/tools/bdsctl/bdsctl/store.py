@@ -5,7 +5,13 @@ import os
 from pathlib import Path
 import shutil
 
-from .archive import extract_safely, find_required_file, inspect_executable, sha256_file, validate_zip
+from .archive import (
+    extract_safely,
+    find_required_file,
+    inspect_executable,
+    sha256_file,
+    validate_zip,
+)
 from .errors import SecurityError, ValidationError
 from .model import Artifact, LockFile, utc_now
 from .transport import HttpTransport
@@ -29,7 +35,9 @@ def artifact_root(cache: Path, artifact: Artifact, platform: str) -> Path:
 
 def _write_json(path: Path, value: object) -> None:
     temporary = path.with_name(path.name + ".partial")
-    temporary.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    temporary.write_text(
+        json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     temporary.replace(path)
 
 
@@ -55,25 +63,31 @@ def _inspect_and_record(
     artifact.architecture = executable_info.architecture
     artifact.package_file_list_hash = file_list_hash
     artifact.download_time_utc = utc_now()
-    _write_json(root / "metadata.json", {
-        "channel": lock.channel,
-        "download_type": artifact.download_type,
-        "version": artifact.version,
-        "original_filename": artifact.original_filename,
-        "resolved_download_url": artifact.download_url,
-        "download_time_utc": artifact.download_time_utc,
-        "acquisition_method": acquisition_method,
-        "supplied_filename": supplied_filename,
-    })
-    _write_json(root / "hashes.json", {
-        "archive_sha256": artifact.archive_sha256,
-        "archive_size": artifact.archive_size,
-        "executable_sha256": artifact.executable_sha256,
-        "executable_size": artifact.executable_size,
-        "file_format": artifact.file_format,
-        "architecture": artifact.architecture,
-        "package_file_list_hash": artifact.package_file_list_hash,
-    })
+    _write_json(
+        root / "metadata.json",
+        {
+            "channel": lock.channel,
+            "download_type": artifact.download_type,
+            "version": artifact.version,
+            "original_filename": artifact.original_filename,
+            "resolved_download_url": artifact.download_url,
+            "download_time_utc": artifact.download_time_utc,
+            "acquisition_method": acquisition_method,
+            "supplied_filename": supplied_filename,
+        },
+    )
+    _write_json(
+        root / "hashes.json",
+        {
+            "archive_sha256": artifact.archive_sha256,
+            "archive_size": artifact.archive_size,
+            "executable_sha256": artifact.executable_sha256,
+            "executable_size": artifact.executable_size,
+            "file_format": artifact.file_format,
+            "architecture": artifact.architecture,
+            "package_file_list_hash": artifact.package_file_list_hash,
+        },
+    )
 
 
 def acquire(
@@ -86,18 +100,29 @@ def acquire(
     require_eula()
     transport = transport or HttpTransport()
     for platform, artifact in lock.platforms.items():
-        if require_existing_hashes and (not artifact.archive_sha256 or not artifact.executable_sha256):
-            raise ValidationError(f"fetch requires a complete lock with archive and executable hashes for {platform}")
+        if require_existing_hashes and (
+            not artifact.archive_sha256 or not artifact.executable_sha256
+        ):
+            raise ValidationError(
+                f"fetch requires a complete lock with archive and executable hashes for {platform}"
+            )
         root = artifact_root(cache, artifact, platform)
         root_existed = root.exists()
         archive_dir = root / "archive"
         extracted = root / "extracted"
         archive_path = archive_dir / artifact.original_filename
         if root.exists() and extracted.exists():
-            verify_artifact(artifact, platform, cache, require_lock_hash=artifact.archive_sha256 is not None)
+            verify_artifact(
+                artifact,
+                platform,
+                cache,
+                require_lock_hash=artifact.archive_sha256 is not None,
+            )
             continue
         if root.exists() and any(root.iterdir()):
-            raise SecurityError(f"refusing to overwrite non-empty artifact directory {root}")
+            raise SecurityError(
+                f"refusing to overwrite non-empty artifact directory {root}"
+            )
         archive_dir.mkdir(parents=True, exist_ok=True)
         partial = archive_path.with_name(archive_path.name + ".partial")
         try:
@@ -110,7 +135,9 @@ def acquire(
                 raise ValidationError(f"archive SHA-256 mismatch for {platform}")
             partial.replace(archive_path)
             artifact.download_url = response.final_url
-            _inspect_and_record(lock, artifact, platform, root, archive_path, "official-download")
+            _inspect_and_record(
+                lock, artifact, platform, root, archive_path, "official-download"
+            )
         except Exception:
             partial.unlink(missing_ok=True)
             archive_path.unlink(missing_ok=True)
@@ -130,7 +157,9 @@ def import_local(
     """Validate and cache user-downloaded archives tied to freshly resolved official metadata."""
     require_eula()
     if set(sources) != set(lock.platforms):
-        raise ValidationError("local archive platforms must exactly match the resolved lock")
+        raise ValidationError(
+            "local archive platforms must exactly match the resolved lock"
+        )
     for platform, artifact in lock.platforms.items():
         source = sources[platform].resolve()
         if not source.is_file():
@@ -143,7 +172,9 @@ def import_local(
         extracted = root / "extracted"
         archive_path = archive_dir / artifact.original_filename
         if root.exists() and any(root.iterdir()):
-            raise SecurityError(f"refusing to overwrite non-empty artifact directory {root}")
+            raise SecurityError(
+                f"refusing to overwrite non-empty artifact directory {root}"
+            )
         archive_dir.mkdir(parents=True, exist_ok=True)
         partial = archive_path.with_name(archive_path.name + ".partial")
         try:
@@ -152,12 +183,20 @@ def import_local(
                 while chunk := input_file.read(1024 * 1024):
                     copied += len(chunk)
                     if copied > max_size:
-                        raise ValidationError(f"local archive exceeds {max_size} byte limit")
+                        raise ValidationError(
+                            f"local archive exceeds {max_size} byte limit"
+                        )
                     output_file.write(chunk)
             partial.replace(archive_path)
             _inspect_and_record(
-                lock, artifact, platform, root, archive_path,
-                "user-supplied-official-page-download", source.name)
+                lock,
+                artifact,
+                platform,
+                root,
+                archive_path,
+                "user-supplied-official-page-download",
+                source.name,
+            )
         except Exception:
             partial.unlink(missing_ok=True)
             archive_path.unlink(missing_ok=True)
@@ -189,7 +228,10 @@ def verify_artifact(
     if artifact.executable_sha256 and executable_hash != artifact.executable_sha256:
         raise ValidationError(f"cached executable SHA-256 mismatch for {platform}")
     info = inspect_executable(executable, platform)
-    if artifact.package_file_list_hash and file_list_hash != artifact.package_file_list_hash:
+    if (
+        artifact.package_file_list_hash
+        and file_list_hash != artifact.package_file_list_hash
+    ):
         raise ValidationError(f"package file-list hash mismatch for {platform}")
     return {
         "platform": platform,

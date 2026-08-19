@@ -4,21 +4,15 @@ import org.cloudburstmc.protocol.bedrock.data.PlayerPermission;
 import org.cloudburstmc.protocol.bedrock.packet.StartGamePacket;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
-/**
- * These fixups are client-behaviour workarounds, so they must apply to every protocol pairing.
- * {@code tickDeathSystems} regressed once by sitting behind a cross-protocol check, which left a
- * same-protocol client disconnecting on death; these tests pin the corrections to the packet
- * contents alone so no such gate can be reintroduced unnoticed.
- */
+/** Tests the StartGame fields OniLink owns without rewriting backend-owned permissions. */
 class StartGameClientFixupsTest {
 
     private static StartGamePacket backendStartGame() {
         StartGamePacket startGame = new StartGamePacket();
-        // What BDS 1.26.x actually reports, as observed in the relay logs.
         startGame.setTickDeathSystemsEnabled(false);
         startGame.setCommandsEnabled(false);
         startGame.setDefaultPlayerPermission(PlayerPermission.MEMBER);
@@ -29,12 +23,9 @@ class StartGameClientFixupsTest {
     void leavesTickDeathSystemsAloneBecauseTheBackendsValueIsKnownGood() {
         StartGamePacket startGame = backendStartGame();
 
-        StartGameClientFixups fixups = StartGameClientFixups.apply(startGame);
+        StartGameClientFixups.apply(startGame);
 
-        // A client connected directly to the same backend dies and respawns correctly with false,
-        // so the proxy must not diverge from what that backend reports.
         assertFalse(startGame.isTickDeathSystemsEnabled(), "must relay the backend's value unchanged");
-        assertFalse(fixups.forcedTickDeathSystems());
     }
 
     @Test
@@ -53,9 +44,6 @@ class StartGameClientFixupsTest {
 
         StartGameClientFixups.apply(startGame);
 
-        // Raising this to OPERATOR gave every joining player an op badge and the operator command
-        // set in autocomplete while the backend still treated them as a member. Nobody gained a
-        // permission, but everybody looked like they had.
         assertEquals(PlayerPermission.MEMBER, startGame.getDefaultPlayerPermission());
     }
 
@@ -76,9 +64,7 @@ class StartGameClientFixupsTest {
 
         StartGameClientFixups fixups = StartGameClientFixups.apply(startGame);
 
-        assertFalse(fixups.forcedTickDeathSystems());
         assertFalse(fixups.enabledCommands());
-        // Still correct afterwards - the fixups must be idempotent.
         assertTrue(startGame.isCommandsEnabled());
     }
 
@@ -89,7 +75,6 @@ class StartGameClientFixupsTest {
         StartGameClientFixups.apply(startGame);
         StartGameClientFixups second = StartGameClientFixups.apply(startGame);
 
-        assertFalse(second.forcedTickDeathSystems());
         assertFalse(second.enabledCommands());
         assertTrue(startGame.isCommandsEnabled());
         assertEquals(PlayerPermission.MEMBER, startGame.getDefaultPlayerPermission());

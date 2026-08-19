@@ -59,39 +59,40 @@ struct ForwardingResult {
     std::optional<ForwardingClaims> claims;
     std::string error;
 
-    [[nodiscard]] explicit operator bool() const noexcept { return claims.has_value(); }
+    [[nodiscard]] explicit operator bool() const noexcept {
+        return claims.has_value();
+    }
 };
 
-[[nodiscard]] std::string sign_forwarding_token(const ForwardingClaims& claims, const ForwardingKey& key);
-[[nodiscard]] ForwardingResult verify_forwarding_token(
-    std::string_view token,
-    const ForwardingKeyRing& keys,
-    const ForwardingValidation& validation);
+[[nodiscard]] std::string sign_forwarding_token(const ForwardingClaims& claims,
+                                                const ForwardingKey& key);
+[[nodiscard]] ForwardingResult verify_forwarding_token(std::string_view token,
+                                                       const ForwardingKeyRing& keys,
+                                                       const ForwardingValidation& validation);
 
 class ForwardingTokenParser final {
-public:
-    [[nodiscard]] static bool is_well_formed(
-        std::string_view token,
-        std::size_t maximum_token_size,
-        std::string& error);
+  public:
+    [[nodiscard]] static bool
+    is_well_formed(std::string_view token, std::size_t maximum_token_size, std::string& error);
 };
 
 class ForwardingTokenVerifier final {
-public:
+  public:
     explicit ForwardingTokenVerifier(ForwardingKeyRing keys) : keys_(std::move(keys)) {}
-    [[nodiscard]] ForwardingResult verify(std::string_view token, const ForwardingValidation& validation) const;
+    [[nodiscard]] ForwardingResult verify(std::string_view token,
+                                          const ForwardingValidation& validation) const;
 
-private:
+  private:
     ForwardingKeyRing keys_;
 };
 
 class ReplayCache final {
-public:
+  public:
     explicit ReplayCache(std::size_t maximum_entries = 10'000);
     [[nodiscard]] bool consume(const ForwardingClaims& claims, std::int64_t now_ms);
     [[nodiscard]] std::size_t size() const noexcept;
 
-private:
+  private:
     static constexpr std::size_t kShardCount = 32;
     struct Shard {
         mutable std::mutex mutex;
@@ -103,13 +104,13 @@ private:
 };
 
 class TrustedProxyMatcher final {
-public:
+  public:
     TrustedProxyMatcher() = default;
     explicit TrustedProxyMatcher(const std::vector<std::string>& cidrs);
     void add(std::string_view cidr);
     [[nodiscard]] bool matches(std::string_view address) const;
 
-private:
+  private:
     struct Network {
         std::array<std::uint8_t, 16> address{};
         std::uint8_t prefix{};

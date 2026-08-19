@@ -113,30 +113,13 @@ public final class BackendRelayPacketHandler implements BedrockPacketHandler {
     private static final int COMMAND_OUTPUT_PACKET_ID = CanonicalProtocol.V1_21_130.codec()
             .getPacketDefinition(CommandOutputPacket.class)
             .getId();
-    /**
-     * Needed as a raw id because a backend's disconnect does not always decode: servers add
-     * {@code DisconnectFailReason} values faster than the vendored enum tracks them, and an
-     * unrecognised reason used to make the whole packet undecodable. That is fixed in
-     * {@code DisconnectPacket.setReasonOrdinal}, but a disconnect must still be recognised when it
-     * arrives as an {@link UnknownPacket} for any other reason — relaying one to the client is an
-     * instant, unrecoverable kick.
-     */
+    /** Raw ID fallback for disconnect packets that contain an unknown fail-reason value. */
     private static final int DISCONNECT_PACKET_ID = CanonicalProtocol.V1_21_130.codec()
             .getPacketDefinition(DisconnectPacket.class)
             .getId();
     private static final boolean MATERIALIZE_CACHED_CHUNKS_FOR_CROSS_PROTOCOL = false;
 
-    /**
-     * Bisect switch: forward the backend's command tree untouched, without the proxy's /server and
-     * /hub entries. Pairs with {@code -Dproxy.noStartGameFixups} — between them they remove
-     * everything the proxy still changes relative to a direct connection, which is the only
-     * remaining difference now that the death path is verified to relay byte-for-byte.
-     *
-     * <p>Note that {@code AvailableCommandsSerializer_v898} is separately known to lose roughly 16KB
-     * of command data on re-encode, so this switch also takes that corruption out of the picture.
-     * Enable with {@code -Dproxy.noCommandInjection=true}; the proxy commands stop working while it
-     * is on, so it is a diagnostic, not a supported mode.
-     */
+    /** Diagnostic switch that forwards the backend command tree without proxy commands. */
     private static final boolean NO_COMMAND_INJECTION = Boolean.getBoolean("proxy.noCommandInjection");
     private static final boolean SYNTHETIC_CLIENT_CHUNK_CACHE_FOR_CROSS_PROTOCOL = false;
     private static final int INITIAL_CROSS_PROTOCOL_PUBLISHER_RADIUS_BLOCKS = 64;
@@ -217,25 +200,9 @@ public final class BackendRelayPacketHandler implements BedrockPacketHandler {
     }
 
     /**
-     * Clientbound packet types to drop instead of relaying, from
-     * {@code -Dproxy.dropClientbound=SetEntityData,AddEntity}. Names match with or without the
-     * {@code Packet} suffix and ignore case.
-     *
-     * <p>A bisection tool, for when static analysis has run out. Every codec-level check available
-     * has come back clean on the 1.26.40&rarr;1.26.30 disconnect — no failed encodes, no failed
-     * decodes, and a clean outbound read-back — while the client still closes the connection
-     * abruptly, mid-stream, with no message. At that point the question is no longer "which field is
-     * wrong" but "which packet family is involved at all", and the fastest way to answer it is to
-     * stop sending one and see whether the session survives.
-     *
-     * <p>The same approach settled the death-disconnect investigation, where
-     * {@code -Dproxy.noStartGameFixups} and {@code -Dproxy.noCommandInjection} eliminated the proxy's
-     * two behavioural differences in a single run each.
-     *
-     * <p>Diagnostic only, and deliberately blunt: suppressing a packet family breaks whatever it
-     * drives. Dropping the entity families leaves mobs invisible or frozen, which is fine — the
-     * question being asked is whether the player is still connected five minutes later, not whether
-     * the world looks right.
+     * Clientbound packet types suppressed by {@code -Dproxy.dropClientbound}. Names are
+     * case-insensitive and may omit the {@code Packet} suffix. This is a diagnostic setting and will
+     * break the feature driven by each suppressed packet.
      */
     private static final Set<String> DIAGNOSTIC_DROPPED_CLIENTBOUND = parseDroppedClientbound();
 
@@ -274,19 +241,9 @@ public final class BackendRelayPacketHandler implements BedrockPacketHandler {
      * {@link #DIAGNOSTIC_NEUTERED_CLIENTBOUND}.
      */
     public enum NeuterMode {
-        /**
-         * Smallest valid body: for {@code MoveEntityDelta}, the runtime id and every optional absent —
-         * roughly 11 bytes against ~26 for a real one, because the presence booleans are still
-         * written. Changes content <em>and</em> byte volume, so a survival under this mode does not by
-         * itself distinguish the two.
-         */
+        /** Smallest valid body; changes both content and encoded size. */
         MINIMAL,
-        /**
-         * Byte-for-byte the same length as the real packet: every optional is kept, with its real
-         * value, and only the trailing booleans are normalised. Entities still move, the client still
-         * interpolates, and the encoded size is unchanged — so this isolates <em>only</em> the flag
-         * semantics, which is the one family that has already produced three bugs on this hop.
-         */
+        /** Preserves encoded size while clearing the diagnostic packet content. */
         SAME_SIZE
     }
 
@@ -294,43 +251,12 @@ public final class BackendRelayPacketHandler implements BedrockPacketHandler {
      * Clientbound packet types to relay with neutered content, from
      * {@code -Dproxy.neuterClientbound=MoveEntityDelta} or
      * {@code -Dproxy.neuterClientbound=MoveEntityDelta:samesize,SetEntityMotion}. Names match with or
-     * without the {@code Packet} suffix and ignore case; the mode defaults to {@code minimal}.
-     *
-     * <p><b>Why this exists.</b> {@code -Dproxy.dropClientbound} established that survival on the
-     * 1.26.40&rarr;1.26.30 hop goes from ~5s to 17-54s when {@code MoveEntityDelta} and
-     * {@code SetEntityMotion} are suppressed, and that suppressing a 12% slice does nothing. But those
-     * two packets are also ~60% of all clientbound traffic, so for them "the suspect" and "the volume"
-     * are the same variable and <b>no drop experiment can separate content from rate</b>.
-     *
-     * <p>Neutering breaks that tie by holding the packet count fixed and changing only what the
-     * packets say. Read the result as:
-     *
-     * <ul>
-     *   <li>{@code samesize} survives &rarr; the four trailing booleans are the bug. Same count, same
-     *       bytes, same positions; only the flags differ.</li>
-     *   <li>{@code samesize} still dies at ~6s but {@code minimal} survives &rarr; not the flags. It is
-     *       the positional payload's content, or the byte volume the optionals carry.</li>
-     *   <li>both still die at ~6s &rarr; content is exonerated at the packet layer and the cause is
-     *       packet <i>count</i>. The search moves below the packet layer, to compression and RakNet
-     *       fragmentation.</li>
-     * </ul>
-     *
-     * <p>Both modes report every entity as grounded and force nothing, and {@code minimal} freezes
-     * entities where they stand. Diagnostic only: the question a neutered run answers is whether the
-     * player is still connected, not whether the world looks right.
+     * without the {@code Packet} suffix and ignore case; the mode defaults to {@code minimal}. The
+     * same-size mode isolates content changes from packet size, while minimal mode reduces both.
      */
     private static final Map<String, NeuterMode> DIAGNOSTIC_NEUTERED_CLIENTBOUND = parseNeuteredClientbound();
 
-    /**
-     * The packet types {@link #neuterForDiagnostics} actually knows how to neuter. A name outside this
-     * set is rejected at startup rather than ignored: a run configured with a typo would otherwise
-     * relay everything untouched and its ~6s disconnect would look like a result, which is the same
-     * "no way to tell the flag did not take" trap that cost the 15:50Z capture.
-     *
-     * <p>A method rather than a {@code static final} field on purpose: the field it is consulted from
-     * is initialised earlier in this class, so as a field it read back as {@code null} and every
-     * configured run died in {@code <clinit>} with an NPE. A method has no declaration-order hazard.
-     */
+    /** Supported diagnostic packet types. Kept as a method to avoid static initialization order. */
     private static Set<String> neuterableClientbound() {
         return Set.of("moveentitydeltapacket", "setentitymotionpacket", "subchunkpacket");
     }
@@ -441,51 +367,12 @@ public final class BackendRelayPacketHandler implements BedrockPacketHandler {
         }
     }
 
-    /**
-     * A complete, valid sub-chunk block payload containing nothing: format version 8, zero block
-     * storages, which every version from v471 onwards reads as "entirely air".
-     *
-     * <p>Deliberately storage-free rather than a one-entry air palette, because a palette entry would
-     * have to carry a block network id and those are <em>hashes</em> of block state NBT on this hop
-     * ({@code blockNetworkIdsHashed=true}) — the proxy does not have the client's block registry and
-     * could not compute one. Zero storages needs no registry at all, which is what makes this usable
-     * as a neuter.
-     *
-     * <p>The reader stops after the declared storage count, so appending arbitrary bytes after these
-     * two keeps the payload valid at <em>any</em> length &ge; 2. That is what lets
-     * {@link NeuterMode#SAME_SIZE} hold the byte count fixed while removing all real block content.
-     */
+    /** Version 8 sub-chunk payload with zero block storages (entirely air). */
     private static final byte[] EMPTY_SUB_CHUNK_PAYLOAD = {8, 0};
 
     /**
-     * The transform itself, in place. Static and package-private so a test can assert the property the
-     * whole experiment rests on — that {@link NeuterMode#SAME_SIZE} really does encode to the same
-     * number of bytes — without having to set a system property before this class loads. A
-     * {@code SAME_SIZE} that quietly changed the packet's length would silently reintroduce the volume
-     * confound it exists to remove, and the run would look like a clean answer.
-     *
-     * <p><b>The {@code SubChunk} neuter is the one this hop still needs, and it is why the two modes
-     * matter.</b> {@code -Dproxy.dropClientbound=SubChunk} makes the session immortal, which reads as a
-     * clean isolation — but it also removes about 90% of all clientbound <em>bytes</em>, so it is the
-     * same volume confound that has defeated every earlier bisect here, one packet further along. The
-     * envelope itself has since been verified byte-for-byte against gophertunnel PR #481 and the
-     * {@code r26_u4} dump and is correct, so what a drop cannot tell apart is the payload's content
-     * from the payload's size. These two modes do:
-     *
-     * <ul>
-     *   <li>{@code samesize} keeps every entry, every heightmap, every result and the exact encoded
-     *       length, replacing only the opaque block payload with an equally long empty one. Survives
-     *       &rarr; the <b>content</b> of the terrain payload is the cause, i.e. 1.26.30 block data a
-     *       1.26.40 client will not accept. Still dies &rarr; content is exonerated and the cause is
-     *       byte volume or packet count.</li>
-     *   <li>{@code minimal} cuts each payload to two bytes, so it cuts content and volume together. It
-     *       is the control: if {@code samesize} dies and {@code minimal} survives, the variable is
-     *       size alone and no amount of payload translation will help.</li>
-     * </ul>
-     *
-     * <p>Expect no terrain to render under either mode. As always, the question is whether the player
-     * is still connected, not whether the world looks right — but note this neuter leaves the client
-     * free to move, because the chunk still completes.
+     * Clears supported packet content in place. Package visibility lets tests verify that same-size
+     * mode preserves the encoded length.
      */
     static void neuter(BedrockPacket packet, NeuterMode mode) {
         if (packet instanceof MoveEntityDeltaPacket move) {
@@ -2555,13 +2442,6 @@ public final class BackendRelayPacketHandler implements BedrockPacketHandler {
                 normalizeInitialCrossProtocolStartGame(startGame);
             }
             StartGameClientFixups fixups = StartGameClientFixups.apply(startGame);
-            if (fixups.forcedTickDeathSystems()) {
-                System.out.printf(
-                        "Forced tickDeathSystems=true for backend %s; the backend reported false, "
-                                + "which makes the client disconnect on death.%n",
-                        backendName
-                );
-            }
             if (fixups.enabledCommands()) {
                 System.out.printf("Enabled client-side commands for backend %s.%n", backendName);
             }
@@ -2941,25 +2821,7 @@ public final class BackendRelayPacketHandler implements BedrockPacketHandler {
                 != connection.sessionProfile().backendCodec().getProtocolVersion();
     }
 
-    /**
-     * Whether the backend predates the loading-screen death flow and needs the old
-     * {@code RespawnPacket} handshake driven for it.
-     *
-     * <p><b>This is not the same question as "are the versions different", and conflating the two
-     * broke death and backend switching.</b> The translation below was written for a 1.26.20 client
-     * on a 1.21.130/944 backend, where the backend genuinely had no loading-screen death flow and the
-     * proxy had to drive {@code CLIENT_READY} itself. It was gated on {@link #isCrossProtocol()},
-     * which was an accurate proxy for "legacy backend" only while every cross-protocol pairing
-     * happened to involve one.</p>
-     *
-     * <p>1.26.40 &rarr; 1.26.30 broke that assumption: the pairing is cross-protocol, but
-     * {@code ServerboundLoadingScreenPacket} has existed since v712, so a 1001 backend speaks exactly
-     * the same modern death flow as the 2168 client and needs no help at all. Driving the old
-     * handshake there suppressed the {@code RespawnPacket} the client was waiting for and sent the
-     * backend a {@code CLIENT_READY} it never asked for, so the client sat with no respawn and closed
-     * the connection — and the same mistaken assumption made a backend switch wait for a
-     * {@code SERVER_READY} that a modern backend never sends.</p>
-     */
+    /** Whether this backend needs the legacy proxy-driven death-respawn handshake. */
     private boolean backendUsesLegacyDeathRespawn() {
         return connection.sessionProfile().backendCodec().getProtocolVersion() < LOADING_SCREEN_PROTOCOL;
     }
@@ -2970,35 +2832,15 @@ public final class BackendRelayPacketHandler implements BedrockPacketHandler {
      */
     private static final int LOADING_SCREEN_PROTOCOL = 712;
 
-    /**
-     * Backends at or above this need none of the join workarounds below.
-     *
-     * <p>1.26.30. Every one of those workarounds was written for a 1.26.20 client on an 898/944
-     * backend, where the two sides genuinely disagreed about join geometry. A 1.26.30 backend is one
-     * release below a 1.26.40 client and shares essentially all of it.</p>
-     */
+    /** First backend protocol that no longer needs the legacy join geometry workarounds. */
     private static final int MODERN_JOIN_PROTOCOL = 1001;
 
     /** {@code auto} (default), {@code always} or {@code never} — see {@link #backendNeedsLegacyJoinWorkarounds()}. */
     private static final String LEGACY_JOIN_WORKAROUNDS = System.getProperty("proxy.legacyJoinWorkarounds", "auto");
 
     /**
-     * Whether this backend needs the join workarounds that follow — position, chunk-publisher and
-     * spawn-ordering rewrites originally written for 898/944 backends.
-     *
-     * <p><b>Gating these on {@link #isCrossProtocol()} made them fire on 1.26.40 &rarr; 1.26.30, where
-     * they do harm rather than good.</b> A single session against a 1.26.30 backend logged 289
-     * chunk-publisher radius rewrites (the backend published 128 blocks, the proxy told the client
-     * 448) and 192 publisher-Y rewrites, plus StartGame and respawn Y rewrites. The client was
-     * repeatedly told chunks existed where the server had published none, which is the reported
-     * broken chunk loading, and the sessions ended in the client closing the connection while
-     * moving.</p>
-     *
-     * <p>Same mistake as the death-respawn gate above: "the versions differ" was standing in for
-     * "the backend is from the era these hacks were written for", and that stopped being true the
-     * moment two modern versions were paired. Override with
-     * {@code -Dproxy.legacyJoinWorkarounds=always} to restore the old behaviour for a bisect, or
-     * {@code never} to disable it for every backend.</p>
+     * Enables legacy position, chunk-publisher, and spawn-ordering rewrites only for old backends.
+     * {@code proxy.legacyJoinWorkarounds} can force the setting during diagnostics.
      */
     private boolean backendNeedsLegacyJoinWorkarounds() {
         if ("always".equalsIgnoreCase(LEGACY_JOIN_WORKAROUNDS)) {

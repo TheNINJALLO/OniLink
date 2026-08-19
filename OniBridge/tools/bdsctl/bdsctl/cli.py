@@ -19,29 +19,43 @@ def selected_platforms(value: str) -> tuple[str, ...]:
 
 def add_resolution_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--channel", choices=tuple(DOWNLOAD_TYPES), default="stable")
-    parser.add_argument("--platform", choices=("linux", "windows", "both"), default="both")
+    parser.add_argument(
+        "--platform", choices=("linux", "windows", "both"), default="both"
+    )
 
 
 def create_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="bdsctl", description="Secure, reproducible official BDS artifact manager")
+    parser = argparse.ArgumentParser(
+        prog="bdsctl", description="Secure, reproducible official BDS artifact manager"
+    )
     parser.add_argument("--cache", type=Path, default=Path(".cache"))
     sub = parser.add_subparsers(dest="command", required=True)
-    resolve_parser = sub.add_parser("resolve", help="resolve official metadata without downloading BDS")
+    resolve_parser = sub.add_parser(
+        "resolve", help="resolve official metadata without downloading BDS"
+    )
     add_resolution_options(resolve_parser)
     resolve_parser.add_argument("--output", type=Path)
-    lock_parser = sub.add_parser("lock", help="resolve, download, inspect, and write a complete lock")
+    lock_parser = sub.add_parser(
+        "lock", help="resolve, download, inspect, and write a complete lock"
+    )
     add_resolution_options(lock_parser)
     lock_parser.add_argument("--output", type=Path, default=Path("bds.lock.json"))
     import_parser = sub.add_parser(
-        "import-local", help="validate user-downloaded official Linux and Windows archives and write a complete lock")
-    import_parser.add_argument("--channel", choices=tuple(DOWNLOAD_TYPES), default="stable")
+        "import-local",
+        help="validate user-downloaded official Linux and Windows archives and write a complete lock",
+    )
+    import_parser.add_argument(
+        "--channel", choices=tuple(DOWNLOAD_TYPES), default="stable"
+    )
     import_parser.add_argument("--linux", type=Path, required=True)
     import_parser.add_argument("--windows", type=Path, required=True)
     import_parser.add_argument("--output", type=Path, default=Path("bds.lock.json"))
     for name in ("fetch", "inspect", "verify"):
         command = sub.add_parser(name)
         command.add_argument("--lock", type=Path, default=Path("bds.lock.json"))
-    clean = sub.add_parser("clean", help="remove incomplete transfers and extraction staging directories")
+    clean = sub.add_parser(
+        "clean", help="remove incomplete transfers and extraction staging directories"
+    )
     clean.add_argument("--partials", action="store_true", default=True)
     status = sub.add_parser("status", help="show cache state for a lock")
     status.add_argument("--lock", type=Path, default=Path("bds.lock.json"))
@@ -67,10 +81,14 @@ def run(args: argparse.Namespace) -> int:
         return 0
     if args.command == "import-local":
         lock = resolve(args.channel, ("linux-x86_64", "windows-x86_64"))
-        import_local(lock, args.cache, {
-            "linux-x86_64": args.linux,
-            "windows-x86_64": args.windows,
-        })
+        import_local(
+            lock,
+            args.cache,
+            {
+                "linux-x86_64": args.linux,
+                "windows-x86_64": args.windows,
+            },
+        )
         write_lock(args.output, lock)
         emit(lock.to_dict())
         return 0
@@ -83,21 +101,34 @@ def run(args: argparse.Namespace) -> int:
         emit({"status": "available", "platforms": sorted(lock.platforms)})
         return 0
     if args.command in {"inspect", "verify"}:
-        results = [verify_artifact(artifact, platform, args.cache) for platform, artifact in lock.platforms.items()]
+        results = [
+            verify_artifact(artifact, platform, args.cache)
+            for platform, artifact in lock.platforms.items()
+        ]
         emit({"lock": str(args.lock), "artifacts": results})
         return 0
     if args.command == "status":
         entries = []
         for platform, artifact in lock.platforms.items():
             root = artifact_root(args.cache, artifact, platform)
-            entries.append({
-                "platform": platform,
-                "version": artifact.version,
-                "archive": (root / "archive" / artifact.original_filename).is_file(),
-                "extracted": (root / "extracted").is_dir(),
-                "path": str(root),
-            })
-        emit({"channel": lock.channel, "paired_version": lock.paired_version, "artifacts": entries})
+            entries.append(
+                {
+                    "platform": platform,
+                    "version": artifact.version,
+                    "archive": (
+                        root / "archive" / artifact.original_filename
+                    ).is_file(),
+                    "extracted": (root / "extracted").is_dir(),
+                    "path": str(root),
+                }
+            )
+        emit(
+            {
+                "channel": lock.channel,
+                "paired_version": lock.paired_version,
+                "artifacts": entries,
+            }
+        )
         return 0
     raise AssertionError(args.command)
 

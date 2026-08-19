@@ -55,18 +55,26 @@ def validate_zip(path: Path, platform: str) -> tuple[list[zipfile.ZipInfo], str]
                 member = safe_member_name(info.filename)
                 mode = info.external_attr >> 16
                 if stat.S_ISLNK(mode):
-                    raise SecurityError(f"symlink ZIP member is forbidden: {info.filename}")
+                    raise SecurityError(
+                        f"symlink ZIP member is forbidden: {info.filename}"
+                    )
                 normalized.append((member.as_posix(), info.file_size))
                 extracted_size += info.file_size
                 if extracted_size > MAX_EXTRACTED_SIZE:
-                    raise ValidationError(f"BDS ZIP expands beyond the {MAX_EXTRACTED_SIZE} byte limit")
+                    raise ValidationError(
+                        f"BDS ZIP expands beyond the {MAX_EXTRACTED_SIZE} byte limit"
+                    )
                 if not info.is_dir():
                     basenames.add(member.name)
-            executable = "bedrock_server" if platform == "linux-x86_64" else "bedrock_server.exe"
+            executable = (
+                "bedrock_server" if platform == "linux-x86_64" else "bedrock_server.exe"
+            )
             required = REQUIRED_COMMON | {executable}
             missing = required - basenames
             if missing:
-                raise ValidationError(f"BDS package is missing required files: {sorted(missing)}")
+                raise ValidationError(
+                    f"BDS package is missing required files: {sorted(missing)}"
+                )
             bad = archive.testzip()
             if bad is not None:
                 raise ValidationError(f"ZIP CRC validation failed for {bad}")
@@ -106,20 +114,31 @@ def inspect_executable(path: Path, platform: str) -> ExecutableInfo:
 
 def extract_safely(archive_path: Path, destination: Path) -> None:
     if destination.exists():
-        raise SecurityError(f"refusing to overwrite existing extraction directory {destination}")
+        raise SecurityError(
+            f"refusing to overwrite existing extraction directory {destination}"
+        )
     destination.parent.mkdir(parents=True, exist_ok=True)
-    temporary = Path(tempfile.mkdtemp(prefix=destination.name + ".partial-", dir=destination.parent))
+    temporary = Path(
+        tempfile.mkdtemp(prefix=destination.name + ".partial-", dir=destination.parent)
+    )
     try:
         with zipfile.ZipFile(archive_path) as archive:
             for info in archive.infolist():
                 member = safe_member_name(info.filename)
                 mode = info.external_attr >> 16
                 if stat.S_ISLNK(mode):
-                    raise SecurityError(f"symlink ZIP member is forbidden: {info.filename}")
+                    raise SecurityError(
+                        f"symlink ZIP member is forbidden: {info.filename}"
+                    )
                 target = temporary.joinpath(*member.parts)
                 resolved = target.resolve()
-                if temporary.resolve() not in resolved.parents and resolved != temporary.resolve():
-                    raise SecurityError(f"ZIP member escapes extraction root: {info.filename}")
+                if (
+                    temporary.resolve() not in resolved.parents
+                    and resolved != temporary.resolve()
+                ):
+                    raise SecurityError(
+                        f"ZIP member escapes extraction root: {info.filename}"
+                    )
                 if info.is_dir():
                     target.mkdir(parents=True, exist_ok=True)
                 else:
@@ -137,5 +156,7 @@ def extract_safely(archive_path: Path, destination: Path) -> None:
 def find_required_file(root: Path, name: str) -> Path:
     matches = [path for path in root.rglob(name) if path.is_file()]
     if len(matches) != 1:
-        raise ValidationError(f"expected exactly one {name!r} in extracted package, found {len(matches)}")
+        raise ValidationError(
+            f"expected exactly one {name!r} in extracted package, found {len(matches)}"
+        )
     return matches[0]

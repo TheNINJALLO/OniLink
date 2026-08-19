@@ -23,7 +23,7 @@ struct VerifiedIdentity {
 };
 
 class VerifiedIdentityRegistry final {
-public:
+  public:
     void store(VerifiedIdentity identity);
     [[nodiscard]] std::optional<VerifiedIdentity> by_player_name(std::string_view name) const;
     [[nodiscard]] std::optional<VerifiedIdentity> by_xuid(std::string_view xuid) const;
@@ -33,19 +33,19 @@ public:
     void remove_session(std::string_view session_id);
     [[nodiscard]] std::size_t size() const;
 
-private:
+  private:
     mutable std::shared_mutex mutex_;
     std::unordered_map<std::string, VerifiedIdentity> sessions_;
 };
 
 class PostLoginIdentityVerifier final {
-public:
-    explicit PostLoginIdentityVerifier(VerifiedIdentityRegistry& identities) : identities_(identities) {}
+  public:
+    explicit PostLoginIdentityVerifier(VerifiedIdentityRegistry& identities)
+        : identities_(identities) {}
     [[nodiscard]] bool verify(std::string_view session_id, std::string_view actual_xuid);
 
-private:
+  private:
     VerifiedIdentityRegistry& identities_;
 };
 
 } // namespace onistone::onibridge
-

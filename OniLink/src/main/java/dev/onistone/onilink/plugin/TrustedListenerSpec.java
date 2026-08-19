@@ -5,26 +5,12 @@ import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
 import java.net.InetSocketAddress;
 
 /**
- * An extra Bedrock listener an addon needs the proxy to bind for it, on loopback, with the checks
- * that only make sense for the public port turned off.
+ * Describes a loopback listener used by a local translator addon.
  *
- * <p>The proxy binds and owns it; the addon only describes it. Everything here exists because a
- * translator connecting into the proxy is not a player and must not be treated as one.</p>
- *
- * @param address         where to bind. <b>Rejected unless it is a loopback address</b> — the whole
- *                        safety argument for {@code loginSecret} and the relaxed checks below is that
- *                        nothing off this machine can reach the port
- * @param advertisedCodec what this port claims to be when pinged. A translator generally speaks one
- *                        Bedrock version and will not connect to a port advertising another
- * @param loginSecret     required in every self-signed login arriving here. Self-signed logins are
- *                        accepted on this port because a translator has no Xbox account to sign with;
- *                        the secret is what narrows "any local process may claim any identity" down
- *                        to "the addon the proxy itself started". Blank disables the check and is a
- *                        bad idea
- * @param namePrefix      prepended to the display name of everyone arriving here, so players from an
- *                        addon are distinguishable in chat and on the player list. Applied after
- *                        identity is derived, so changing it does not move anyone's permissions or
- *                        backend data. Empty for none
+ * @param address loopback bind address
+ * @param advertisedCodec codec advertised by the listener
+ * @param loginSecret secret required for self-signed logins; blank disables the check
+ * @param namePrefix display-name prefix applied after identity is established
  */
 public record TrustedListenerSpec(
         InetSocketAddress address,

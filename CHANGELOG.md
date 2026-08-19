@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Standardized project-owned C++, Python, and dashboard sources with checked-in formatter rules and
+  a CI style gate; generated and vendored source boundaries remain explicit.
+- Reworked dense runtime templates and native parsing code for readability without changing the
+  forwarding protocol or fail-closed validation behavior.
+- Removed obsolete StartGame fixup state and shortened incident-style comments to the protocol and
+  maintenance decisions they document.
+- Added a contributor guide with source ownership, formatting, testing, and privacy requirements.
+
 ## 0.1.3 - 2026-08-19
 
 - Promoted secure native-backend onboarding into a dedicated **Add Backend** control-plane page with direct entry points from Backends and Configuration.

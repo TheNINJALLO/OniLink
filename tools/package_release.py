@@ -12,7 +12,13 @@ import zipfile
 
 from check_linux_abi import MAXIMUM_GLIBC, inspect_glibc_requirements
 
-FORBIDDEN_NAMES = {"bedrock_server", "bedrock_server.exe", "server.properties", "allowlist.json", "permissions.json"}
+FORBIDDEN_NAMES = {
+    "bedrock_server",
+    "bedrock_server.exe",
+    "server.properties",
+    "allowlist.json",
+    "permissions.json",
+}
 FORBIDDEN_SUFFIXES = {".pdb", ".dmp"}
 MAX_ARCHIVE_DEPTH = 4
 MAX_ARCHIVE_MEMBER = 512 * 1024 * 1024
@@ -23,7 +29,10 @@ SAFE_RELEASE_TOKEN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}\Z")
 def reject_name(name: str) -> None:
     normalized = name.replace("\\", "/")
     nested = Path(normalized)
-    if nested.name.lower() in FORBIDDEN_NAMES or nested.suffix.lower() in FORBIDDEN_SUFFIXES:
+    if (
+        nested.name.lower() in FORBIDDEN_NAMES
+        or nested.suffix.lower() in FORBIDDEN_SUFFIXES
+    ):
         raise ValueError(f"forbidden BDS-owned/restricted release file: {name}")
 
 
@@ -42,7 +51,9 @@ def inspect_zip(source: Path | io.BytesIO, label: str, depth: int = 0) -> None:
             with archive.open(info) as member:
                 data = member.read(MAX_ARCHIVE_MEMBER + 1)
             if len(data) > MAX_ARCHIVE_MEMBER:
-                raise ValueError(f"archive member exceeds limit: {label}!{info.filename}")
+                raise ValueError(
+                    f"archive member exceeds limit: {label}!{info.filename}"
+                )
             nested_source = io.BytesIO(data)
             if zipfile.is_zipfile(nested_source):
                 nested_source.seek(0)
@@ -88,7 +99,9 @@ def create_profile_bundle(version: str, destination: Path) -> None:
     missing = [str(path) for path in profiles.values() if not path.is_file()]
     if missing:
         raise ValueError(f"compatibility profiles are missing: {missing}")
-    with zipfile.ZipFile(destination, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
+    with zipfile.ZipFile(
+        destination, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9
+    ) as archive:
         for profile in profiles.values():
             reject_forbidden(profile)
             archive.write(profile, arcname=f"profiles/{version}/{profile.name}")
@@ -112,8 +125,12 @@ def main() -> int:
         "OniBridge-Geyser.jar": Path("OniBridge-Geyser/dist/OniBridge-Geyser.jar"),
         "egg-onilink.json": Path("packaging/pterodactyl/egg-onilink.json"),
         "start-onilink.sh": Path("packaging/pterodactyl/start-onilink.sh"),
-        f"onibridge-{args.version}-bds-{args.bds_version}-linux-x86_64.so": Path("OniBridge/build/linux-release/onibridge.so"),
-        f"onibridge-{args.version}-bds-{args.bds_version}-windows-x86_64.dll": Path("OniBridge/build/windows-release/onibridge.dll"),
+        f"onibridge-{args.version}-bds-{args.bds_version}-linux-x86_64.so": Path(
+            "OniBridge/build/linux-release/onibridge.so"
+        ),
+        f"onibridge-{args.version}-bds-{args.bds_version}-windows-x86_64.dll": Path(
+            "OniBridge/build/windows-release/onibridge.dll"
+        ),
     }
     missing = [str(path) for path in expected.values() if not path.is_file()]
     if missing:
@@ -130,12 +147,18 @@ def main() -> int:
     create_profile_bundle(args.bds_version, profile_bundle)
     outputs.append(profile_bundle)
     lock = read_json(Path("OniBridge/bds.lock.json"))
-    profiles = {platform: read_json(path) for platform, path in profile_paths(args.bds_version).items()}
+    profiles = {
+        platform: read_json(path)
+        for platform, path in profile_paths(args.bds_version).items()
+    }
     linux_native_abi = inspect_glibc_requirements(
         expected[f"onibridge-{args.version}-bds-{args.bds_version}-linux-x86_64.so"],
         MAXIMUM_GLIBC,
     )
-    if not linux_native_abi["glibc_policy_passed"] or not linux_native_abi["cxx_runtime_policy_passed"]:
+    if (
+        not linux_native_abi["glibc_policy_passed"]
+        or not linux_native_abi["cxx_runtime_policy_passed"]
+    ):
         raise ValueError(
             "Linux plugin violates the native runtime policy: "
             f"GLIBC requires {linux_native_abi['glibc_highest_required']} (maximum {MAXIMUM_GLIBC}), "
@@ -149,10 +172,19 @@ def main() -> int:
         if profile.get("executable_sha256") != locked.get("executable_sha256"):
             raise ValueError(f"{platform} profile hash does not match the BDS lock")
         evidence = profile.get("evidence", {})
-        runtime_path = profile_paths(args.bds_version)[platform].with_name(platform + ".runtime.json")
-        runtime = read_json(runtime_path) if runtime_path.is_file() else {"status": "not-run"}
-        if runtime.get("bds_executable_sha256", locked["executable_sha256"]) != locked["executable_sha256"]:
-            raise ValueError(f"{platform} runtime evidence hash does not match the BDS lock")
+        runtime_path = profile_paths(args.bds_version)[platform].with_name(
+            platform + ".runtime.json"
+        )
+        runtime = (
+            read_json(runtime_path) if runtime_path.is_file() else {"status": "not-run"}
+        )
+        if (
+            runtime.get("bds_executable_sha256", locked["executable_sha256"])
+            != locked["executable_sha256"]
+        ):
+            raise ValueError(
+                f"{platform} runtime evidence hash does not match the BDS lock"
+            )
         row = {
             "platform": platform,
             "bds_version": args.bds_version,
@@ -178,19 +210,27 @@ def main() -> int:
     production = all(row["profile_status"] == "production" for row in compatibility)
     manifest = {
         "schema": 1,
-        "release_status": "production" if production else "candidate-awaiting-validation",
+        "release_status": "production"
+        if production
+        else "candidate-awaiting-validation",
         "production_ready": production,
         "onibridge_version": args.version,
         "bds_version": args.bds_version,
         "bds_lock_resolved_at_utc": lock.get("resolved_at_utc"),
         "compatibility": compatibility,
-        "artifacts": [{"name": path.name, "sha256": digest(path), "size": path.stat().st_size} for path in outputs],
+        "artifacts": [
+            {"name": path.name, "sha256": digest(path), "size": path.stat().st_size}
+            for path in outputs
+        ],
     }
     manifest_path = args.dist / "compatibility-manifest.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     outputs.append(manifest_path)
     (args.dist / "SHA256SUMS").write_text(
-        "".join(f"{digest(path)}  {path.name}\n" for path in outputs), encoding="utf-8")
+        "".join(f"{digest(path)}  {path.name}\n" for path in outputs), encoding="utf-8"
+    )
     return 0
 
 

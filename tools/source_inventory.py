@@ -6,8 +6,18 @@ from pathlib import Path
 
 
 EXCLUDED_PARTS = {
-    ".cache", ".git", ".gradle", ".idea", ".pytest_cache", ".upstream", ".venv", ".vscode",
-    "__pycache__", "build", "dist"
+    ".cache",
+    ".git",
+    ".gradle",
+    ".idea",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".upstream",
+    ".venv",
+    ".vscode",
+    "__pycache__",
+    "build",
+    "dist",
 }
 EXCLUDED_SUFFIXES = {".class", ".dmp", ".log", ".pdb", ".zip"}
 
@@ -22,13 +32,20 @@ def sha256(path: Path) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--output", type=Path, default=Path("docs/SOURCE_FILE_INVENTORY.txt"))
+    parser.add_argument(
+        "--output", type=Path, default=Path("docs/SOURCE_FILE_INVENTORY.txt")
+    )
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
-    output = (root / args.output).resolve() if not args.output.is_absolute() else args.output.resolve()
+    output = (
+        (root / args.output).resolve()
+        if not args.output.is_absolute()
+        else args.output.resolve()
+    )
     output.relative_to(root)
     files = sorted(
-        path for path in root.rglob("*")
+        path
+        for path in root.rglob("*")
         if path.is_file()
         and path.resolve() != output
         and not EXCLUDED_PARTS.intersection(path.relative_to(root).parts)
@@ -40,7 +57,9 @@ def main() -> int:
         f"files={len(files)}",
         "",
     ]
-    lines.extend(f"{sha256(path)}  {path.relative_to(root).as_posix()}" for path in files)
+    lines.extend(
+        f"{sha256(path)}  {path.relative_to(root).as_posix()}" for path in files
+    )
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
     print(f"wrote {output} with {len(files)} entries")

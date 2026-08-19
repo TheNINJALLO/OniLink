@@ -11,7 +11,9 @@ from package_release import digest, read_json, reject_forbidden, validate_releas
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Assemble OniLink Linux release artifacts")
+    parser = argparse.ArgumentParser(
+        description="Assemble OniLink Linux release artifacts"
+    )
     parser.add_argument("--version", required=True)
     parser.add_argument("--bds-version", required=True)
     parser.add_argument("--dist", type=Path, default=Path("dist/linux"))
@@ -31,11 +33,14 @@ def main() -> int:
     inputs = {
         "OniLink.jar": Path("OniLink/dist/OniLink.jar"),
         "OniBridge-Geyser.jar": Path("OniBridge-Geyser/dist/OniBridge-Geyser.jar"),
-        f"onibridge-{args.version}-bds-{args.bds_version}-linux-x86_64.so":
-            Path("OniBridge/build/linux-release/onibridge.so"),
+        f"onibridge-{args.version}-bds-{args.bds_version}-linux-x86_64.so": Path(
+            "OniBridge/build/linux-release/onibridge.so"
+        ),
         "onilink.properties.example": Path("OniLink/onilink.example.properties"),
         "onibridge.toml.example": Path("OniBridge/onibridge.example.toml"),
-        "onibridge-geyser.properties.example": Path("OniBridge-Geyser/config.example.properties"),
+        "onibridge-geyser.properties.example": Path(
+            "OniBridge-Geyser/config.example.properties"
+        ),
         "egg-onilink.json": Path("packaging/pterodactyl/egg-onilink.json"),
         "start-onilink.sh": Path("packaging/pterodactyl/start-onilink.sh"),
         f"onibridge-profile-{args.bds_version}-linux-x86_64.json": profile_path,
@@ -47,7 +52,10 @@ def main() -> int:
         inputs[f"onibridge-{args.version}-bds-{args.bds_version}-linux-x86_64.so"],
         MAXIMUM_GLIBC,
     )
-    if not native_abi["glibc_policy_passed"] or not native_abi["cxx_runtime_policy_passed"]:
+    if (
+        not native_abi["glibc_policy_passed"]
+        or not native_abi["cxx_runtime_policy_passed"]
+    ):
         raise ValueError(
             "Linux plugin violates the native runtime policy: "
             f"GLIBC requires {native_abi['glibc_highest_required']} (maximum {MAXIMUM_GLIBC}), "
@@ -67,7 +75,9 @@ def main() -> int:
     production = profile.get("validation_status") == "production"
     manifest = {
         "schema": 1,
-        "release_status": "production" if production else "candidate-awaiting-validation",
+        "release_status": "production"
+        if production
+        else "candidate-awaiting-validation",
         "production_ready": production,
         "onibridge_version": args.version,
         "bds_version": args.bds_version,
@@ -87,10 +97,14 @@ def main() -> int:
         ],
     }
     manifest_path = args.dist / "linux-compatibility-manifest.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
     outputs.append(manifest_path)
     sums = args.dist / "SHA256SUMS"
-    sums.write_text("".join(f"{digest(path)}  {path.name}\n" for path in outputs), encoding="utf-8")
+    sums.write_text(
+        "".join(f"{digest(path)}  {path.name}\n" for path in outputs), encoding="utf-8"
+    )
     reject_forbidden(sums)
     return 0
 

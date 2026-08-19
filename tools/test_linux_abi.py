@@ -44,7 +44,9 @@ class LinuxAbiTests(unittest.TestCase):
         )
 
     def test_ignores_normal_libcxx_undefined_symbols(self) -> None:
-        output = "  108: 0000000000000000 0 NOTYPE GLOBAL DEFAULT UND _ZNSt3__16localeD1Ev"
+        output = (
+            "  108: 0000000000000000 0 NOTYPE GLOBAL DEFAULT UND _ZNSt3__16localeD1Ev"
+        )
         self.assertEqual(forbidden_libstdcxx_symbols(output), [])
         self.assertEqual(libcxx_abi_symbols(output), ["_ZNSt3__16localeD1Ev"])
 

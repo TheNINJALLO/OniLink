@@ -26,19 +26,28 @@ struct AuthenticationCallSiteSpec {
 };
 
 class AuthenticationCallSiteAdapter final {
-public:
+  public:
     AuthenticationCallSiteAdapter() = default;
     AuthenticationCallSiteAdapter(const AuthenticationCallSiteAdapter&) = delete;
     AuthenticationCallSiteAdapter& operator=(const AuthenticationCallSiteAdapter&) = delete;
     ~AuthenticationCallSiteAdapter();
 
-    bool install(void* executable_base, AuthenticationCallSiteSpec spec, OniBridgeService& service, std::string& error);
+    bool install(void* executable_base,
+                 AuthenticationCallSiteSpec spec,
+                 OniBridgeService& service,
+                 std::string& error);
     bool uninstall(std::string& error);
-    [[nodiscard]] bool installed() const noexcept { return patch_.installed(); }
-    [[nodiscard]] std::uint64_t accepted() const noexcept { return accepted_.load(); }
-    [[nodiscard]] std::uint64_t rejected() const noexcept { return rejected_.load(); }
+    [[nodiscard]] bool installed() const noexcept {
+        return patch_.installed();
+    }
+    [[nodiscard]] std::uint64_t accepted() const noexcept {
+        return accepted_.load();
+    }
+    [[nodiscard]] std::uint64_t rejected() const noexcept {
+        return rejected_.load();
+    }
 
-private:
+  private:
     static void replacement(void* destination, void* source) noexcept;
     void handle(void* destination, void* source) noexcept;
     void reject(void* destination) noexcept;

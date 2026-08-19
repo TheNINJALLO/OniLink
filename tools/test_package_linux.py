@@ -13,12 +13,16 @@ import package_linux
 class PackageLinuxTests(unittest.TestCase):
     def test_checked_linux_profile_is_production_consistent(self) -> None:
         root = Path(__file__).resolve().parents[1]
-        profile = json.loads((
-            root / "OniBridge/profiles/1.26.44.3/linux-x86_64.json"
-        ).read_text(encoding="utf-8"))
-        generated = json.loads((
-            root / "OniBridge/generated/bds/1.26.44.3/linux-x86_64/profile.json"
-        ).read_text(encoding="utf-8"))
+        profile = json.loads(
+            (root / "OniBridge/profiles/1.26.44.3/linux-x86_64.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        generated = json.loads(
+            (
+                root / "OniBridge/generated/bds/1.26.44.3/linux-x86_64/profile.json"
+            ).read_text(encoding="utf-8")
+        )
 
         self.assertEqual(profile, generated)
         self.assertEqual("production", profile["validation_status"])
@@ -37,21 +41,35 @@ class PackageLinuxTests(unittest.TestCase):
             root / "examples/single-bds/onibridge.toml",
             root / "examples/mixed-bds-geyser/onibridge-survival.toml",
         ):
-            self.assertIn("allow_unreviewed_profile = false", path.read_text(encoding="utf-8"))
+            self.assertIn(
+                "allow_unreviewed_profile = false", path.read_text(encoding="utf-8")
+            )
 
     def test_rejects_lock_profile_hash_mismatch(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             (root / "OniBridge/profiles/1.2.3").mkdir(parents=True)
-            (root / "OniBridge/bds.lock.json").write_text(json.dumps({
-                "platforms": {"linux-x86_64": {
-                    "version": "1.2.3", "executable_sha256": "locked", "archive_sha256": "archive"
-                }}
-            }), encoding="utf-8")
-            (root / "OniBridge/profiles/1.2.3/linux-x86_64.json").write_text(json.dumps({
-                "executable_sha256": "different"
-            }), encoding="utf-8")
-            with mock.patch("sys.argv", ["package_linux.py", "--version", "1.0.0", "--bds-version", "1.2.3"]):
+            (root / "OniBridge/bds.lock.json").write_text(
+                json.dumps(
+                    {
+                        "platforms": {
+                            "linux-x86_64": {
+                                "version": "1.2.3",
+                                "executable_sha256": "locked",
+                                "archive_sha256": "archive",
+                            }
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (root / "OniBridge/profiles/1.2.3/linux-x86_64.json").write_text(
+                json.dumps({"executable_sha256": "different"}), encoding="utf-8"
+            )
+            with mock.patch(
+                "sys.argv",
+                ["package_linux.py", "--version", "1.0.0", "--bds-version", "1.2.3"],
+            ):
                 previous = Path.cwd()
                 try:
                     os.chdir(root)

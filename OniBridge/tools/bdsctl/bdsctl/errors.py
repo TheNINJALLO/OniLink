@@ -12,4 +12,3 @@ class SecurityError(BdsCtlError):
 
 class ValidationError(BdsCtlError):
     pass
-

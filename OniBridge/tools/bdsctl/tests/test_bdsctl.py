@@ -11,7 +11,13 @@ from unittest.mock import patch
 from urllib.error import URLError
 import zipfile
 
-from bdsctl.archive import extract_safely, inspect_executable, safe_member_name, sha256_file, validate_zip
+from bdsctl.archive import (
+    extract_safely,
+    inspect_executable,
+    safe_member_name,
+    sha256_file,
+    validate_zip,
+)
 from bdsctl.errors import MetadataError, SecurityError, ValidationError
 from bdsctl.metadata import parse_metadata
 from bdsctl.model import Artifact, LockFile
@@ -24,9 +30,15 @@ WINDOWS_URL = "https://www.minecraft.net/bedrockdedicatedserver/bin-win/bedrock-
 
 
 def metadata(*entries: tuple[str, str]) -> bytes:
-    return json.dumps({"result": {"links": [
-        {"downloadType": kind, "downloadUrl": url} for kind, url in entries
-    ]}}).encode()
+    return json.dumps(
+        {
+            "result": {
+                "links": [
+                    {"downloadType": kind, "downloadUrl": url} for kind, url in entries
+                ]
+            }
+        }
+    ).encode()
 
 
 def elf(machine: int = 62) -> bytes:
@@ -48,9 +60,18 @@ def pe(machine: int = 0x8664, magic: int = 0x20B) -> bytes:
     return bytes(value)
 
 
-def make_zip(path: Path, platform: str, executable_data: bytes | None = None, extra: dict[str, bytes] | None = None) -> None:
+def make_zip(
+    path: Path,
+    platform: str,
+    executable_data: bytes | None = None,
+    extra: dict[str, bytes] | None = None,
+) -> None:
     name = "bedrock_server" if platform == "linux-x86_64" else "bedrock_server.exe"
-    executable_data = executable_data if executable_data is not None else (elf() if platform.startswith("linux") else pe())
+    executable_data = (
+        executable_data
+        if executable_data is not None
+        else (elf() if platform.startswith("linux") else pe())
+    )
     files = {
         name: executable_data,
         "server.properties": b"server-name=fixture\n",
@@ -65,30 +86,52 @@ def make_zip(path: Path, platform: str, executable_data: bytes | None = None, ex
 
 class MetadataTests(unittest.TestCase):
     def test_valid_official_metadata(self):
-        lock = parse_metadata(metadata(
-            ("serverBedrockLinux", LINUX_URL),
-            ("serverBedrockWindows", WINDOWS_URL),
-        ), "application/json; charset=utf-8", "stable", ("linux-x86_64", "windows-x86_64"))
+        lock = parse_metadata(
+            metadata(
+                ("serverBedrockLinux", LINUX_URL),
+                ("serverBedrockWindows", WINDOWS_URL),
+            ),
+            "application/json; charset=utf-8",
+            "stable",
+            ("linux-x86_64", "windows-x86_64"),
+        )
         self.assertTrue(lock.paired_version)
         self.assertEqual(lock.platforms["linux-x86_64"].version, "1.21.100.1")
 
     def test_missing_linux_entry(self):
         with self.assertRaisesRegex(MetadataError, "serverBedrockLinux"):
-            parse_metadata(metadata(("serverBedrockWindows", WINDOWS_URL)), "application/json", "stable", ("linux-x86_64", "windows-x86_64"))
+            parse_metadata(
+                metadata(("serverBedrockWindows", WINDOWS_URL)),
+                "application/json",
+                "stable",
+                ("linux-x86_64", "windows-x86_64"),
+            )
 
     def test_missing_windows_entry(self):
         with self.assertRaisesRegex(MetadataError, "serverBedrockWindows"):
-            parse_metadata(metadata(("serverBedrockLinux", LINUX_URL)), "application/json", "stable", ("linux-x86_64", "windows-x86_64"))
+            parse_metadata(
+                metadata(("serverBedrockLinux", LINUX_URL)),
+                "application/json",
+                "stable",
+                ("linux-x86_64", "windows-x86_64"),
+            )
 
     def test_duplicate_entry(self):
         with self.assertRaisesRegex(MetadataError, "duplicate"):
-            parse_metadata(metadata(
-                ("serverBedrockLinux", LINUX_URL), ("serverBedrockLinux", LINUX_URL)
-            ), "application/json", "stable", ("linux-x86_64",))
+            parse_metadata(
+                metadata(
+                    ("serverBedrockLinux", LINUX_URL), ("serverBedrockLinux", LINUX_URL)
+                ),
+                "application/json",
+                "stable",
+                ("linux-x86_64",),
+            )
 
     def test_malformed_json(self):
         with self.assertRaises(MetadataError):
-            parse_metadata(b"{not json", "application/json", "stable", ("linux-x86_64",))
+            parse_metadata(
+                b"{not json", "application/json", "stable", ("linux-x86_64",)
+            )
 
     def test_wrong_content_type(self):
         with self.assertRaisesRegex(MetadataError, "content type"):
@@ -96,9 +139,14 @@ class MetadataTests(unittest.TestCase):
 
     def test_linux_windows_version_mismatch(self):
         windows = WINDOWS_URL.replace("1.21.100.1", "1.21.101.2")
-        lock = parse_metadata(metadata(
-            ("serverBedrockLinux", LINUX_URL), ("serverBedrockWindows", windows)
-        ), "application/json", "stable", ("linux-x86_64", "windows-x86_64"))
+        lock = parse_metadata(
+            metadata(
+                ("serverBedrockLinux", LINUX_URL), ("serverBedrockWindows", windows)
+            ),
+            "application/json",
+            "stable",
+            ("linux-x86_64", "windows-x86_64"),
+        )
         self.assertFalse(lock.paired_version)
 
     def test_stable_preview_separation(self):
@@ -106,10 +154,19 @@ class MetadataTests(unittest.TestCase):
             ("serverBedrockPreviewLinux", LINUX_URL),
             ("serverBedrockLinux", LINUX_URL),
         )
-        stable = parse_metadata(preview, "application/json", "stable", ("linux-x86_64",))
-        candidate = parse_metadata(preview, "application/json", "preview", ("linux-x86_64",))
-        self.assertEqual(stable.platforms["linux-x86_64"].download_type, "serverBedrockLinux")
-        self.assertEqual(candidate.platforms["linux-x86_64"].download_type, "serverBedrockPreviewLinux")
+        stable = parse_metadata(
+            preview, "application/json", "stable", ("linux-x86_64",)
+        )
+        candidate = parse_metadata(
+            preview, "application/json", "preview", ("linux-x86_64",)
+        )
+        self.assertEqual(
+            stable.platforms["linux-x86_64"].download_type, "serverBedrockLinux"
+        )
+        self.assertEqual(
+            candidate.platforms["linux-x86_64"].download_type,
+            "serverBedrockPreviewLinux",
+        )
 
 
 class TransportTests(unittest.TestCase):
@@ -119,7 +176,9 @@ class TransportTests(unittest.TestCase):
 
     def test_timeout_retries_then_fails(self):
         transport = HttpTransport(retries=2)
-        with patch.object(transport, "_open", side_effect=URLError(TimeoutError("timed out"))):
+        with patch.object(
+            transport, "_open", side_effect=URLError(TimeoutError("timed out"))
+        ):
             with self.assertRaisesRegex(ValidationError, "transient retries"):
                 transport.get_bytes(LINUX_URL, 100)
 
@@ -139,10 +198,14 @@ class ArchiveTests(unittest.TestCase):
             validate_zip(path, "linux-x86_64")
 
     def test_html_masquerading_as_zip(self):
-        artifact = Artifact("serverBedrockLinux", "1.21.100.1", "bds.zip", LINUX_URL, "bedrock_server")
+        artifact = Artifact(
+            "serverBedrockLinux", "1.21.100.1", "bds.zip", LINUX_URL, "bedrock_server"
+        )
         lock = LockFile(1, "stable", "now", True, {"linux-x86_64": artifact})
         fake = unittest.mock.Mock()
-        fake.get_bytes.return_value = Response(b"<!doctype html><title>error</title>", "text/html", LINUX_URL)
+        fake.get_bytes.return_value = Response(
+            b"<!doctype html><title>error</title>", "text/html", LINUX_URL
+        )
         with patch.dict(os.environ, {"MINECRAFT_EULA_ACCEPTED": "TRUE"}, clear=True):
             with self.assertRaisesRegex(ValidationError, "HTML"):
                 acquire(lock, self.root / "cache", fake)
@@ -161,7 +224,7 @@ class ArchiveTests(unittest.TestCase):
         with zipfile.ZipFile(path, "w") as archive:
             info = zipfile.ZipInfo("bedrock_server")
             info.create_system = 3
-            info.external_attr = (0o120777 << 16)
+            info.external_attr = 0o120777 << 16
             archive.writestr(info, "elsewhere")
             for name in ("server.properties", "allowlist.json", "permissions.json"):
                 archive.writestr(name, "[]")
@@ -186,7 +249,9 @@ class ArchiveTests(unittest.TestCase):
     def test_valid_pe(self):
         path = self.root / "server.exe"
         path.write_bytes(pe())
-        self.assertEqual(inspect_executable(path, "windows-x86_64").file_format, "PE32+")
+        self.assertEqual(
+            inspect_executable(path, "windows-x86_64").file_format, "PE32+"
+        )
 
     def test_extract_will_not_overwrite(self):
         path = self.root / "valid.zip"
@@ -206,7 +271,9 @@ class AcquisitionTests(unittest.TestCase):
         self.temp.cleanup()
 
     def artifact(self) -> Artifact:
-        return Artifact("serverBedrockLinux", "1.21.100.1", "bds.zip", LINUX_URL, "bedrock_server")
+        return Artifact(
+            "serverBedrockLinux", "1.21.100.1", "bds.zip", LINUX_URL, "bedrock_server"
+        )
 
     def test_eula_variable_missing(self):
         with patch.dict(os.environ, {}, clear=True):
@@ -226,11 +293,15 @@ class AcquisitionTests(unittest.TestCase):
         artifact = self.artifact()
         lock = LockFile(1, "stable", "now", True, {"linux-x86_64": artifact})
         fake = unittest.mock.Mock()
-        fake.get_bytes.return_value = Response(b"PK truncated", "application/zip", LINUX_URL)
+        fake.get_bytes.return_value = Response(
+            b"PK truncated", "application/zip", LINUX_URL
+        )
         with patch.dict(os.environ, {"MINECRAFT_EULA_ACCEPTED": "TRUE"}, clear=True):
             with self.assertRaises(ValidationError):
                 acquire(lock, self.root / "cache", fake)
-        self.assertFalse((self.root / "cache" / "bds" / artifact.version / "linux-x86_64").exists())
+        self.assertFalse(
+            (self.root / "cache" / "bds" / artifact.version / "linux-x86_64").exists()
+        )
 
     def test_hash_mismatch(self):
         source = self.root / "source.zip"
@@ -239,7 +310,9 @@ class AcquisitionTests(unittest.TestCase):
         artifact.archive_sha256 = "0" * 64
         lock = LockFile(1, "stable", "now", True, {"linux-x86_64": artifact})
         fake = unittest.mock.Mock()
-        fake.get_bytes.return_value = Response(source.read_bytes(), "application/zip", LINUX_URL)
+        fake.get_bytes.return_value = Response(
+            source.read_bytes(), "application/zip", LINUX_URL
+        )
         with patch.dict(os.environ, {"MINECRAFT_EULA_ACCEPTED": "TRUE"}, clear=True):
             with self.assertRaisesRegex(ValidationError, "SHA-256 mismatch"):
                 acquire(lock, self.root / "cache", fake)
@@ -250,11 +323,16 @@ class AcquisitionTests(unittest.TestCase):
         artifact = self.artifact()
         lock = LockFile(1, "stable", "now", True, {"linux-x86_64": artifact})
         fake = unittest.mock.Mock()
-        fake.get_bytes.return_value = Response(source.read_bytes(), "application/zip", LINUX_URL)
+        fake.get_bytes.return_value = Response(
+            source.read_bytes(), "application/zip", LINUX_URL
+        )
         with patch.dict(os.environ, {"MINECRAFT_EULA_ACCEPTED": "TRUE"}, clear=True):
             acquire(lock, self.root / "cache", fake)
         self.assertEqual(artifact.archive_sha256, sha256_file(source))
-        self.assertEqual(verify_artifact(artifact, "linux-x86_64", self.root / "cache")["status"], "verified")
+        self.assertEqual(
+            verify_artifact(artifact, "linux-x86_64", self.root / "cache")["status"],
+            "verified",
+        )
 
     def test_local_dual_platform_import(self):
         linux_source = self.root / "linux.zip"
@@ -263,22 +341,46 @@ class AcquisitionTests(unittest.TestCase):
         make_zip(windows_source, "windows-x86_64")
         linux = self.artifact()
         windows = Artifact(
-            "serverBedrockWindows", "1.21.100.1", "bds.zip", WINDOWS_URL, "bedrock_server.exe")
-        lock = LockFile(1, "stable", "now", True, {
-            "linux-x86_64": linux,
-            "windows-x86_64": windows,
-        })
+            "serverBedrockWindows",
+            "1.21.100.1",
+            "bds.zip",
+            WINDOWS_URL,
+            "bedrock_server.exe",
+        )
+        lock = LockFile(
+            1,
+            "stable",
+            "now",
+            True,
+            {
+                "linux-x86_64": linux,
+                "windows-x86_64": windows,
+            },
+        )
         with patch.dict(os.environ, {"MINECRAFT_EULA_ACCEPTED": "TRUE"}, clear=True):
-            import_local(lock, self.root / "cache", {
-                "linux-x86_64": linux_source,
-                "windows-x86_64": windows_source,
-            })
+            import_local(
+                lock,
+                self.root / "cache",
+                {
+                    "linux-x86_64": linux_source,
+                    "windows-x86_64": windows_source,
+                },
+            )
         self.assertEqual(linux.archive_sha256, sha256_file(linux_source))
         self.assertEqual(windows.archive_sha256, sha256_file(windows_source))
-        metadata_value = json.loads((
-            self.root / "cache" / "bds" / "1.21.100.1" / "windows-x86_64" / "metadata.json"
-        ).read_text(encoding="utf-8"))
-        self.assertEqual(metadata_value["acquisition_method"], "user-supplied-official-page-download")
+        metadata_value = json.loads(
+            (
+                self.root
+                / "cache"
+                / "bds"
+                / "1.21.100.1"
+                / "windows-x86_64"
+                / "metadata.json"
+            ).read_text(encoding="utf-8")
+        )
+        self.assertEqual(
+            metadata_value["acquisition_method"], "user-supplied-official-page-download"
+        )
 
     def test_local_import_requires_exact_platform_set(self):
         source = self.root / "linux.zip"
