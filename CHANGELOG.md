@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Fixed the dashboard broadcast and account-creation forms retaining `event.currentTarget` after an asynchronous request, which caused successful actions to end with `Cannot read properties of null (reading 'reset')` in browsers.
 - Added a dashboard-guided BDS backend wizard that preserves existing routes, generates a unique protected secret, validates and backs up `config.properties`, and produces a matched downloadable Endstone key plus complete `onibridge.toml`.
 - Added detailed multi-server, routing, Pterodactyl, manual configuration, troubleshooting, and removal guides to the documentation and Wiki.
 - Updated native OniBridge to tighten selected Linux secret files to owner-only permissions automatically before reading them, while continuing to fail closed when permissions cannot be secured.

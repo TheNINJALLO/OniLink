@@ -20,6 +20,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OniLinkDashboardTest {
@@ -46,6 +47,14 @@ class OniLinkDashboardTest {
             assertTrue(home.body().contains("OniLink Control Plane"));
             assertTrue(home.headers().firstValue("Content-Security-Policy").orElseThrow()
                     .contains("frame-ancestors 'none'"));
+
+            HttpResponse<String> application = client.send(
+                    HttpRequest.newBuilder(base.resolve("/app.js")).GET().build(),
+                    HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, application.statusCode());
+            assertTrue(application.body().contains("const form = event.currentTarget;"));
+            assertFalse(application.body().contains("event.currentTarget.reset()"),
+                    "async form handlers must retain the form before the event is released");
 
             HttpResponse<String> unauthorized = client.send(
                     HttpRequest.newBuilder(base.resolve("/api/state")).GET().build(),

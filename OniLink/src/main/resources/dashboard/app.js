@@ -356,7 +356,9 @@ $("#action-form").addEventListener("submit", async event => {
 });
 $("#alert-form").addEventListener("submit", async event => {
   event.preventDefault();
-  try { const result = await api("/api/action/alert", {method: "POST", body: Object.fromEntries(new FormData(event.currentTarget))}); notice(result.message); event.currentTarget.reset(); }
+  const form = event.currentTarget;
+  const data = Object.fromEntries(new FormData(form));
+  try { const result = await api("/api/action/alert", {method: "POST", body: data}); notice(result.message); form.reset(); }
   catch (error) { notice(error.message, true); }
 });
 $("#add-backend-form").addEventListener("submit", async event => {
@@ -416,7 +418,9 @@ $("#shutdown-proxy").addEventListener("click", async () => {
 });
 $("#create-user-form").addEventListener("submit", async event => {
   event.preventDefault();
-  try { await api("/api/users", {method: "POST", body: Object.fromEntries(new FormData(event.currentTarget))}); event.currentTarget.reset(); await loadUsers(); notice("Dashboard account created."); }
+  const form = event.currentTarget;
+  const data = Object.fromEntries(new FormData(form));
+  try { await api("/api/users", {method: "POST", body: data}); form.reset(); await loadUsers(); notice("Dashboard account created."); }
   catch (error) { notice(error.message, true); }
 });
 $("#user-list").addEventListener("click", async event => {

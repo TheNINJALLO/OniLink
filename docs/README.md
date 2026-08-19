@@ -58,7 +58,7 @@ Use this page as the canonical map for operators, testers, and contributors. The
 
 | Item | Current value |
 | --- | --- |
-| Candidate release | `v0.1.0-candidate.2` |
+| Candidate release | `v0.1.0-candidate.3` |
 | Locked BDS | `1.26.44.3` |
 | Endstone | `0.11.9` |
 | Public proxy runtime | Java 21 |

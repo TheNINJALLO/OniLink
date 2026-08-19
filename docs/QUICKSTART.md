@@ -12,14 +12,14 @@ You need:
 - Endstone `0.11.9` on that backend.
 - Java 21 for OniLink.
 - A private or firewalled UDP path from OniLink to BDS.
-- The [current candidate release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.0-candidate.2).
+- The [current candidate release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.0-candidate.3).
 
 Do not expose the backend's Bedrock listener publicly. Players connect to OniLink; only OniLink connects to the backend.
 
 ## 2. Download and verify the release
 
 ```bash
-gh release download v0.1.0-candidate.2 \
+gh release download v0.1.0-candidate.3 \
   --repo TheNINJALLO/OniLink \
   --dir onilink-candidate
 cd onilink-candidate

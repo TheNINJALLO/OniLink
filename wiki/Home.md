@@ -38,7 +38,7 @@ OniLink is a Java 21 Bedrock proxy with two fail-closed backend identity validat
 
 | Item | Value |
 | --- | --- |
-| Release | [`v0.1.0-candidate.2`](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.0-candidate.2) |
+| Release | [`v0.1.0-candidate.3`](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.0-candidate.3) |
 | BDS | `1.26.44.3` |
 | Endstone | `0.11.9` |
 | Linux | x86-64, System V AMD64, libc++ |

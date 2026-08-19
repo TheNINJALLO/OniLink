@@ -30,7 +30,7 @@
 <!-- onilink-professional-header:end -->
 
 > [!IMPORTANT]
-> `v0.1.0-candidate.2` is an acceptance-test release, not a production approval. The Linux build and synthetic hook harness pass on GitHub's Ubuntu runner, but the exact BDS profile still requires formal human review and a recorded live acceptance matrix before promotion.
+> `v0.1.0-candidate.3` is an acceptance-test release, not a production approval. The Linux build and synthetic hook harness pass on GitHub's Ubuntu runner, but the exact BDS profile still requires formal human review and a recorded live acceptance matrix before promotion.
 
 ## What this repository provides
 
@@ -63,7 +63,7 @@ OniLink preserves the authenticated name, XUID, UUID, and observed client addres
 
 ## Quick start
 
-1. Read the [candidate release notice](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.0-candidate.2) and download only the files for your backend path.
+1. Read the [candidate release notice](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.0-candidate.3) and download only the files for your backend path.
 2. Verify the download directory against `SHA256SUMS`.
 3. Generate a unique 32-byte-or-stronger secret for each backend and expose it through an environment variable—not a committed configuration file.
 4. Configure matching backend name, bridge ID, key ID, and secret environment variable on both sides.
@@ -75,7 +75,7 @@ After the first server works, use the dashboard's **Add BDS Backend** wizard to 
 Download the current candidate with GitHub CLI:
 
 ```bash
-gh release download v0.1.0-candidate.2 \
+gh release download v0.1.0-candidate.3 \
   --repo TheNINJALLO/OniLink \
   --dir onilink-candidate
 ```
