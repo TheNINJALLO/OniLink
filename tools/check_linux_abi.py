@@ -48,6 +48,13 @@ def libcxx_abi_symbols(readelf_output: str) -> list[str]:
     return sorted(evidence)
 
 
+def cxx_runtime_policy_passed(
+    libraries: list[str], forbidden_symbols: list[str]
+) -> bool:
+    uses_libstdcxx = any(library.startswith("libstdc++.so") for library in libraries)
+    return not uses_libstdcxx and not forbidden_symbols
+
+
 def _readelf(binary: Path, readelf: str, *arguments: str) -> str:
     result = subprocess.run(
         [readelf, *arguments, "--wide", str(binary)],
@@ -80,17 +87,13 @@ def inspect_glibc_requirements(
     libraries = needed_libraries(dynamic_output)
     forbidden_symbols = forbidden_libstdcxx_symbols(symbol_output)
     libcxx_symbols = libcxx_abi_symbols(symbol_output)
-    cxx_runtime_compatible = (
-        ("libc++.so.1" in libraries or bool(libcxx_symbols))
-        and "libstdc++.so.6" not in libraries
-        and not forbidden_symbols
-    )
+    cxx_runtime_compatible = cxx_runtime_policy_passed(libraries, forbidden_symbols)
     return {
         "glibc_highest_required": highest,
         "glibc_policy_maximum": maximum,
         "glibc_versions_required": versions,
         "glibc_policy_passed": compatible,
-        "cxx_runtime_policy": "direct or host-provided libc++; no libstdc++ or unresolved std::__cxx11 symbols",
+        "cxx_runtime_policy": "runtime-neutral or libc++; no libstdc++ or unresolved std::__cxx11 symbols",
         "cxx_runtime_needed_libraries": libraries,
         "cxx_runtime_libcxx_symbol_count": len(libcxx_symbols),
         "cxx_runtime_libcxx_symbol_evidence": libcxx_symbols[:10],
@@ -117,7 +120,7 @@ def main() -> int:
         "OniBridge C++ runtime requirement: "
         f"needed={report['cxx_runtime_needed_libraries']}, "
         f"libc++ symbols={report['cxx_runtime_libcxx_symbol_count']} "
-        f"(libc++-only policy {'passed' if report['cxx_runtime_policy_passed'] else 'failed'})"
+        f"(Endstone C++ ABI policy {'passed' if report['cxx_runtime_policy_passed'] else 'failed'})"
     )
     if not report["glibc_policy_passed"]:
         raise ValueError(
@@ -127,7 +130,7 @@ def main() -> int:
     if not report["cxx_runtime_policy_passed"]:
         forbidden = ", ".join(report["cxx_runtime_forbidden_symbols"]) or "none listed"
         raise ValueError(
-            "Linux plugin violates the libc++-only release policy; "
+            "Linux plugin violates the Endstone C++ ABI release policy; "
             f"needed={report['cxx_runtime_needed_libraries']}, forbidden symbols={forbidden}"
         )
     return 0

@@ -15,7 +15,7 @@ ldd --version | head -n 1
 readelf --version-info plugins/onibridge-*.so | grep -o 'GLIBC_[0-9.]*' | sort -Vu | tail -n 1
 ```
 
-An undefined `std::__cxx11` loader symbol is a mixed C++ runtime, not a missing glibc version. Install the latest candidate; do not add `libstdc++.so.6` to an Endstone/libc++ process. Release automation verifies direct or host-provided libc++ ABI evidence and rejects the mixed ABI.
+An undefined `std::__cxx11` loader symbol is a mixed C++ runtime, not a missing glibc version. Install the latest candidate; do not add `libstdc++.so.6` to an Endstone/libc++ process. Release automation accepts a runtime-neutral plugin or libc++ references and rejects every `libstdc++`, `__cxx11`, or `GLIBCXX` contaminant.
 
 ## Every forwarded login is rejected
 

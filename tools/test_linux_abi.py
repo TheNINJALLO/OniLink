@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 
 from check_linux_abi import (
+    cxx_runtime_policy_passed,
     forbidden_libstdcxx_symbols,
     glibc_versions,
     libcxx_abi_symbols,
@@ -53,6 +54,20 @@ class LinuxAbiTests(unittest.TestCase):
   109: 0000000000001000 4 FUNC GLOBAL DEFAULT 12 _ZNSt3__16vectorIiNS_9allocatorIiEEE5clearEv
 """
         self.assertEqual(libcxx_abi_symbols(output), ["_ZNSt3__16localeD1Ev"])
+
+    def test_accepts_runtime_neutral_endstone_plugin(self) -> None:
+        self.assertTrue(cxx_runtime_policy_passed(["libc.so.6", "libm.so.6"], []))
+
+    def test_accepts_direct_or_host_resolved_libcxx(self) -> None:
+        self.assertTrue(cxx_runtime_policy_passed(["libc++.so.1", "libc.so.6"], []))
+        self.assertTrue(cxx_runtime_policy_passed(["libc.so.6"], []))
+
+    def test_rejects_any_libstdcxx_soname(self) -> None:
+        self.assertFalse(cxx_runtime_policy_passed(["libstdc++.so.6"], []))
+        self.assertFalse(cxx_runtime_policy_passed(["libstdc++.so.7"], []))
+
+    def test_rejects_forbidden_libstdcxx_symbols(self) -> None:
+        self.assertFalse(cxx_runtime_policy_passed(["libc.so.6"], ["GLIBCXX_3.4.29"]))
 
 
 if __name__ == "__main__":
