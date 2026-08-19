@@ -27,4 +27,5 @@ cmake -S OniBridge -B OniBridge/build/linux-release \
 cmake --build OniBridge/build/linux-release --parallel
 ctest --test-dir OniBridge/build/linux-release --output-on-failure
 
+python3 tools/check_linux_abi.py OniBridge/build/linux-release/onibridge.so --maximum-glibc 2.35
 python3 tools/package_linux.py --version "$release_version" --bds-version "$bds_version"

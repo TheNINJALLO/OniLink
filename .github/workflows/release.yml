@@ -53,7 +53,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-24.04
+          - os: ubuntu-22.04
             platform: linux-x86_64
             adapter: OniBridge/generated/bds/${{ inputs.bds_version }}/linux-x86_64/adapter.cpp
           - os: windows-2022
@@ -63,7 +63,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: lukka/get-cmake@latest
-      - name: Configure exact profile-specific build
+      - name: Install Linux native standard library
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libc++-dev libc++abi-dev
+      - name: Configure exact Linux profile-specific build
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          ONIBRIDGE_RELEASE_VERSION: ${{ inputs.version }}
+          ONIBRIDGE_ADAPTER: ${{ matrix.adapter }}
+        run: >-
+          cmake -S OniBridge -B OniBridge/build/release
+          -DCMAKE_CXX_COMPILER=clang++
+          "-DONIBRIDGE_VERSION=${ONIBRIDGE_RELEASE_VERSION}"
+          -DONIBRIDGE_BUILD_PLUGIN=ON
+          -DONIBRIDGE_BUILD_TESTS=ON
+          "-DONIBRIDGE_GENERATED_ADAPTER=${ONIBRIDGE_ADAPTER}"
+      - name: Configure exact Windows profile-specific build
+        if: runner.os == 'Windows'
         shell: bash
         env:
           ONIBRIDGE_RELEASE_VERSION: ${{ inputs.version }}
@@ -76,6 +95,9 @@ jobs:
           "-DONIBRIDGE_GENERATED_ADAPTER=${ONIBRIDGE_ADAPTER}"
       - run: cmake --build OniBridge/build/release --config Release --parallel
       - run: ctest --test-dir OniBridge/build/release -C Release --output-on-failure
+      - name: Enforce Linux GLIBC compatibility policy
+        if: runner.os == 'Linux'
+        run: python tools/check_linux_abi.py OniBridge/build/release/onibridge.so --maximum-glibc 2.35
       - name: Stage Linux plugin
         if: runner.os == 'Linux'
         run: |

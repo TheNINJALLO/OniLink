@@ -25,6 +25,8 @@ The egg enables OniLink's embedded dashboard by default. Bedrock uses `PRIMARY_P
 
 The egg covers only the OniLink proxy process. It cannot redistribute BDS. Use an existing licensed BDS/Endstone server or egg for the native backend, and Geyser's official standalone egg or an existing Geyser server for the Java path.
 
+The BDS container image must also satisfy the native OniBridge runtime. Current Linux candidates are built on Ubuntu 22.04 and cannot import symbols newer than `GLIBC_2.35`. The current amd64 `ghcr.io/parkervcp/yolks:python_3.14` image is Debian Bookworm-based and meets that floor; verify mutable image tags with `ldd --version` after an image update. The OniLink-only egg still uses its Java 21 image. Do not copy a host `libc.so.6` into either container.
+
 ## Recommended server layout
 
 | Panel server | Example allocation | Public? | Persistent data |

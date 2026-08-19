@@ -15,7 +15,9 @@ on:
       - "OniBridge-Geyser/**"
       - "packaging/pterodactyl/**"
       - "scripts/build-linux.sh"
+      - "tools/check_linux_abi.py"
       - "tools/package_linux.py"
+      - "tools/test_linux_abi.py"
       - "tools/test_pterodactyl_egg.py"
       - ".github/workflows/linux-artifacts.yml"
 
@@ -24,7 +26,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-java@v5

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Lowered the published Linux native build baseline to Ubuntu 22.04, capped imported symbols at `GLIBC_2.35`, embedded the ABI result in the Linux manifest, and added a regression gate for older Pterodactyl runtimes.
 - Added an embedded, responsive OniLink operations dashboard with first-run ownership, PBKDF2 accounts, roles, TOTP, expiring sessions, audit records, live runtime/player/backend views, safe operator actions, redacted configuration editing with validation/rollback, metrics, logs, and support bundles.
 - Integrated dashboard TCP exposure and persistence into the self-updating Pterodactyl egg, with complete standalone, HTTPS, panel, backup, and recovery documentation.
 - Added a self-updating, checksum-verifying PTDL v2 OniLink egg, release packaging, operator documentation, and egg regression tests.

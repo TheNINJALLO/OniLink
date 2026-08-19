@@ -8,7 +8,7 @@ The full Linux candidate set can be built from the committed lock/profile withou
 scripts/build-linux.sh
 ```
 
-This produces OniLink, the exact-profile `onibridge.so`, OniBridge-Geyser, configuration examples, hashes, and a candidate-aware manifest under `dist/linux`. The same build is available as `.github/workflows/linux-artifacts.yml` and as an export-only container target:
+This produces OniLink, the exact-profile `onibridge.so`, OniBridge-Geyser, configuration examples, hashes, and a candidate-aware manifest under `dist/linux`. The build fails if the ELF imports symbols newer than `GLIBC_2.35`. The same build is available as `.github/workflows/linux-artifacts.yml` and as an export-only Ubuntu 22.04 container target:
 
 ```bash
 docker build -f packaging/linux/Dockerfile --output type=local,dest=dist/linux-container .
@@ -44,4 +44,4 @@ ctest --test-dir OniBridge/build/windows-release -C Release --output-on-failure
 
 On Linux, use the equivalent Linux adapter with the `linux-release` build directory and pass the profile-specific adapter on the configure command. ASan/UBSan presets exercise the shared core without loading BDS. Normal CI uses generated fixtures and does not download BDS.
 
-The release `.so` is built natively by the Ubuntu 24.04 GitHub workflow with Clang, libc++, and libc++abi. The workflow runs CTest before packaging. This proves a native Linux build and synthetic harness execution; it does not replace live BDS/Endstone acceptance or human profile review.
+The release `.so` is built natively by the Ubuntu 22.04 GitHub workflow with Clang, libc++, and libc++abi. The workflow runs CTest and `tools/check_linux_abi.py` before packaging. The ABI check rejects imports newer than `GLIBC_2.35`. This proves a native Linux build and synthetic harness execution; it does not replace live BDS/Endstone acceptance or human profile review.

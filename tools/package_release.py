@@ -10,6 +10,8 @@ import shutil
 import sys
 import zipfile
 
+from check_linux_abi import MAXIMUM_GLIBC, inspect_glibc_requirements
+
 FORBIDDEN_NAMES = {"bedrock_server", "bedrock_server.exe", "server.properties", "allowlist.json", "permissions.json"}
 FORBIDDEN_SUFFIXES = {".pdb", ".dmp"}
 MAX_ARCHIVE_DEPTH = 4
@@ -129,6 +131,15 @@ def main() -> int:
     outputs.append(profile_bundle)
     lock = read_json(Path("OniBridge/bds.lock.json"))
     profiles = {platform: read_json(path) for platform, path in profile_paths(args.bds_version).items()}
+    linux_native_abi = inspect_glibc_requirements(
+        expected[f"onibridge-{args.version}-bds-{args.bds_version}-linux-x86_64.so"],
+        MAXIMUM_GLIBC,
+    )
+    if not linux_native_abi["glibc_policy_passed"]:
+        raise ValueError(
+            "Linux plugin exceeds the release GLIBC policy: "
+            f"requires {linux_native_abi['glibc_highest_required']}, maximum is {MAXIMUM_GLIBC}"
+        )
     compatibility = []
     for platform, profile in profiles.items():
         locked = lock.get("platforms", {}).get(platform)
@@ -141,7 +152,7 @@ def main() -> int:
         runtime = read_json(runtime_path) if runtime_path.is_file() else {"status": "not-run"}
         if runtime.get("bds_executable_sha256", locked["executable_sha256"]) != locked["executable_sha256"]:
             raise ValueError(f"{platform} runtime evidence hash does not match the BDS lock")
-        compatibility.append({
+        row = {
             "platform": platform,
             "bds_version": args.bds_version,
             "bds_executable_sha256": locked["executable_sha256"],
@@ -159,7 +170,10 @@ def main() -> int:
             "live_tested": bool(evidence.get("live_tested")),
             "runtime_lifecycle_test": runtime,
             "command_compatibility": "unit-tested; live Endstone fixtures not run",
-        })
+        }
+        if platform == "linux-x86_64":
+            row["native_runtime"] = linux_native_abi
+        compatibility.append(row)
     production = all(row["profile_status"] == "production" for row in compatibility)
     manifest = {
         "schema": 1,

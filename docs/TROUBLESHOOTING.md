@@ -17,6 +17,19 @@ Read the first OniBridge critical message.
 | Unreviewed profile blocked | Use `allow_unreviewed_profile=true` only for the documented candidate test |
 | Missing generated adapter | Build a profile-specific plugin; generic native plugins are forbidden |
 
+### `GLIBC_x.y not found` while loading `onibridge.so`
+
+The native plugin was built against a newer Linux userspace than the BDS container. Do not replace the container's `libc.so.6` manually; that can break the entire container. Install the current candidate `.so`, whose release build is capped at `GLIBC_2.35`, then restart the BDS server. The current amd64 `ghcr.io/parkervcp/yolks:python_3.14` image is Debian Bookworm-based (glibc 2.36), so it can remain in place.
+
+Confirm the container and plugin before retrying:
+
+```bash
+ldd --version | head -n 1
+readelf --version-info plugins/onibridge-*.so | grep -o 'GLIBC_[0-9.]*' | sort -Vu | tail -n 1
+```
+
+The first command must report glibc 2.35 or newer, and the second must not report anything newer than `GLIBC_2.35`. If the image is older than 2.35, select a maintained Debian 12/Ubuntu 22.04-or-newer image for the BDS container.
+
 Never turn off `shutdown_on_hook_failure` to make an incompatible server stay online.
 
 ## Every proxied login is rejected

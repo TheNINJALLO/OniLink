@@ -124,13 +124,13 @@ Exact executable hashes, profile IDs, and remaining gates are maintained in [Com
 
 ## Build and test
 
-On Ubuntu 24.04 with Java 21, Python 3, CMake, Ninja, Clang, libc++, and libc++abi installed:
+On Ubuntu 22.04 with Java 21, Python 3, CMake, Ninja, Clang, libc++, and libc++abi installed:
 
 ```bash
 scripts/build-linux.sh
 ```
 
-This builds and tests OniLink, OniBridge, and OniBridge-Geyser, then writes the candidate bundle to `dist/linux`. The same path runs in [Linux Candidate Artifacts](https://github.com/TheNINJALLO/OniLink/actions/workflows/linux-artifacts.yml).
+This builds and tests OniLink, OniBridge, and OniBridge-Geyser, rejects a native library requiring newer than glibc 2.35, then writes the candidate bundle to `dist/linux`. The same path runs in [Linux Candidate Artifacts](https://github.com/TheNINJALLO/OniLink/actions/workflows/linux-artifacts.yml).
 
 ## Security and distribution
 

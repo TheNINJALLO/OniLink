@@ -6,6 +6,15 @@ Read the first OniBridge critical message. Common causes are a missing secret, e
 
 Do not turn off shutdown-on-hook-failure or enable unknown-runtime bypasses.
 
+## Loader reports `GLIBC_x.y not found`
+
+Install the current candidate `.so`, whose build gate rejects imports newer than `GLIBC_2.35`, and restart BDS. The current amd64 `ghcr.io/parkervcp/yolks:python_3.14` image is Debian Bookworm/glibc 2.36 and does not need to be replaced. Do not copy a newer `libc.so.6` into the container.
+
+```bash
+ldd --version | head -n 1
+readelf --version-info plugins/onibridge-*.so | grep -o 'GLIBC_[0-9.]*' | sort -Vu | tail -n 1
+```
+
 ## Every forwarded login is rejected
 
 Compare backend name, bridge ID, key ID, Base64 secret, clock, token lifetime, and observed proxy source CIDR on both sides.

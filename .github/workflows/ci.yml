@@ -15,7 +15,7 @@ jobs:
         working-directory: OniBridge/tools/bdsctl
       - run: python -m unittest discover -s tests -v
         working-directory: OniBridge/tools/sdkgen
-      - run: python -m unittest test_package_release test_package_linux test_pterodactyl_egg -v
+      - run: python -m unittest test_package_release test_package_linux test_pterodactyl_egg test_linux_abi -v
         working-directory: tools
   onilink:
     runs-on: ubuntu-24.04

@@ -8,9 +8,9 @@ Install Java 21, Python 3, CMake, Ninja, Clang, libc++, and libc++abi, then run:
 scripts/build-linux.sh
 ```
 
-The script builds/tests OniLink and OniBridge-Geyser, compiles/tests native OniBridge with the committed Linux adapter, and packages `dist/linux`.
+The script builds/tests OniLink and OniBridge-Geyser, compiles/tests native OniBridge with the committed Linux adapter, rejects imports newer than `GLIBC_2.35`, and packages `dist/linux` with the ABI result in its manifest.
 
-The same process runs in [Linux Candidate Artifacts](https://github.com/TheNINJALLO/OniLink/actions/workflows/linux-artifacts.yml) on Ubuntu 24.04.
+The same process runs in [Linux Candidate Artifacts](https://github.com/TheNINJALLO/OniLink/actions/workflows/linux-artifacts.yml) on Ubuntu 22.04.
 
 ## Release contents
 

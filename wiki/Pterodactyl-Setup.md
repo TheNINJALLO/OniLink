@@ -10,6 +10,8 @@ Create an **OniLink Bedrock Proxy** server with the Java 21 image and one public
 
 The egg verifies its bootstrap downloads, creates `config.properties` only when missing, and preserves it on reinstall. Every container start checks the newest published OniLink release, including prereleases, and replaces the JAR only after checksum validation. A failed update starts the existing JAR; a successful one keeps `OniLink.jar.previous` for rollback. It also maps the primary allocation number to Bedrock UDP and the authenticated dashboard over TCP. The BDS/Endstone and Geyser processes still use separate servers/eggs.
 
+The BDS image must provide glibc 2.35 or newer for native OniBridge. The current amd64 `ghcr.io/parkervcp/yolks:python_3.14` image is Debian Bookworm-based and meets that floor. Recheck mutable image tags with `ldd --version` after updates, and never replace `libc.so.6` manually.
+
 ## Allocations
 
 | Server | Port | Exposure |

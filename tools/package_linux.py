@@ -6,6 +6,7 @@ from pathlib import Path
 import shutil
 import sys
 
+from check_linux_abi import MAXIMUM_GLIBC, inspect_glibc_requirements
 from package_release import digest, read_json, reject_forbidden, validate_release_token
 
 
@@ -42,6 +43,15 @@ def main() -> int:
     missing = [str(path) for path in inputs.values() if not path.is_file()]
     if missing:
         raise ValueError(f"Linux package inputs are missing: {missing}")
+    native_abi = inspect_glibc_requirements(
+        inputs[f"onibridge-{args.version}-bds-{args.bds_version}-linux-x86_64.so"],
+        MAXIMUM_GLIBC,
+    )
+    if not native_abi["glibc_policy_passed"]:
+        raise ValueError(
+            "Linux plugin exceeds the release GLIBC policy: "
+            f"requires {native_abi['glibc_highest_required']}, maximum is {MAXIMUM_GLIBC}"
+        )
 
     args.dist.mkdir(parents=True, exist_ok=True)
     outputs: list[Path] = []
@@ -64,6 +74,7 @@ def main() -> int:
         "bds_archive_sha256": locked["archive_sha256"],
         "platform": "linux-x86_64",
         "abi": profile.get("abi"),
+        "native_runtime": native_abi,
         "profile_status": profile.get("validation_status"),
         "release_blockers": profile.get("release_blockers", []),
         "hook_harness_passed": bool(evidence.get("hook_harness_passed")),
