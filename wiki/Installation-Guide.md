@@ -1,9 +1,9 @@
 # Installation Guide
 
-This page is the operator path from an empty host to a controlled OniLink candidate test. The repository's [complete installation manual](https://github.com/TheNINJALLO/OniLink/blob/main/docs/INSTALLATION.md) includes every command, setting table, systemd example, rotation procedure, and rollback step.
+This page is the operator path from an empty host to the stable OniLink release. The repository's [complete installation manual](https://github.com/TheNINJALLO/OniLink/blob/main/docs/INSTALLATION.md) includes every command, setting table, systemd example, rotation procedure, and rollback step.
 
 > [!IMPORTANT]
-> `v0.1.0-candidate.3` is not production-approved. Native BDS testing requires the exact BDS `1.26.44.3` Linux executable, Endstone `0.11.9`, the candidate opt-in, and completion of the formal acceptance record.
+> `v0.1.0` is the stable application release. Native BDS testing still requires the exact BDS `1.26.44.3` Linux executable, Endstone `0.11.9`, the unreviewed-profile opt-in, and completion of the formal native acceptance record.
 
 ## 1. Pick a topology
 
@@ -37,10 +37,10 @@ Backend name, bridge ID, key ID, and secret bytes must match on OniLink and the 
 ## 3. Download and verify
 
 ```bash
-gh release download v0.1.0-candidate.3 \
+gh release download v0.1.0 \
   --repo TheNINJALLO/OniLink \
-  --dir onilink-candidate
-cd onilink-candidate
+  --dir onilink-release
+cd onilink-release
 sha256sum -c SHA256SUMS
 ```
 

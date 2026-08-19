@@ -8,4 +8,4 @@
 - PlayerAuthenticationInfo: `0x128` bytes; first/XUID field offset `0`
 - Optional engaged flag: `0x128`
 - Endstone chain: the patch point executes inside Endstone's call to original BDS validation, so the verified XUID is visible to Endstone's post-validation ban check.
-- Release status: candidate; blockers are hook_harness_passed, human_reviewed, live_tested.
+- Release status: candidate; the Linux hook harness passed; blockers are human_reviewed and live_tested.

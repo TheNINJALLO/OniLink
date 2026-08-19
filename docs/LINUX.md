@@ -1,6 +1,6 @@
 # Linux
 
-## Supported candidate target
+## Supported release target
 
 | Item | Value |
 | --- | --- |
@@ -15,15 +15,11 @@
 
 ## Build evidence
 
-The release `.so` is built natively on GitHub's Ubuntu 22.04 runner by `.github/workflows/linux-artifacts.yml`. That workflow builds both Java components, compiles and links the profile-specific native plugin, runs the native unit suite and synthetic executable hook harness, enforces a maximum `GLIBC_2.35` symbol requirement, packages the candidate, and uploads the exact release bundle.
+The release `.so` is built natively on GitHub's Ubuntu 22.04 runner by `.github/workflows/linux-artifacts.yml`. That workflow builds both Java components, compiles and links the profile-specific native plugin, runs the native unit suite and synthetic executable hook harness, enforces a maximum `GLIBC_2.35` symbol requirement, and uploads the exact release bundle.
 
-The `v0.1.0-candidate.3` library is ELF64 little-endian x86-64 and has SHA-256:
+The `v0.1.0` library is ELF64 little-endian x86-64. Verify its SHA-256 against the release's `SHA256SUMS`; the final value is also recorded in the [v0.1.0 release notes](releases/v0.1.0.md).
 
-```text
-50616831e9d676bf03efcc185b20a41320e1bc39db77236c4b3cede3528a0664
-```
-
-Verify it against the release's `SHA256SUMS`; the Linux compatibility manifest records `GLIBC_2.35` as both the highest required symbol version and the enforced maximum.
+The Linux compatibility manifest records `GLIBC_2.35` as both the highest required symbol version and the enforced maximum.
 
 The build uses LLVM/libc++ 18 packages compiled for Ubuntu 22.04. The published plugin is runtime-neutral: its only dynamic dependencies are `libc.so.6` and `libm.so.6`. The release gate accepts a runtime-neutral plugin or direct/host-resolved libc++ references while rejecting every `libstdc++.so` dependency and unresolved `std::__cxx11` or `GLIBCXX` symbol. Deploy it only in an Endstone environment providing glibc 2.35 or newer.
 

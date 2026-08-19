@@ -1,6 +1,6 @@
-# Quick start: Linux candidate
+# Quick start: Linux release
 
-This guide brings up one OniLink proxy in front of one BDS `1.26.44.3` + Endstone `0.11.9` backend for controlled acceptance testing. It does not promote the candidate to production.
+This guide brings up the stable OniLink `v0.1.0` application in front of one BDS `1.26.44.3` + Endstone `0.11.9` backend. The native profile remains approval-gated and must still be treated as controlled acceptance testing.
 
 For service setup, firewalls, secret files, full configuration references, Pterodactyl, key rotation, and rollback, use the [complete installation guide](INSTALLATION.md). Ready-to-copy configurations are in the [single-BDS example](../examples/single-bds/README.md).
 
@@ -12,17 +12,17 @@ You need:
 - Endstone `0.11.9` on that backend.
 - Java 21 for OniLink.
 - A private or firewalled UDP path from OniLink to BDS.
-- The [current candidate release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.0-candidate.3).
+- The [current release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.0).
 
 Do not expose the backend's Bedrock listener publicly. Players connect to OniLink; only OniLink connects to the backend.
 
 ## 2. Download and verify the release
 
 ```bash
-gh release download v0.1.0-candidate.3 \
+gh release download v0.1.0 \
   --repo TheNINJALLO/OniLink \
-  --dir onilink-candidate
-cd onilink-candidate
+  --dir onilink-release
+cd onilink-release
 sha256sum -c SHA256SUMS
 ```
 
@@ -31,7 +31,7 @@ Every listed file must report `OK`. Stop if a checksum differs.
 PowerShell verification:
 
 ```powershell
-Set-Location onilink-candidate
+Set-Location onilink-release
 Get-Content SHA256SUMS | ForEach-Object {
     $expected, $name = $_ -split '  ', 2
     $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $name).Hash.ToLowerInvariant()
@@ -75,12 +75,12 @@ allow_unknown_bds = false
 allow_unknown_endstone = false
 ```
 
-Replace `10.0.0.10/32` with the exact OniLink source address observed by the backend. Keep `allow_unreviewed_profile=true` only while testing this candidate.
+Replace `10.0.0.10/32` with the exact OniLink source address observed by the backend. Keep `allow_unreviewed_profile=true` only while testing this native profile.
 
 5. Start BDS with `ONIBRIDGE_FORWARDING_SECRET` present in its environment.
 6. Confirm the console reports an active exact profile. A shutdown or critical hook message is a failed test—do not bypass it.
 
-Keep `onibridge-profile-1.26.44.3-linux-x86_64.json` and `linux-compatibility-manifest.json` with your test evidence; they document the exact candidate but are not a substitute for the embedded runtime checks.
+Keep `onibridge-profile-1.26.44.3-linux-x86_64.json` and `linux-compatibility-manifest.json` with your test evidence; they document the exact profile but are not a substitute for the embedded runtime checks.
 
 ## 5. Configure OniLink
 

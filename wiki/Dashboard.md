@@ -56,7 +56,7 @@ Use the egg's **Enable operations dashboard** variable to turn the listener off;
 
 Admins and owners can use **Configuration → Add BDS Backend** to append a validated route without manually synchronizing two configurations. The wizard creates OniLink's protected `secrets/<backend>.key`, updates `backends=`, and returns the matching key plus complete `onibridge.toml` for `/home/container/plugins/onibridge/` on Endstone. Download both files immediately, start Endstone first, and restart OniLink. See [[Adding Backends]] for the full walkthrough.
 
-The editor redacts protected values, rejects stale revisions, restores secrets from the server-side original, parses the complete candidate configuration, and creates `config.properties.dashboard.bak` before replacement. A restart is required to apply saved settings.
+The editor redacts protected values, rejects stale revisions, restores secrets from the server-side original, parses the complete proposed configuration, and creates `config.properties.dashboard.bak` before replacement. A restart is required to apply saved settings.
 
 Support bundles also redact configuration secrets, but can contain player names and operational history. Inspect them before sharing.
 

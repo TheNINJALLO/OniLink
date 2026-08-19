@@ -145,7 +145,7 @@ On save, OniLink:
 
 1. Rejects the edit if the file changed since it was loaded.
 2. Restores protected values from the server-side original.
-3. parses the complete candidate through `ProxyConfig`.
+3. parses the complete proposed configuration through `ProxyConfig`.
 4. Copies the current file to `config.properties.dashboard.bak`.
 5. Atomically replaces `config.properties` when supported.
 

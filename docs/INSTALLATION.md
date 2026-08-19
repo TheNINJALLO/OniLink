@@ -3,7 +3,7 @@
 This is the full operator guide for installing OniLink and configuring either a native BDS + Endstone backend or a Geyser-backed Java server. If you only need the shortest path, use [Quick start](QUICKSTART.md). If you want ready-to-copy files, start in [`examples/`](../examples/README.md).
 
 > [!IMPORTANT]
-> `v0.1.0-candidate.3` is for controlled acceptance testing. The Linux artifact builds and passes its synthetic hook harness, but the exact profile remains `production_ready=false` until formal human review and the complete live acceptance matrix are recorded.
+> `v0.1.0` is a stable OniLink application release. Its exact Linux BDS profile remains `production_ready=false` until formal human review and the complete live acceptance matrix are recorded; `allow_unreviewed_profile=true` is still an explicit native-profile test opt-in.
 
 ## Contents
 
@@ -73,7 +73,7 @@ Container NAT may change the source address observed by the backend. Do not assu
 
 ```bash
 mkdir -p ~/onilink-download
-gh release download v0.1.0-candidate.3 \
+gh release download v0.1.0 \
   --repo TheNINJALLO/OniLink \
   --dir ~/onilink-download
 cd ~/onilink-download
@@ -84,7 +84,7 @@ Every listed file must report `OK`. Stop if any file is missing or mismatched.
 
 ### Browser download
 
-Download every required file from the [candidate release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.0-candidate.3), including `SHA256SUMS`. On Linux:
+Download every required file from the [v0.1.0 release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.0), including `SHA256SUMS`. On Linux:
 
 ```bash
 cd /path/to/downloads

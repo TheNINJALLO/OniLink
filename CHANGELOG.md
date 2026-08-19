@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.0 - 2026-08-18
+
 - Fixed the dashboard broadcast and account-creation forms retaining `event.currentTarget` after an asynchronous request, which caused successful actions to end with `Cannot read properties of null (reading 'reset')` in browsers.
 - Added a dashboard-guided BDS backend wizard that preserves existing routes, generates a unique protected secret, validates and backs up `config.properties`, and produces a matched downloadable Endstone key plus complete `onibridge.toml`.
 - Added detailed multi-server, routing, Pterodactyl, manual configuration, troubleshooting, and removal guides to the documentation and Wiki.
@@ -14,8 +16,6 @@
 - Added OniBridge-Geyser with local OniForward verification, strict source/XUID/context binding, replay protection, and mandatory real-address restoration.
 - Added a complete Linux candidate build script, export-only Docker build, GitHub Actions artifact workflow, checked Linux manifest, and configuration bundle.
 - Added Geyser and Linux packaging to normal CI and release assembly.
-
-## 0.1.0 - unreleased
 
 - Audited and pinned the four mandatory behavioral/native references.
 - Added EULA-gated, dual-platform official BDS acquisition and its security tests.

@@ -51,7 +51,7 @@ Statuses use the required vocabulary. This audit document is updated as implemen
 
 ## Binary evidence update
 
-The user supplied the official Linux and Windows BDS 1.26.44.3 archives after the EULA gate. Both were imported, hashed, inspected, and used for independent ABI/call-site candidates. The resulting profiles remain non-production because human review and live BDS evidence are absent; the Linux harness also has not executed on Linux.
+The user supplied the official Linux and Windows BDS 1.26.44.3 archives after the EULA gate. Both were imported, hashed, inspected, and used for independent ABI/call-site candidates. The resulting profiles remain non-production because human review and the complete live BDS evidence matrix are absent. The Linux and Windows synthetic hook harnesses pass on their native CI platforms.
 
 ## Implementation evidence update
 

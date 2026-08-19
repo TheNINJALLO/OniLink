@@ -1,10 +1,10 @@
-name: Linux Candidate Artifacts
+name: Linux Release Artifacts
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: Candidate version
+        description: Release version
         required: true
         default: 0.1.0
   push:
@@ -37,7 +37,7 @@ jobs:
       - uses: lukka/get-cmake@latest
       - name: Install Jammy LLVM 18 toolchain
         run: scripts/install-llvm18-ubuntu.sh
-      - name: Build and package Linux candidates
+      - name: Build and package Linux release
         env:
           ONILINK_RELEASE_VERSION: ${{ inputs.version || '0.1.0' }}
           ONIBRIDGE_CXX_COMPILER: clang++-18

@@ -1,6 +1,6 @@
 # Deployment examples
 
-These examples are copy/paste starting points for the current OniLink candidate. Replace every example address, hostname, backend name, and environment-variable name with values from your network.
+These examples are copy/paste starting points for the current OniLink release. Replace every example address, hostname, backend name, and environment-variable name with values from your network.
 
 No example contains a forwarding secret. Generate a unique secret for each backend and supply it to both OniLink and that backend through the named environment variable.
 
@@ -29,4 +29,4 @@ The `trusted_proxy_cidrs` value is the source address the backend actually sees.
 4. Generate one secret per backend.
 5. Put each secret into the matching environment variable on both processes.
 6. Keep backend listeners private.
-7. Validate the candidate using [Testing](../docs/TESTING.md).
+7. Validate the deployment and any approval-gated native profile using [Testing](../docs/TESTING.md).

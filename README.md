@@ -30,7 +30,7 @@
 <!-- onilink-professional-header:end -->
 
 > [!IMPORTANT]
-> `v0.1.0-candidate.3` is an acceptance-test release, not a production approval. The Linux build and synthetic hook harness pass on GitHub's Ubuntu runner, but the exact BDS profile still requires formal human review and a recorded live acceptance matrix before promotion.
+> `v0.1.0` is the first stable OniLink application release. The native BDS profile keeps its separate fail-closed approval status: its Linux build and synthetic hook harness pass, but formal human review and the complete recorded live acceptance matrix are still required before treating that exact profile as production-approved.
 
 ## What this repository provides
 
@@ -63,7 +63,7 @@ OniLink preserves the authenticated name, XUID, UUID, and observed client addres
 
 ## Quick start
 
-1. Read the [candidate release notice](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.0-candidate.3) and download only the files for your backend path.
+1. Read the [v0.1.0 release notes](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.0) and download only the files for your backend path.
 2. Verify the download directory against `SHA256SUMS`.
 3. Generate a unique 32-byte-or-stronger secret for each backend and expose it through an environment variable—not a committed configuration file.
 4. Configure matching backend name, bridge ID, key ID, and secret environment variable on both sides.
@@ -72,12 +72,12 @@ OniLink preserves the authenticated name, XUID, UUID, and observed client addres
 
 After the first server works, use the dashboard's **Add BDS Backend** wizard to generate every additional route, unique secret, and matching Endstone configuration. See [Adding another BDS backend](docs/ADDING_BACKEND.md) for the complete Pterodactyl and manual walkthrough.
 
-Download the current candidate with GitHub CLI:
+Download the current release with GitHub CLI:
 
 ```bash
-gh release download v0.1.0-candidate.3 \
+gh release download v0.1.0 \
   --repo TheNINJALLO/OniLink \
-  --dir onilink-candidate
+  --dir onilink-release
 ```
 
 Pterodactyl administrators can import [`egg-onilink.json`](packaging/pterodactyl/egg-onilink.json) from the same release. The egg verifies its bootstrap files, preserves live configuration and dashboard data, checks for the newest published OniLink JAR on every container start, and serves the authenticated dashboard over TCP on the primary allocation alongside Bedrock UDP.
@@ -106,7 +106,7 @@ Put `OniBridge-Geyser.jar` in Geyser's `extensions/` directory. Bind Geyser's Be
 
 | Target | Build/test status | Production status |
 | --- | --- | --- |
-| Linux x86-64, BDS `1.26.44.3`, Endstone `0.11.9` | GitHub-hosted native build, unit tests, and synthetic hook harness pass | Candidate; human review and live BDS joins remain |
+| Linux x86-64, BDS `1.26.44.3`, Endstone `0.11.9` | GitHub-hosted native build, unit tests, synthetic hook harness, and an operator-reported proxied join pass | Candidate profile; human review and the complete live matrix remain |
 | Windows x86-64, BDS `1.26.44.3`, Endstone `0.11.9` | Native unit/harness and offline plugin lifecycle pass | Candidate; live client joins remain |
 | Geyser `2.11` | Java build plus protocol/security tests pass | Candidate; live Geyser/Floodgate joins remain |
 
@@ -132,7 +132,7 @@ On Ubuntu 22.04 with Java 21, Python 3, CMake, Ninja, LLVM 18, libc++ 18, and li
 scripts/build-linux.sh
 ```
 
-This builds and tests OniLink, OniBridge, and OniBridge-Geyser, rejects a native library requiring newer than glibc 2.35, then writes the candidate bundle to `dist/linux`. The same path runs in [Linux Candidate Artifacts](https://github.com/TheNINJALLO/OniLink/actions/workflows/linux-artifacts.yml).
+This builds and tests OniLink, OniBridge, and OniBridge-Geyser, rejects a native library requiring newer than glibc 2.35, then writes the release bundle to `dist/linux`. The same path runs in [Linux Release Artifacts](https://github.com/TheNINJALLO/OniLink/actions/workflows/linux-artifacts.yml).
 
 ## Security and distribution
 

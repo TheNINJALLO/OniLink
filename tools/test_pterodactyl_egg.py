@@ -184,7 +184,7 @@ printf '%s\\n' \"$*\" > \"$JAVA_LOG\"
                 "BACKEND_PORT", "DASHBOARD_ENABLED", "ONIBRIDGE_FORWARDING_SECRET"):
             self.assertIn(required, variables)
 
-        self.assertEqual("v0.1.0-candidate.3", variables["ONILINK_VERSION"]["default_value"])
+        self.assertEqual("v0.1.0", variables["ONILINK_VERSION"]["default_value"])
         self.assertEqual("true", variables["DASHBOARD_ENABLED"]["default_value"])
         for name in (
                 "ONIBRIDGE_FORWARDING_SECRET", "ONIBRIDGE_SURVIVAL_SECRET",

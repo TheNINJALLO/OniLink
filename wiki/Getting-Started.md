@@ -23,10 +23,10 @@ Do not install both validators on the same backend path.
 ## Download
 
 ```bash
-gh release download v0.1.0-candidate.3 \
+gh release download v0.1.0 \
   --repo TheNINJALLO/OniLink \
-  --dir onilink-candidate
-cd onilink-candidate
+  --dir onilink-release
+cd onilink-release
 sha256sum -c SHA256SUMS
 ```
 

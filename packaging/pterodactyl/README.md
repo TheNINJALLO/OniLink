@@ -50,7 +50,7 @@ The dashboard is reachable at `http://NODE-OR-DOMAIN:PRIMARY_PORT/` when **Enabl
 
 ## Automatic updates and rollback
 
-Restart the container to check for an update. `start-onilink.sh` queries the public release list, selects the newest published release, downloads its `OniLink.jar` and `SHA256SUMS`, and installs the JAR only when its SHA-256 value matches. The process includes prereleases because OniLink is currently distributed as a candidate.
+Restart the container to check for an update. `start-onilink.sh` queries the public release list, selects the newest published release, downloads its `OniLink.jar` and `SHA256SUMS`, and installs the JAR only when its SHA-256 value matches. The process includes normal releases and prereleases so the container follows the newest published OniLink build.
 
 `ONILINK_VERSION` is only the bootstrap version used during server creation or **Reinstall Server**. It does not pin later starts. Reinstall preserves `config.properties`; compare it with `onilink.properties.example` after a bootstrap upgrade.
 
@@ -58,4 +58,4 @@ After a successful change, the updater writes the release tag to `.onilink-versi
 
 If the release lookup, download, or checksum validation fails, the updater logs a warning and starts the existing verified JAR. A brand-new server with no usable JAR stops instead of starting an unknown file.
 
-The native candidate and its egg do not make the release production-ready. Complete the exact-profile and live acceptance gates in the [testing guide](../../docs/TESTING.md).
+The stable OniLink application and its egg do not override native-profile approval. Complete the exact-profile and live acceptance gates in the [testing guide](../../docs/TESTING.md).

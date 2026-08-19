@@ -11,7 +11,7 @@ from package_release import digest, read_json, reject_forbidden, validate_releas
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Assemble OniLink Linux candidate artifacts")
+    parser = argparse.ArgumentParser(description="Assemble OniLink Linux release artifacts")
     parser.add_argument("--version", required=True)
     parser.add_argument("--bds-version", required=True)
     parser.add_argument("--dist", type=Path, default=Path("dist/linux"))

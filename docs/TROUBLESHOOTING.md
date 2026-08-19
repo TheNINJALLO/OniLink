@@ -19,7 +19,7 @@ Read the first OniBridge critical message.
 
 ### `GLIBC_x.y not found` while loading `onibridge.so`
 
-The native plugin was built against a newer Linux userspace than the BDS container. Do not replace the container's `libc.so.6` manually; that can break the entire container. Install the current candidate `.so`, whose release build is capped at `GLIBC_2.35`, then restart the BDS server. The current amd64 `ghcr.io/parkervcp/yolks:python_3.14` image is Debian Bookworm-based (glibc 2.36), so it can remain in place.
+The native plugin was built against a newer Linux userspace than the BDS container. Do not replace the container's `libc.so.6` manually; that can break the entire container. Install the current release `.so`, whose build is capped at `GLIBC_2.35`, then restart the BDS server. The current amd64 `ghcr.io/parkervcp/yolks:python_3.14` image is Debian Bookworm-based (glibc 2.36), so it can remain in place.
 
 Confirm the container and plugin before retrying:
 
@@ -32,7 +32,7 @@ The first command must report glibc 2.35 or newer, and the second must not repor
 
 ### Undefined `std::__cxx11` symbol while loading `onibridge.so`
 
-This means the plugin mixed GCC `libstdc++` objects with Endstone's LLVM `libc++` ABI. Do not add `libstdc++.so.6` as a workaround; a process using two C++ standard libraries can fail at allocation, exception, stream, or object-lifetime boundaries. Install a candidate whose compatibility manifest reports `cxx_runtime_policy_passed=true`. Current release automation allows a runtime-neutral plugin or libc++ references and rejects every `libstdc++` dependency or unresolved `__cxx11`/`GLIBCXX` symbol.
+This means the plugin mixed GCC `libstdc++` objects with Endstone's LLVM `libc++` ABI. Do not add `libstdc++.so.6` as a workaround; a process using two C++ standard libraries can fail at allocation, exception, stream, or object-lifetime boundaries. Install a release whose compatibility manifest reports `cxx_runtime_policy_passed=true`. Current release automation allows a runtime-neutral plugin or libc++ references and rejects every `libstdc++` dependency or unresolved `__cxx11`/`GLIBCXX` symbol.
 
 Never turn off `shutdown_on_hook_failure` to make an incompatible server stay online.
 

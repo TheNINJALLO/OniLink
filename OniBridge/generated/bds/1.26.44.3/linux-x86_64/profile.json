@@ -15,7 +15,7 @@
     "endstone_chain_compatible": true,
     "existing_detour_checked": true,
     "function_boundary_validated": true,
-    "hook_harness_passed": false,
+    "hook_harness_passed": true,
     "human_reviewed": false,
     "instruction_decode_validated": true,
     "live_tested": false,
@@ -60,7 +60,6 @@
     "this": "r14"
   },
   "release_blockers": [
-    "hook_harness_passed",
     "human_reviewed",
     "live_tested"
   ],
