@@ -10,7 +10,7 @@
 | Locked BDS | `1.26.44.3` |
 | BDS executable SHA-256 | `06effdd00067f1ae0951ee7a732398dde721728e6b18ea149b138b8e2aececa7` |
 | Endstone | `0.11.9` |
-| Compiler/runtime | Clang, C++20, libc++ |
+| Compiler/runtime | LLVM 18, C++20, libc++ 18 |
 | Profile ID | `bds-1.26.44.3-linux-x86_64-06effdd00067f1ae` |
 
 ## Build evidence
@@ -19,7 +19,7 @@ The release `.so` is built natively on GitHub's Ubuntu 22.04 runner by `.github/
 
 The `v0.1.0-candidate.1` library is ELF64 little-endian x86-64. Verify its exact SHA-256 against the release's `SHA256SUMS`; the Linux compatibility manifest records both the highest required GLIBC symbol version and the enforced maximum.
 
-The build uses Clang plus libc++/libc++abi development headers. Deploy it only in an Endstone environment providing glibc 2.35 or newer plus the matching C++ runtime libraries.
+The build uses LLVM/libc++ 18 packages compiled for Ubuntu 22.04. Deploy it only in an Endstone environment providing glibc 2.35 or newer plus the matching C++ runtime libraries.
 
 ## Remaining validation
 

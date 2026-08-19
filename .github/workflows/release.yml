@@ -63,11 +63,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: lukka/get-cmake@latest
-      - name: Install Linux native standard library
+      - name: Install Jammy LLVM 18 toolchain
         if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes libc++-dev libc++abi-dev
+        run: scripts/install-llvm18-ubuntu.sh
       - name: Configure exact Linux profile-specific build
         if: runner.os == 'Linux'
         shell: bash
@@ -76,7 +74,7 @@ jobs:
           ONIBRIDGE_ADAPTER: ${{ matrix.adapter }}
         run: >-
           cmake -S OniBridge -B OniBridge/build/release
-          -DCMAKE_CXX_COMPILER=clang++
+          -DCMAKE_CXX_COMPILER=clang++-18
           "-DONIBRIDGE_VERSION=${ONIBRIDGE_RELEASE_VERSION}"
           -DONIBRIDGE_BUILD_PLUGIN=ON
           -DONIBRIDGE_BUILD_TESTS=ON

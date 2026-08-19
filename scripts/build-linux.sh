@@ -5,6 +5,7 @@ repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$repo_root"
 
 release_version=${ONILINK_RELEASE_VERSION:-0.1.0}
+native_compiler=${ONIBRIDGE_CXX_COMPILER:-clang++}
 bds_version=$(python3 -c 'import json; print(json.load(open("OniBridge/bds.lock.json", encoding="utf-8"))["platforms"]["linux-x86_64"]["version"])')
 adapter="OniBridge/generated/bds/$bds_version/linux-x86_64/adapter.cpp"
 
@@ -19,7 +20,7 @@ fi
 cmake -S OniBridge -B OniBridge/build/linux-release \
     -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_CXX_COMPILER=clang++ \
+    -DCMAKE_CXX_COMPILER="$native_compiler" \
     -DONIBRIDGE_VERSION="$release_version" \
     -DONIBRIDGE_BUILD_PLUGIN=ON \
     -DONIBRIDGE_BUILD_TESTS=ON \

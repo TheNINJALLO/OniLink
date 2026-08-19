@@ -2,7 +2,7 @@
 
 ## Linux candidate build
 
-Install Java 21, Python 3, CMake, Ninja, Clang, libc++, and libc++abi, then run:
+Install Java 21, Python 3, CMake, Ninja, LLVM 18, libc++ 18, and libc++abi 18, then run:
 
 ```bash
 scripts/build-linux.sh

@@ -60,7 +60,7 @@ Use this page as the canonical map for operators, testers, and contributors. The
 | Endstone | `0.11.9` |
 | Public proxy runtime | Java 21 |
 | Native plugin | C++20, exact-profile build |
-| Linux release CI | Ubuntu 22.04, Clang, libc++, maximum `GLIBC_2.35` import |
+| Linux release CI | Ubuntu 22.04, LLVM/libc++ 18, maximum `GLIBC_2.35` import |
 | Production status | Not approved; see remaining gates |
 
 When a value changes, update this page, the root README, the compatibility table, the Wiki, and the release manifest together.

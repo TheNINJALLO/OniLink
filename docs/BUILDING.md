@@ -1,6 +1,6 @@
 # Building
 
-Prerequisites are Python 3.11+, Java 21, CMake 3.24+, and a C++20 compiler. Linux uses Clang/System V AMD64 and libc++; Windows uses MSVC or clang-cl/Microsoft x64. Never reuse generated offsets, signatures, or adapters across platforms.
+Prerequisites are Python 3.11+, Java 21, CMake 3.24+, and a C++20 compiler. Release Linux builds use LLVM 18/System V AMD64 and libc++ 18 from the Jammy apt.llvm.org repository; Windows uses MSVC or clang-cl/Microsoft x64. Never reuse generated offsets, signatures, or adapters across platforms.
 
 The full Linux candidate set can be built from the committed lock/profile without downloading BDS:
 
@@ -44,4 +44,4 @@ ctest --test-dir OniBridge/build/windows-release -C Release --output-on-failure
 
 On Linux, use the equivalent Linux adapter with the `linux-release` build directory and pass the profile-specific adapter on the configure command. ASan/UBSan presets exercise the shared core without loading BDS. Normal CI uses generated fixtures and does not download BDS.
 
-The release `.so` is built natively by the Ubuntu 22.04 GitHub workflow with Clang, libc++, and libc++abi. The workflow runs CTest and `tools/check_linux_abi.py` before packaging. The ABI check rejects imports newer than `GLIBC_2.35`. This proves a native Linux build and synthetic harness execution; it does not replace live BDS/Endstone acceptance or human profile review.
+The release `.so` is built natively by the Ubuntu 22.04 GitHub workflow with LLVM 18, libc++ 18, and libc++abi 18 packages built for Jammy. The workflow runs CTest and `tools/check_linux_abi.py` before packaging. The ABI check rejects imports newer than `GLIBC_2.35`. This proves a native Linux build and synthetic harness execution; it does not replace live BDS/Endstone acceptance or human profile review.

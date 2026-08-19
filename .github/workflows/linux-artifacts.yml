@@ -15,6 +15,7 @@ on:
       - "OniBridge-Geyser/**"
       - "packaging/pterodactyl/**"
       - "scripts/build-linux.sh"
+      - "scripts/install-llvm18-ubuntu.sh"
       - "tools/check_linux_abi.py"
       - "tools/package_linux.py"
       - "tools/test_linux_abi.py"
@@ -34,13 +35,12 @@ jobs:
           distribution: temurin
           java-version: "21"
       - uses: lukka/get-cmake@latest
-      - name: Install native standard library
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes libc++-dev libc++abi-dev
+      - name: Install Jammy LLVM 18 toolchain
+        run: scripts/install-llvm18-ubuntu.sh
       - name: Build and package Linux candidates
         env:
           ONILINK_RELEASE_VERSION: ${{ inputs.version || '0.1.0' }}
+          ONIBRIDGE_CXX_COMPILER: clang++-18
         run: scripts/build-linux.sh
       - uses: actions/upload-artifact@v4
         with:

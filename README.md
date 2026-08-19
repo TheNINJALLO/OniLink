@@ -124,7 +124,7 @@ Exact executable hashes, profile IDs, and remaining gates are maintained in [Com
 
 ## Build and test
 
-On Ubuntu 22.04 with Java 21, Python 3, CMake, Ninja, Clang, libc++, and libc++abi installed:
+On Ubuntu 22.04 with Java 21, Python 3, CMake, Ninja, LLVM 18, libc++ 18, and libc++abi 18 installed:
 
 ```bash
 scripts/build-linux.sh
