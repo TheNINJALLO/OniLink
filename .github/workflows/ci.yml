@@ -15,11 +15,18 @@ jobs:
         with: {node-version: "22"}
       - run: pip install ruff==0.15.7
       - run: ruff format --check tools OniBridge/tools/bdsctl OniBridge/tools/sdkgen
-      - run: >-
-          npx --yes prettier@3.6.2 --check
-          OniLink/src/main/resources/dashboard/index.html
-          OniLink/src/main/resources/dashboard/styles.css
-          OniLink/src/main/resources/dashboard/app.js
+      - run: npm ci
+        working-directory: OniLink/dashboard-ui
+      - run: npm run format:check
+        working-directory: OniLink/dashboard-ui
+      - run: npm run lint
+        working-directory: OniLink/dashboard-ui
+      - run: npm run typecheck
+        working-directory: OniLink/dashboard-ui
+      - run: npm run test -- --run
+        working-directory: OniLink/dashboard-ui
+      - run: npm run build
+        working-directory: OniLink/dashboard-ui
       - run: sudo apt-get update && sudo apt-get install --yes clang-format-18
       - run: >-
           find OniBridge/src OniBridge/include OniBridge/tests -type f
@@ -37,7 +44,7 @@ jobs:
         working-directory: OniBridge/tools/sdkgen
       - run: >-
           python -m unittest test_package_release test_package_linux
-          test_pterodactyl_egg test_linux_abi test_tenantctl -v
+          test_pterodactyl_egg test_linux_abi -v
         working-directory: tools
   onilink:
     runs-on: ubuntu-24.04
@@ -45,6 +52,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with: {distribution: temurin, java-version: "21"}
+      - uses: actions/setup-node@v4
+        with: {node-version: "22", cache: npm, cache-dependency-path: OniLink/dashboard-ui/package-lock.json}
       - run: ./gradlew test standaloneJar --no-daemon
         working-directory: OniLink
   onibridge-geyser:

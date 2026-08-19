@@ -48,7 +48,7 @@ final class DashboardAccounts {
     );
 
     enum Role {
-        VIEWER(0), OPERATOR(1), ADMIN(2), OWNER(3);
+        TENANT(-1), VIEWER(0), OPERATOR(1), ADMIN(2), OWNER(3);
 
         private final int rank;
 
@@ -57,7 +57,7 @@ final class DashboardAccounts {
         }
 
         boolean allows(Role required) {
-            return rank >= required.rank;
+            return this != TENANT && rank >= required.rank;
         }
 
         static Role parse(String value) {
@@ -65,7 +65,7 @@ final class DashboardAccounts {
             try {
                 return Role.valueOf(value.trim().toUpperCase(Locale.ROOT));
             } catch (IllegalArgumentException exception) {
-                throw new IllegalArgumentException("role must be viewer, operator, admin, or owner");
+                throw new IllegalArgumentException("role must be tenant, viewer, operator, admin, or owner");
             }
         }
 
@@ -74,34 +74,48 @@ final class DashboardAccounts {
         }
     }
 
-    record Principal(String username, Role role) {
+    record Principal(String username, Role role, String tenantId) {
+        Principal {
+            tenantId = tenantId == null ? "" : tenantId;
+        }
+
+        boolean tenantScoped() {
+            return role == Role.TENANT;
+        }
+
         Map<String, Object> asMap() {
-            return Map.of("username", username, "role", role.wireName());
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("username", username);
+            result.put("role", role.wireName());
+            result.put("tenantId", tenantId);
+            return result;
         }
     }
 
     record BrowserSession(String token, long expiresAt, Principal principal) {
         Map<String, Object> asMap() {
-            return Map.of(
-                    "token", token,
-                    "expiresAt", expiresAt,
-                    "username", principal.username(),
-                    "role", principal.role().wireName()
-            );
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("token", token);
+            result.put("expiresAt", expiresAt);
+            result.put("username", principal.username());
+            result.put("role", principal.role().wireName());
+            result.put("tenantId", principal.tenantId());
+            return result;
         }
     }
 
     record LoginResult(boolean success, boolean totpRequired, BrowserSession session, String error) {
     }
 
-    record UserView(String username, Role role, boolean enabled, boolean totpEnabled) {
+    record UserView(String username, Role role, String tenantId, boolean enabled, boolean totpEnabled) {
         Map<String, Object> asMap() {
-            return Map.of(
-                    "username", username,
-                    "role", role.wireName(),
-                    "enabled", enabled,
-                    "totpEnabled", totpEnabled
-            );
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("username", username);
+            result.put("role", role.wireName());
+            result.put("tenantId", tenantId);
+            result.put("enabled", enabled);
+            result.put("totpEnabled", totpEnabled);
+            return result;
         }
     }
 
@@ -114,6 +128,7 @@ final class DashboardAccounts {
     private record User(
             String username,
             Role role,
+            String tenantId,
             boolean enabled,
             byte[] salt,
             byte[] passwordHash,
@@ -121,7 +136,7 @@ final class DashboardAccounts {
             String totpSecret
     ) {
         UserView view() {
-            return new UserView(username, role, enabled, totpSecret != null && !totpSecret.isBlank());
+            return new UserView(username, role, tenantId, enabled, totpSecret != null && !totpSecret.isBlank());
         }
     }
 
@@ -163,7 +178,7 @@ final class DashboardAccounts {
         if (setupCode.isEmpty() || !constantTimeText(setupCode, providedCode)) {
             throw new SecurityException("Invalid first-run setup code");
         }
-        User owner = newUser(username, Role.OWNER, password);
+        User owner = newUser(username, Role.OWNER, "", password);
         users.clear();
         users.put(key(username), owner);
         save();
@@ -211,7 +226,7 @@ final class DashboardAccounts {
                 sessions.remove(tokenHash, session);
                 return Optional.empty();
             }
-            return Optional.of(new Principal(user.username(), user.role()));
+            return Optional.of(new Principal(user.username(), user.role(), user.tenantId()));
         }
     }
 
@@ -232,12 +247,40 @@ final class DashboardAccounts {
     }
 
     synchronized void createUser(String username, Role role, String password) throws IOException {
+        createUser(username, role, "", password);
+    }
+
+    synchronized void createTenantUser(String username, String tenantId, String password) throws IOException {
+        createUser(username, Role.TENANT, tenantId, password);
+    }
+
+    private synchronized void createUser(String username, Role role, String tenantId, String password)
+            throws IOException {
         validateUsername(username);
         validatePassword(username, password);
         if (role == Role.OWNER) throw new IllegalArgumentException("Additional owner accounts are not allowed");
+        String normalizedTenant = tenantId == null ? "" : tenantId.trim().toLowerCase(Locale.ROOT);
+        if (role == Role.TENANT) {
+            validateTenantId(normalizedTenant);
+        } else if (!normalizedTenant.isBlank()) {
+            throw new IllegalArgumentException("Only tenant accounts may have a tenant ID");
+        }
         if (users.containsKey(key(username))) throw new IllegalArgumentException("Username already exists");
-        users.put(key(username), newUser(username, role, password));
+        users.put(key(username), newUser(username, role, normalizedTenant, password));
         save();
+    }
+
+    synchronized boolean hasUser(String username) {
+        return users.containsKey(key(username));
+    }
+
+    synchronized List<UserView> tenantUsers(String tenantId) {
+        String normalized = tenantId == null ? "" : tenantId.trim().toLowerCase(Locale.ROOT);
+        return users.values().stream()
+                .filter(user -> user.role() == Role.TENANT && user.tenantId().equals(normalized))
+                .map(User::view)
+                .sorted(Comparator.comparing(UserView::username, String.CASE_INSENSITIVE_ORDER))
+                .toList();
     }
 
     synchronized void deleteUser(String actor, String username) throws IOException {
@@ -256,9 +299,9 @@ final class DashboardAccounts {
             throw new SecurityException("Current password is incorrect");
         }
         validatePassword(existing.username(), newPassword);
-        User replacement = newUser(existing.username(), existing.role(), newPassword);
+        User replacement = newUser(existing.username(), existing.role(), existing.tenantId(), newPassword);
         replacement = new User(
-                replacement.username(), replacement.role(), replacement.enabled(), replacement.salt(),
+                replacement.username(), replacement.role(), replacement.tenantId(), replacement.enabled(), replacement.salt(),
                 replacement.passwordHash(), replacement.iterations(), existing.totpSecret());
         users.put(key(username), replacement);
         revokeSessions(username);
@@ -305,7 +348,7 @@ final class DashboardAccounts {
     }
 
     private static User withTotp(User user, String secret) {
-        return new User(user.username(), user.role(), user.enabled(), user.salt(), user.passwordHash(),
+        return new User(user.username(), user.role(), user.tenantId(), user.enabled(), user.salt(), user.passwordHash(),
                 user.iterations(), secret);
     }
 
@@ -319,14 +362,14 @@ final class DashboardAccounts {
         String token = BASE64.encodeToString(tokenBytes);
         long expiresAt = System.currentTimeMillis() + sessionLifetime.toMillis();
         sessions.put(sha256(token), new StoredSession(user.username(), expiresAt));
-        return new BrowserSession(token, expiresAt, new Principal(user.username(), user.role()));
+        return new BrowserSession(token, expiresAt, new Principal(user.username(), user.role(), user.tenantId()));
     }
 
-    private User newUser(String username, Role role, String password) {
+    private User newUser(String username, Role role, String tenantId, String password) {
         byte[] salt = new byte[PASSWORD_SALT_BYTES];
         random.nextBytes(salt);
         byte[] hash = derive(password, salt, PASSWORD_ITERATIONS, PASSWORD_KEY_BITS);
-        return new User(username.trim(), role, true, salt, hash, PASSWORD_ITERATIONS, "");
+        return new User(username.trim(), role, tenantId, true, salt, hash, PASSWORD_ITERATIONS, "");
     }
 
     private static boolean verifyPassword(User user, String password) {
@@ -362,6 +405,13 @@ final class DashboardAccounts {
         }
     }
 
+    private static void validateTenantId(String tenantId) {
+        if (tenantId == null || !tenantId.matches("[a-z][a-z0-9-]{1,31}")) {
+            throw new IllegalArgumentException(
+                    "Tenant ID must be 2 to 32 lowercase letters, numbers, or hyphens and start with a letter");
+        }
+    }
+
     private synchronized void load() throws IOException {
         if (Files.notExists(accountsPath)) return;
         Properties properties = new Properties();
@@ -384,6 +434,7 @@ final class DashboardAccounts {
                 User user = new User(
                         properties.getProperty(prefix + "username"),
                         Role.parse(properties.getProperty(prefix + "role")),
+                        properties.getProperty(prefix + "tenantId", ""),
                         Boolean.parseBoolean(properties.getProperty(prefix + "enabled", "true")),
                         BASE64_DECODER.decode(properties.getProperty(prefix + "salt")),
                         BASE64_DECODER.decode(properties.getProperty(prefix + "passwordHash")),
@@ -391,6 +442,10 @@ final class DashboardAccounts {
                         properties.getProperty(prefix + "totpSecret", "")
                 );
                 validateUsername(user.username());
+                if (user.role() == Role.TENANT) validateTenantId(user.tenantId());
+                if (user.role() != Role.TENANT && !user.tenantId().isBlank()) {
+                    throw new IllegalArgumentException("Only tenant accounts may have a tenant ID");
+                }
                 users.put(key(user.username()), user);
             } catch (RuntimeException exception) {
                 throw new IOException("Dashboard account storage contains an invalid user record", exception);
@@ -408,6 +463,7 @@ final class DashboardAccounts {
             String prefix = "user." + id + ".";
             properties.setProperty(prefix + "username", user.username());
             properties.setProperty(prefix + "role", user.role().wireName());
+            if (!user.tenantId().isBlank()) properties.setProperty(prefix + "tenantId", user.tenantId());
             properties.setProperty(prefix + "enabled", Boolean.toString(user.enabled()));
             properties.setProperty(prefix + "salt", BASE64.encodeToString(user.salt()));
             properties.setProperty(prefix + "passwordHash", BASE64.encodeToString(user.passwordHash()));

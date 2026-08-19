@@ -162,6 +162,11 @@ public final class BedrockProxyListener {
     }
 
     public void start() throws IOException {
+        start(true);
+    }
+
+    /** Starts the listener, optionally attaching the process-wide interactive console. */
+    public void start(boolean consoleEnabled) throws IOException {
         InetSocketAddress listen = config.listenAddress();
         legacyVerificationServer.start();
         backendDirectory = new BackendDirectory(
@@ -333,7 +338,9 @@ public final class BedrockProxyListener {
                 }
             }
         }
-        console.start();
+        if (consoleEnabled) {
+            console.start();
+        }
         System.out.printf(
                 "OniLink listening on %s:%d as '%s' for Bedrock %s (protocol %d), backend protocol %s. Backend placeholder: %s %s.%n",
                 listen.getHostString(),

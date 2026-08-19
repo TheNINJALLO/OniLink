@@ -41,6 +41,24 @@ class DashboardAccountsTest {
     }
 
     @Test
+    void persistsTenantScopedAccountsWithoutGrantingGlobalRoles(@TempDir Path directory) throws Exception {
+        DashboardAccounts accounts = new DashboardAccounts(directory, 60, "https://proxy.example.test");
+        accounts.createTenantUser("acme-admin", "acme", "a secure tenant password");
+
+        DashboardAccounts.BrowserSession session = accounts.login(
+                "acme-admin", "a secure tenant password", "").session();
+        assertEquals(DashboardAccounts.Role.TENANT, session.principal().role());
+        assertEquals("acme", session.principal().tenantId());
+        assertFalse(session.principal().role().allows(DashboardAccounts.Role.VIEWER));
+
+        DashboardAccounts reloaded = new DashboardAccounts(directory, 60, "https://proxy.example.test");
+        DashboardAccounts.Principal principal = reloaded.login(
+                "acme-admin", "a secure tenant password", "").session().principal();
+        assertEquals("acme", principal.tenantId());
+        assertEquals(1, reloaded.tenantUsers("acme").size());
+    }
+
+    @Test
     void jsonNeverEmitsNonFiniteNumbers() {
         assertEquals("[null,null,null]", DashboardJson.encode(
                 List.of(Double.NaN, Double.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY)));

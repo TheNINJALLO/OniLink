@@ -4,27 +4,32 @@
 
 # Tenant Hosting
 
-Paid OniLink hosting uses one isolated Pterodactyl server per customer. Do not put unrelated
-customers into one embedded dashboard: its roles govern one network and are not tenant boundaries.
+OniLink hosts tenant proxies inside the one existing OniLink container. It does not create more
+Pterodactyl servers or eggs, and it does not need a Pterodactyl Application API key.
 
-Each customer receives one OniLink allocation, process, configuration, dashboard, allowlist, logs,
-and set of backend keys. Their BDS servers retain their own UDP allocations, and adding a backend
-does not require another OniLink port.
+```text
+one OniLink container
+├── primary UDP port → provider proxy
+├── primary TCP port → shared dashboard
+├── extra UDP port   → tenant A proxy
+└── extra UDP port   → tenant B proxy
+```
 
-Open **Tenant Hosting** as the owner of the provider's main control plane. From that single page you
-can:
+As the owner:
 
-1. Save a redacted Pterodactyl Application API connection and select the imported OniLink egg.
-2. Discover existing customers, nodes, and currently unassigned allocations.
-3. Create Pterodactyl customer logins and reusable resource plans.
-4. Create an isolated server idempotently with exactly one primary allocation.
-5. Download the private dashboard/backend handoff, synchronize state, and suspend or restore service.
+1. Assign one additional UDP allocation to the existing OniLink Pterodactyl server for each proxy.
+2. Sign in to the current OniLink URL and open **Tenant Setup**.
+3. Create a tenant ID, dashboard username, and temporary password.
+4. Add a proxy using its assigned port, public host, BDS endpoint, and source IP seen by BDS.
+5. Download the handoff ZIP and install its key plus `onibridge.toml` on the matching Endstone server.
 
-The control plane intentionally cannot delete tenant data and does not expose a public payment
-webhook. Your billing system verifies its provider events before an owner applies the documented
-grace-period decision. `tools/tenantctl.py` remains available only as an offline or scripted
-fallback.
+Tenants sign in at the same dashboard URL. Their **My Proxies** page exposes only their own
+listeners, players, routes, allowlist, backend wizard, and lifecycle actions. The provider proxy and
+other customers remain inaccessible, and cross-tenant requests return HTTP 403.
 
-See the full [Commercial tenant hosting guide](https://github.com/TheNINJALLO/OniLink/blob/main/docs/TENANT_HOSTING.md)
-for the panel permissions, exact fields, security requirements, plan setup, storage, and handoff
-contents.
+Each proxy has an isolated configuration, forwarding keys, allowlist, resource-pack cache, and
+player registry. All proxies share the container's CPU, memory, and restart boundary, so size the
+one server for the combined load.
+
+See the full [single-container tenant hosting guide](https://github.com/TheNINJALLO/OniLink/blob/main/docs/TENANT_HOSTING.md)
+for field examples, port planning, backend installation, backups, migration, and security details.

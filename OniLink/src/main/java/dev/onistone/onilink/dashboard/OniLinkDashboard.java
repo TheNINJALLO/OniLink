@@ -58,6 +58,16 @@ public final class OniLinkDashboard implements AutoCloseable {
             Path proxyConfigPath,
             Path logPath
     ) throws IOException {
+        this(config, control, proxyConfigPath, logPath, DashboardTenantHosting.productionRuntimeFactory());
+    }
+
+    OniLinkDashboard(
+            DashboardConfig config,
+            DashboardControl control,
+            Path proxyConfigPath,
+            Path logPath,
+            DashboardTenantHosting.RuntimeFactory tenantRuntimeFactory
+    ) throws IOException {
         this.config = config;
         this.control = control;
         this.configFile = new DashboardConfigFile(proxyConfigPath);
@@ -66,7 +76,8 @@ public final class OniLinkDashboard implements AutoCloseable {
         String publicAddress = displayAddress(server.getAddress());
         this.accounts = new DashboardAccounts(config.dataDirectory(), config.sessionMinutes(), publicAddress);
         this.audit = new DashboardAuditLog(config.dataDirectory());
-        this.tenantHosting = new DashboardTenantHosting(config.dataDirectory());
+        this.tenantHosting = new DashboardTenantHosting(
+                config.dataDirectory(), accounts, tenantRuntimeFactory, providerPort(control));
         this.requestExecutor = Executors.newFixedThreadPool(8, runnable -> {
             Thread thread = new Thread(runnable, "onilink-dashboard-http");
             thread.setDaemon(true);
@@ -246,20 +257,17 @@ public final class OniLinkDashboard implements AutoCloseable {
                 sendJson(exchange, 201, result);
             }
             case "/api/users" -> handleUsers(exchange, principal);
-            case "/api/hosting" -> {
-                requireRole(principal, DashboardAccounts.Role.OWNER);
-                requireMethod(exchange, "GET");
-                sendJson(exchange, 200, tenantHosting.overview());
-            }
-            case "/api/hosting/settings" -> handleHostingSettings(exchange, principal);
-            case "/api/hosting/test" -> handleHostingTest(exchange, principal);
-            case "/api/hosting/discovery" -> handleHostingDiscovery(exchange, principal);
-            case "/api/hosting/allocations" -> handleHostingAllocations(exchange, principal);
-            case "/api/hosting/plans" -> handleHostingPlans(exchange, principal);
-            case "/api/hosting/customers" -> handleHostingCustomers(exchange, principal);
-            case "/api/hosting/tenants" -> handleHostingTenants(exchange, principal);
-            case "/api/hosting/tenants/action" -> handleHostingTenantAction(exchange, principal);
-            case "/api/hosting/handoff" -> handleHostingHandoff(exchange, principal);
+            case "/api/tenancy" -> handleTenancyOverview(exchange, principal);
+            case "/api/tenancy/tenants" -> handleTenancyTenants(exchange, principal);
+            case "/api/tenancy/users" -> handleTenancyUsers(exchange, principal);
+            case "/api/tenancy/proxies" -> handleTenancyProxies(exchange, principal);
+            case "/api/tenancy/tenant/action" -> handleTenancyTenantAction(exchange, principal);
+            case "/api/tenancy/proxy/action" -> handleTenancyProxyAction(exchange, principal);
+            case "/api/tenancy/proxy" -> handleTenantProxyDashboard(exchange, principal);
+            case "/api/tenancy/proxy/runtime" -> handleTenantProxyRuntime(exchange, principal);
+            case "/api/tenancy/proxy/allowlist" -> handleTenantProxyAllowlist(exchange, principal);
+            case "/api/tenancy/proxy/backends" -> handleTenantProxyBackends(exchange, principal);
+            case "/api/tenancy/handoff" -> handleTenancyHandoff(exchange, principal);
             case "/api/account/password" -> handlePassword(exchange, principal);
             case "/api/account/totp/begin" -> {
                 requireMutation(exchange, "POST");
@@ -351,148 +359,157 @@ public final class OniLinkDashboard implements AutoCloseable {
         }
     }
 
-    private void handleHostingSettings(
+    private void handleTenancyOverview(
+            HttpExchange exchange,
+            DashboardAccounts.Principal principal
+    ) throws IOException {
+        requireMethod(exchange, "GET");
+        String scope = principal.tenantScoped() ? principal.tenantId() : "";
+        if (!principal.tenantScoped()) requireRole(principal, DashboardAccounts.Role.OWNER);
+        sendJson(exchange, 200, tenantHosting.overview(scope));
+    }
+
+    private void handleTenancyTenants(
             HttpExchange exchange,
             DashboardAccounts.Principal principal
     ) throws IOException {
         requireRole(principal, DashboardAccounts.Role.OWNER);
         requireMutation(exchange, "POST");
-        Map<String, Object> result = tenantHosting.saveSettings(form(exchange));
-        audit(exchange, principal, "hosting.settings_save", "success", Map.of(
-                "panelUrl", result.get("panelUrl"),
-                "eggId", result.get("eggId")));
-        sendJson(exchange, 200, Map.of("settings", result));
-    }
-
-    private void handleHostingTest(
-            HttpExchange exchange,
-            DashboardAccounts.Principal principal
-    ) throws IOException {
-        requireRole(principal, DashboardAccounts.Role.OWNER);
-        requireMutation(exchange, "POST");
-        try {
-            Map<String, Object> result = tenantHosting.testConnection();
-            audit(exchange, principal, "hosting.connection_test", "success", Map.of());
-            sendJson(exchange, 200, result);
-        } catch (IOException exception) {
-            audit(exchange, principal, "hosting.connection_test", "rejected", Map.of());
-            throw new HttpFailure(502, exception.getMessage());
-        }
-    }
-
-    private void handleHostingDiscovery(
-            HttpExchange exchange,
-            DashboardAccounts.Principal principal
-    ) throws IOException {
-        requireRole(principal, DashboardAccounts.Role.OWNER);
-        requireMethod(exchange, "GET");
-        try {
-            sendJson(exchange, 200, tenantHosting.discovery());
-        } catch (IOException exception) {
-            throw new HttpFailure(502, exception.getMessage());
-        }
-    }
-
-    private void handleHostingAllocations(
-            HttpExchange exchange,
-            DashboardAccounts.Principal principal
-    ) throws IOException {
-        requireRole(principal, DashboardAccounts.Role.OWNER);
-        requireMethod(exchange, "GET");
-        int nodeId = intQuery(exchange, "nodeId", 0, 0, Integer.MAX_VALUE);
-        try {
-            sendJson(exchange, 200, tenantHosting.allocations(nodeId));
-        } catch (IOException exception) {
-            throw new HttpFailure(502, exception.getMessage());
-        }
-    }
-
-    private void handleHostingPlans(
-            HttpExchange exchange,
-            DashboardAccounts.Principal principal
-    ) throws IOException {
-        requireRole(principal, DashboardAccounts.Role.OWNER);
-        requireMutation(exchange, "POST", "DELETE");
         Map<String, String> values = form(exchange);
-        if ("DELETE".equals(exchange.getRequestMethod())) {
-            tenantHosting.deletePlan(values.get("id"));
-            audit(exchange, principal, "hosting.plan_delete", "success", Map.of("plan", value(values.get("id"))));
-            sendJson(exchange, 200, Map.of("deleted", true));
-            return;
-        }
-        Map<String, Object> result = tenantHosting.savePlan(values);
-        audit(exchange, principal, "hosting.plan_save", "success", Map.of("plan", value(values.get("id"))));
+        Map<String, Object> result = tenantHosting.createTenant(values);
+        audit(exchange, principal, "tenancy.tenant_create", "success",
+                Map.of("tenant", value(values.get("tenant")), "username", value(values.get("username"))));
+        sendJson(exchange, 201, result);
+    }
+
+    private void handleTenancyUsers(
+            HttpExchange exchange,
+            DashboardAccounts.Principal principal
+    ) throws IOException {
+        requireRole(principal, DashboardAccounts.Role.OWNER);
+        requireMutation(exchange, "POST");
+        Map<String, String> values = form(exchange);
+        Map<String, Object> result = tenantHosting.addTenantUser(values);
+        audit(exchange, principal, "tenancy.user_create", "success",
+                Map.of("tenant", value(values.get("tenant")), "username", value(values.get("username"))));
+        sendJson(exchange, 201, result);
+    }
+
+    private void handleTenancyProxies(
+            HttpExchange exchange,
+            DashboardAccounts.Principal principal
+    ) throws IOException {
+        requireRole(principal, DashboardAccounts.Role.OWNER);
+        requireMutation(exchange, "POST");
+        Map<String, String> values = form(exchange);
+        Map<String, Object> result = tenantHosting.createProxy(values);
+        audit(exchange, principal, "tenancy.proxy_create", "success", Map.of(
+                "tenant", value(values.get("tenant")),
+                "proxy", value(values.get("proxy")),
+                "port", value(values.get("port"))));
+        sendJson(exchange, 201, result);
+    }
+
+    private void handleTenancyTenantAction(
+            HttpExchange exchange,
+            DashboardAccounts.Principal principal
+    ) throws IOException {
+        requireRole(principal, DashboardAccounts.Role.OWNER);
+        requireMutation(exchange, "POST");
+        Map<String, String> values = form(exchange);
+        Map<String, Object> result = tenantHosting.tenantAction(values.get("tenant"), values.get("action"));
+        audit(exchange, principal, "tenancy.tenant_" + value(values.get("action")), "success",
+                Map.of("tenant", value(values.get("tenant"))));
         sendJson(exchange, 200, result);
     }
 
-    private void handleHostingCustomers(
+    private void handleTenancyProxyAction(
             HttpExchange exchange,
             DashboardAccounts.Principal principal
     ) throws IOException {
-        requireRole(principal, DashboardAccounts.Role.OWNER);
-        requireMutation(exchange, "POST");
-        try {
-            Map<String, Object> result = tenantHosting.createCustomer(form(exchange));
-            audit(exchange, principal, "hosting.customer_create", "success", Map.of());
-            sendJson(exchange, 201, result);
-        } catch (IOException exception) {
-            audit(exchange, principal, "hosting.customer_create", "rejected", Map.of());
-            throw new HttpFailure(502, exception.getMessage());
-        }
-    }
-
-    private void handleHostingTenants(
-            HttpExchange exchange,
-            DashboardAccounts.Principal principal
-    ) throws IOException {
-        requireRole(principal, DashboardAccounts.Role.OWNER);
         requireMutation(exchange, "POST");
         Map<String, String> values = form(exchange);
-        try {
-            Map<String, Object> result = tenantHosting.provision(values);
-            audit(exchange, principal, "hosting.tenant_provision", "success", Map.of(
-                    "tenant", value(values.get("tenant")),
-                    "plan", value(values.get("plan"))));
-            sendJson(exchange, 201, result);
-        } catch (IOException exception) {
-            audit(exchange, principal, "hosting.tenant_provision", "rejected", Map.of(
-                    "tenant", value(values.get("tenant"))));
-            throw new HttpFailure(502, exception.getMessage());
-        }
+        String tenant = authorizedTenant(principal, values.get("tenant"));
+        Map<String, Object> result = tenantHosting.proxyAction(tenant, values.get("proxy"), values.get("action"));
+        audit(exchange, principal, "tenancy.proxy_" + value(values.get("action")), "success", Map.of(
+                "tenant", tenant, "proxy", value(values.get("proxy"))));
+        sendJson(exchange, 200, result);
     }
 
-    private void handleHostingTenantAction(
+    private void handleTenantProxyDashboard(
             HttpExchange exchange,
             DashboardAccounts.Principal principal
     ) throws IOException {
-        requireRole(principal, DashboardAccounts.Role.OWNER);
-        requireMutation(exchange, "POST");
-        Map<String, String> values = form(exchange);
-        try {
-            Map<String, Object> result = tenantHosting.action(values.get("tenant"), values.get("action"));
-            audit(exchange, principal, "hosting.tenant_" + value(values.get("action")), "success", Map.of(
-                    "tenant", value(values.get("tenant"))));
-            sendJson(exchange, 200, result);
-        } catch (IOException exception) {
-            audit(exchange, principal, "hosting.tenant_action", "rejected", Map.of(
-                    "tenant", value(values.get("tenant")),
-                    "action", value(values.get("action"))));
-            throw new HttpFailure(502, exception.getMessage());
-        }
-    }
-
-    private void handleHostingHandoff(
-            HttpExchange exchange,
-            DashboardAccounts.Principal principal
-    ) throws IOException {
-        requireRole(principal, DashboardAccounts.Role.OWNER);
         requireMethod(exchange, "GET");
-        String tenant = value(query(exchange).get("tenant"));
-        byte[] payload = tenantHosting.handoff(tenant);
-        audit(exchange, principal, "hosting.handoff_download", "success", Map.of("tenant", tenant));
+        Map<String, String> values = query(exchange);
+        String tenant = authorizedTenant(principal, values.get("tenant"));
+        sendJson(exchange, 200, tenantHosting.proxyDashboard(tenant, values.get("proxy")));
+    }
+
+    private void handleTenantProxyRuntime(
+            HttpExchange exchange,
+            DashboardAccounts.Principal principal
+    ) throws IOException {
+        requireMutation(exchange, "POST");
+        Map<String, String> values = form(exchange);
+        String tenant = authorizedTenant(principal, values.get("tenant"));
+        values.put("tenant", tenant);
+        Map<String, Object> result = tenantHosting.runtimeAction(values);
+        audit(exchange, principal, "tenancy.runtime_" + value(values.get("action")),
+                Boolean.TRUE.equals(result.get("success")) ? "success" : "rejected",
+                Map.of("tenant", tenant, "proxy", value(values.get("proxy"))));
+        sendJson(exchange, Boolean.TRUE.equals(result.get("success")) ? 200 : 409, result);
+    }
+
+    private void handleTenantProxyAllowlist(
+            HttpExchange exchange,
+            DashboardAccounts.Principal principal
+    ) throws IOException {
+        requireMethod(exchange, "GET", "POST", "DELETE");
+        if (!"GET".equals(exchange.getRequestMethod())) requireMutation(exchange, "POST", "DELETE");
+        Map<String, String> values = "GET".equals(exchange.getRequestMethod()) ? query(exchange) : form(exchange);
+        String tenant = authorizedTenant(principal, values.get("tenant"));
+        Map<String, Object> result = tenantHosting.allowlist(
+                tenant, values.get("proxy"), exchange.getRequestMethod(), values);
+        if (!"GET".equals(exchange.getRequestMethod())) {
+            audit(exchange, principal, "tenancy.allowlist_"
+                            + ("DELETE".equals(exchange.getRequestMethod()) ? "remove" : "add"),
+                    "success", Map.of("tenant", tenant, "proxy", value(values.get("proxy")),
+                            "xuid", value(values.get("xuid"))));
+        }
+        sendJson(exchange, 200, result);
+    }
+
+    private void handleTenantProxyBackends(
+            HttpExchange exchange,
+            DashboardAccounts.Principal principal
+    ) throws IOException {
+        requireMutation(exchange, "POST");
+        Map<String, String> values = form(exchange);
+        String tenant = authorizedTenant(principal, values.get("tenant"));
+        values.put("tenant", tenant);
+        Map<String, Object> result = tenantHosting.addBackend(values);
+        audit(exchange, principal, "tenancy.backend_add", "success", Map.of(
+                "tenant", tenant,
+                "proxy", value(values.get("proxy")),
+                "backend", value(values.get("name"))));
+        sendJson(exchange, 201, result);
+    }
+
+    private void handleTenancyHandoff(
+            HttpExchange exchange,
+            DashboardAccounts.Principal principal
+    ) throws IOException {
+        requireMethod(exchange, "GET");
+        Map<String, String> values = query(exchange);
+        String tenant = authorizedTenant(principal, values.get("tenant"));
+        String proxy = value(values.get("proxy"));
+        byte[] payload = tenantHosting.handoff(tenant, proxy);
+        audit(exchange, principal, "tenancy.handoff_download", "success",
+                Map.of("tenant", tenant, "proxy", proxy));
         Headers headers = exchange.getResponseHeaders();
         headers.set("Content-Type", "application/zip");
-        headers.set("Content-Disposition", "attachment; filename=" + tenant + ".handoff.zip");
+        headers.set("Content-Disposition", "attachment; filename=" + tenant + "--" + proxy + ".handoff.zip");
         exchange.sendResponseHeaders(200, payload.length);
         exchange.getResponseBody().write(payload);
     }
@@ -607,25 +624,48 @@ public final class OniLinkDashboard implements AutoCloseable {
     }
 
     private boolean staticResource(HttpExchange exchange, String path) throws IOException {
-        String resource = switch (path) {
-            case "/", "/index.html" -> "/dashboard/index.html";
-            case "/app.js" -> "/dashboard/app.js";
-            case "/styles.css" -> "/dashboard/styles.css";
-            default -> null;
-        };
-        if (resource == null) return false;
+        if (path.equals("/health") || path.equals("/metrics") || path.startsWith("/api/")) return false;
         requireMethod(exchange, "GET");
+        String rawPath = exchange.getRequestURI().getRawPath();
+        if (rawPath == null || rawPath.indexOf('%') >= 0 || path.indexOf('\0') >= 0
+                || path.indexOf('\\') >= 0 || path.contains("..")) {
+            throw new HttpFailure(404, "Dashboard asset not found");
+        }
+        String resource;
+        boolean html = false;
+        if (path.equals("/") || path.equals("/index.html")) {
+            resource = "/dashboard/index.html";
+            html = true;
+        } else if (path.startsWith("/assets/")
+                && path.length() > "/assets/".length()
+                && path.substring("/assets/".length()).matches("[A-Za-z0-9._-]+")) {
+            resource = "/dashboard" + path;
+        } else {
+            throw new HttpFailure(404, "Dashboard asset not found");
+        }
         try (InputStream input = OniLinkDashboard.class.getResourceAsStream(resource)) {
             if (input == null) throw new HttpFailure(404, "Dashboard asset not found");
             byte[] bytes = input.readAllBytes();
-            String contentType = resource.endsWith(".js")
-                    ? "text/javascript; charset=utf-8"
-                    : resource.endsWith(".css")
-                    ? "text/css; charset=utf-8"
-                    : "text/html; charset=utf-8";
+            String contentType = assetContentType(resource);
+            if (!html && path.matches("/assets/.+-[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9]+")) {
+                exchange.getResponseHeaders().set("Cache-Control", "public, max-age=31536000, immutable");
+            } else {
+                exchange.getResponseHeaders().set("Cache-Control", "no-store");
+            }
             send(exchange, 200, contentType, bytes);
             return true;
         }
+    }
+
+    private static String assetContentType(String resource) {
+        if (resource.endsWith(".html")) return "text/html; charset=utf-8";
+        if (resource.endsWith(".js")) return "text/javascript; charset=utf-8";
+        if (resource.endsWith(".css")) return "text/css; charset=utf-8";
+        if (resource.endsWith(".svg")) return "image/svg+xml; charset=utf-8";
+        if (resource.endsWith(".json")) return "application/json; charset=utf-8";
+        if (resource.endsWith(".woff")) return "font/woff";
+        if (resource.endsWith(".woff2")) return "font/woff2";
+        throw new HttpFailure(404, "Unsupported dashboard asset type");
     }
 
     private Map<String, String> form(HttpExchange exchange) throws IOException {
@@ -666,6 +706,18 @@ public final class OniLinkDashboard implements AutoCloseable {
 
     private static void requireRole(DashboardAccounts.Principal principal, DashboardAccounts.Role required) {
         if (!principal.role().allows(required)) throw new HttpFailure(403, "Insufficient role");
+    }
+
+    private static String authorizedTenant(DashboardAccounts.Principal principal, String requestedTenant) {
+        String requested = value(requestedTenant).trim().toLowerCase(Locale.ROOT);
+        if (principal.tenantScoped()) {
+            if (!requested.isBlank() && !requested.equals(principal.tenantId())) {
+                throw new HttpFailure(403, "Tenant account cannot access another tenant");
+            }
+            return principal.tenantId();
+        }
+        requireRole(principal, DashboardAccounts.Role.OWNER);
+        return requested;
     }
 
     private static String bearer(HttpExchange exchange) {
@@ -755,6 +807,20 @@ public final class OniLinkDashboard implements AutoCloseable {
         return "http://" + host + ":" + address.getPort();
     }
 
+    private static int providerPort(DashboardControl control) {
+        Object listener = control.state().get("listener");
+        if (listener instanceof Map<?, ?> map) {
+            Object port = map.get("port");
+            if (port instanceof Number number) return number.intValue();
+            try {
+                return Integer.parseInt(String.valueOf(port));
+            } catch (NumberFormatException ignored) {
+                // Test controls and reduced integrations may not expose a listener address.
+            }
+        }
+        return 0;
+    }
+
     private static boolean isWildcard(InetAddress address) {
         return address != null && address.isAnyLocalAddress();
     }
@@ -766,6 +832,7 @@ public final class OniLinkDashboard implements AutoCloseable {
         server.stop(1);
         maintenanceExecutor.shutdownNow();
         requestExecutor.shutdownNow();
+        tenantHosting.close();
         control.close();
     }
 

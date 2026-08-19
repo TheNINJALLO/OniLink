@@ -56,9 +56,10 @@ The optional admin-only `ONILINK_DASHBOARD_SETUP_CODE` variable supports automat
 blank value keeps the normal randomly generated `dashboard/FIRST_RUN_SETUP.txt` flow. Never make the
 variable customer-editable or reuse a setup code between instances.
 
-For commercial hosting, use one egg-created server and one primary allocation per customer. The
-[`tenantctl` guide](../tenant-hosting/README.md) prepares an isolated plan, creates the server through
-the Pterodactyl Application API, and provides explicit billing suspension commands.
+For tenant hosting, keep this one egg-created OniLink server and assign it one additional UDP
+allocation per logical customer proxy. Create scoped logins and listeners from **Tenant Setup** in
+the shared dashboard. No Pterodactyl Application API key, extra server, or repeated egg is needed.
+See the [single-container tenant guide](../../docs/TENANT_HOSTING.md).
 
 ## Automatic updates and rollback
 

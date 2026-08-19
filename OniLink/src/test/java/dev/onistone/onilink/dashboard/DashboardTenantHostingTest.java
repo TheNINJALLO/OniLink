@@ -1,166 +1,200 @@
 package dev.onistone.onilink.dashboard;
 
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DashboardTenantHostingTest {
     @Test
-    void discoversAndProvisionsAnIsolatedTenant(@TempDir Path directory) throws Exception {
-        AtomicBoolean created = new AtomicBoolean();
-        AtomicBoolean suspended = new AtomicBoolean();
-        AtomicReference<String> createRequest = new AtomicReference<>("");
-        HttpServer panel = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        panel.createContext("/api/application", exchange -> respond(
-                exchange, created, suspended, createRequest));
-        panel.start();
-        try {
-            writeSettings(directory, panel.getAddress().getPort());
-            DashboardTenantHosting hosting = new DashboardTenantHosting(directory);
+    void runsTenantProxiesInsideOneContainerAndPersistsTheirIsolation(@TempDir Path directory) throws Exception {
+        DashboardAccounts accounts = new DashboardAccounts(
+                directory.resolve("accounts"), 60, "http://127.0.0.1:8080");
+        List<FakeRuntime> started = new ArrayList<>();
+        DashboardTenantHosting.RuntimeFactory factory = configPath -> {
+            FakeRuntime runtime = new FakeRuntime(configPath);
+            started.add(runtime);
+            return runtime;
+        };
 
-            Map<String, Object> discovery = hosting.discovery();
-            assertTrue(discovery.toString().contains("customer"));
-            assertTrue(discovery.toString().contains("OniLink"));
-            assertEquals(1, ((java.util.List<?>) hosting.allocations(4).get("allocations")).size());
-
-            Map<String, Object> result = hosting.provision(Map.of(
+        try (DashboardTenantHosting hosting = new DashboardTenantHosting(
+                directory.resolve("dashboard"), accounts, factory, 19130)) {
+            hosting.createTenant(Map.of(
                     "tenant", "acme",
-                    "customerLabel", "Acme Network",
-                    "plan", "starter",
-                    "userId", "7",
-                    "userDisplay", "customer",
-                    "nodeId", "4",
-                    "allocationId", "44",
-                    "backendAddress", "10.0.0.25:19132",
-                    "proxySourceIp", "127.0.0.1"));
+                    "label", "Acme Network",
+                    "username", "acme-admin",
+                    "password", "a secure tenant password"));
+            hosting.createTenant(Map.of(
+                    "tenant", "birch",
+                    "label", "Birch Network",
+                    "username", "birch-admin",
+                    "password", "another secure tenant password"));
+            assertEquals("acme", accounts.login(
+                    "acme-admin", "a secure tenant password", "").session().principal().tenantId());
 
-            assertTrue(created.get());
-            assertTrue(result.toString().contains("active"));
-            assertTrue(createRequest.get().contains("\"external_id\":\"onilink-tenant-acme\""));
-            assertTrue(createRequest.get().contains("\"allocations\":0"));
-            assertTrue(createRequest.get().contains("\"ONILINK_DASHBOARD_SETUP_CODE\""));
+            Map<String, Object> created = hosting.createProxy(proxyForm("survival", 19135));
+            assertTrue(created.toString().contains("running"));
+            assertEquals(1, started.size());
 
-            Map<String, String> handoff = unzip(hosting.handoff("acme"));
-            assertTrue(handoff.get("CUSTOMER-START-HERE.txt").contains("127.0.0.1:19140"));
-            assertTrue(handoff.get("backend/onibridge.toml").contains("trusted_proxy_cidrs = [\"127.0.0.1/32\"]"));
-            byte[] forwardingKey = Base64.getDecoder().decode(handoff.get("backend/default.key").trim());
-            assertEquals(32, forwardingKey.length);
+            Path configPath = started.getFirst().configPath;
+            Properties properties = loadProperties(configPath);
+            assertEquals("19135", properties.getProperty("listener.port"));
+            assertEquals("false", properties.getProperty("dashboard.enabled"));
+            assertEquals("secrets/default.key",
+                    properties.getProperty("backend.default.forwarding.activeSecretFile"));
+            assertEquals("45.143.196.160", properties.getProperty("backend.default.host"));
+            assertEquals("25570", properties.getProperty("backend.default.port"));
 
-            String overview = DashboardJson.encode(hosting.overview());
-            assertFalse(overview.contains(handoff.get("backend/default.key").trim()));
-            assertFalse(overview.contains("ptla-test-key"));
+            String secret = Files.readString(configPath.resolveSibling("secrets/default.key")).trim();
+            assertEquals(32, Base64.getDecoder().decode(secret).length);
+            Map<String, String> handoff = unzip(hosting.handoff("acme", "survival"));
+            assertEquals(secret, handoff.get("backend/default.key").trim());
+            assertTrue(handoff.get("CUSTOMER-START-HERE.txt").contains("existing OniLink container"));
+            assertTrue(handoff.get("backend/onibridge.toml")
+                    .contains("trusted_proxy_cidrs = [\"45.143.196.108/32\"]"));
 
-            hosting.action("acme", "suspend");
-            assertTrue(suspended.get());
-            assertTrue(DashboardJson.encode(hosting.overview()).contains("\"suspended\":true"));
+            Map<String, Object> tenantView = hosting.overview("acme");
+            assertEquals("single-container", tenantView.get("mode"));
+            assertEquals(19130, tenantView.get("providerPort"));
+            assertFalse(DashboardJson.encode(tenantView).contains(secret));
+            assertFalse(DashboardJson.encode(tenantView).contains("birch"));
 
-            DashboardTenantHosting reloaded = new DashboardTenantHosting(directory);
-            assertTrue(DashboardJson.encode(reloaded.overview()).contains("\"id\":\"acme\""));
-        } finally {
-            panel.stop(0);
+            assertThrows(IllegalStateException.class,
+                    () -> hosting.createProxy(proxyForm("provider-conflict", 19130)));
+            assertThrows(IllegalStateException.class,
+                    () -> hosting.createProxy(proxyForm("tenant-conflict", 19135)));
+
+            hosting.proxyAction("acme", "survival", "stop");
+            assertTrue(started.getFirst().closed.get());
+            assertTrue(DashboardJson.encode(hosting.overview("acme")).contains("\"status\":\"stopped\""));
+            hosting.proxyAction("acme", "survival", "start");
+            assertEquals(2, started.size());
+            hosting.tenantAction("acme", "suspend");
+            assertTrue(DashboardJson.encode(hosting.overview("acme")).contains("\"suspended\":true"));
+        }
+
+        List<FakeRuntime> reloadedRuntimes = new ArrayList<>();
+        try (DashboardTenantHosting reloaded = new DashboardTenantHosting(
+                directory.resolve("dashboard"), accounts, configPath -> {
+                    FakeRuntime runtime = new FakeRuntime(configPath);
+                    reloadedRuntimes.add(runtime);
+                    return runtime;
+                }, 19130)) {
+            assertTrue(DashboardJson.encode(reloaded.overview("acme")).contains("\"id\":\"survival\""));
+            assertTrue(reloadedRuntimes.isEmpty(), "suspended tenant proxies stay stopped after reboot");
         }
     }
 
-    private static void writeSettings(Path directory, int port) throws IOException {
-        Path hosting = directory.resolve("hosting");
-        Files.createDirectories(hosting);
+    private static Map<String, String> proxyForm(String proxyId, int port) {
+        return Map.ofEntries(
+                Map.entry("tenant", "acme"),
+                Map.entry("proxy", proxyId),
+                Map.entry("label", "Survival Proxy"),
+                Map.entry("port", Integer.toString(port)),
+                Map.entry("publicHost", "45.143.196.108"),
+                Map.entry("backendAddress", "45.143.196.160:25570"),
+                Map.entry("proxySourceIp", "45.143.196.108"),
+                Map.entry("maxPlayers", "20"),
+                Map.entry("motd", "Acme Network"),
+                Map.entry("bdsProfile", "test-profile"));
+    }
+
+    private static Properties loadProperties(Path path) throws IOException {
         Properties properties = new Properties();
-        properties.setProperty("version", "1");
-        // The production settings form requires HTTPS. This loopback HTTP endpoint exists only in this test.
-        properties.setProperty("panelUrl", "http://127.0.0.1:" + port);
-        properties.setProperty("apiKey", "ptla-test-key");
-        properties.setProperty("eggId", "12");
-        properties.setProperty("dockerImage", "ghcr.io/ptero-eggs/yolks:java_21");
-        properties.setProperty("startup", "bash ./start-onilink.sh");
-        properties.setProperty("onilinkVersion", "v0.1.5");
-        properties.setProperty("bdsProfile", "test-profile");
-        try (var output = Files.newOutputStream(hosting.resolve("settings.properties"))) {
-            properties.store(output, "test settings");
+        try (var input = Files.newInputStream(path)) {
+            properties.load(input);
         }
-    }
-
-    private static void respond(
-            HttpExchange exchange,
-            AtomicBoolean created,
-            AtomicBoolean suspended,
-            AtomicReference<String> createRequest
-    ) throws IOException {
-        String path = exchange.getRequestURI().getPath();
-        String method = exchange.getRequestMethod();
-        String response;
-        int status = 200;
-        if ("GET".equals(method) && path.equals("/api/application/users")) {
-            response = collection("{\"id\":7,\"username\":\"customer\",\"email\":\"customer@example.test\",\"first_name\":\"Test\",\"last_name\":\"Customer\"}");
-        } else if ("GET".equals(method) && path.equals("/api/application/nodes")) {
-            response = collection("{\"id\":4,\"name\":\"Node One\",\"fqdn\":\"node.example.test\"}");
-        } else if ("GET".equals(method) && path.equals("/api/application/nests")) {
-            response = collection("{\"id\":1,\"name\":\"OniLink\"}");
-        } else if ("GET".equals(method) && path.equals("/api/application/nests/1/eggs")) {
-            response = collection("{\"id\":12,\"name\":\"OniLink\",\"startup\":\"bash ./start-onilink.sh\",\"docker_image\":\"ghcr.io/ptero-eggs/yolks:java_21\"}");
-        } else if ("GET".equals(method) && path.equals("/api/application/nodes/4/allocations")) {
-            response = collection("{\"id\":44,\"ip\":\"127.0.0.1\",\"alias\":null,\"port\":19140,\"assigned\":false}");
-        } else if ("GET".equals(method) && path.equals("/api/application/servers/external/onilink-tenant-acme")) {
-            if (!created.get()) {
-                status = 404;
-                response = "{\"errors\":[{\"detail\":\"Not found\"}]}";
-            } else {
-                response = item("{\"id\":91,\"uuid\":\"tenant-uuid\",\"suspended\":"
-                        + suspended.get() + ",\"status\":null}");
-            }
-        } else if ("POST".equals(method) && path.equals("/api/application/servers")) {
-            createRequest.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
-            created.set(true);
-            response = item("{\"id\":91,\"uuid\":\"tenant-uuid\",\"suspended\":false,\"status\":null}");
-        } else if ("POST".equals(method) && path.equals("/api/application/servers/91/suspend")) {
-            suspended.set(true);
-            response = "{}";
-        } else {
-            status = 404;
-            response = "{\"errors\":[{\"detail\":\"Unexpected test route\"}]}";
-        }
-        byte[] body = response.getBytes(StandardCharsets.UTF_8);
-        exchange.getResponseHeaders().set("Content-Type", "application/json");
-        exchange.sendResponseHeaders(status, body.length);
-        exchange.getResponseBody().write(body);
-        exchange.close();
-    }
-
-    private static String collection(String attributes) {
-        return "{\"object\":\"list\",\"data\":[{\"object\":\"resource\",\"attributes\":"
-                + attributes + "}],\"meta\":{\"pagination\":{\"total_pages\":1}}}";
-    }
-
-    private static String item(String attributes) {
-        return "{\"object\":\"resource\",\"attributes\":" + attributes + "}";
+        return properties;
     }
 
     private static Map<String, String> unzip(byte[] archive) throws IOException {
-        Map<String, String> files = new java.util.LinkedHashMap<>();
+        Map<String, String> files = new LinkedHashMap<>();
         try (ZipInputStream zip = new ZipInputStream(
-                new java.io.ByteArrayInputStream(archive), StandardCharsets.UTF_8)) {
+                new ByteArrayInputStream(archive), StandardCharsets.UTF_8)) {
             ZipEntry entry;
             while ((entry = zip.getNextEntry()) != null) {
                 files.put(entry.getName(), new String(zip.readAllBytes(), StandardCharsets.UTF_8));
             }
         }
         return files;
+    }
+
+    private static final class FakeRuntime implements DashboardTenantHosting.RuntimeHandle {
+        private final Path configPath;
+        private final AtomicBoolean closed = new AtomicBoolean();
+        private final DashboardControl control = new FakeControl();
+
+        private FakeRuntime(Path configPath) {
+            this.configPath = configPath;
+        }
+
+        @Override
+        public DashboardControl control() {
+            return control;
+        }
+
+        @Override
+        public void close() {
+            closed.set(true);
+        }
+    }
+
+    private static final class FakeControl implements DashboardControl {
+        @Override
+        public Map<String, Object> state() {
+            return Map.of("players", 0, "listener", Map.of("host", "0.0.0.0", "port", 19135));
+        }
+
+        @Override
+        public List<Map<String, Object>> players(boolean includeAddresses) {
+            return List.of();
+        }
+
+        @Override
+        public List<Map<String, Object>> backends(boolean includeAddresses) {
+            return List.of(Map.of("name", "default", "host", "45.143.196.160", "port", 25570));
+        }
+
+        @Override
+        public ActionResult transfer(String player, String backend) {
+            return new ActionResult(true, "transferred");
+        }
+
+        @Override
+        public ActionResult disconnect(String player, String reason) {
+            return new ActionResult(true, "disconnected");
+        }
+
+        @Override
+        public ActionResult alert(String message) {
+            return new ActionResult(true, "alerted");
+        }
+
+        @Override
+        public ActionResult trace(String player, long milliseconds) {
+            return new ActionResult(true, "tracing");
+        }
+
+        @Override
+        public void shutdown() {
+        }
     }
 }

@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OniLinkDashboardTest {
     @Test
-    void servesAssetsAndProtectsRuntimeApisWithFirstRunOwnerSetup(@TempDir Path directory) throws Exception {
+    void servesOneControlPlaneAndEnforcesTenantIsolation(@TempDir Path directory) throws Exception {
         Path proxyConfig = directory.resolve("config.properties");
         ProxyConfig.loadOrCreate(proxyConfig);
         Path log = directory.resolve("logs/latest.log");
@@ -36,40 +36,41 @@ class OniLinkDashboardTest {
                 directory.resolve("dashboard"), 65_536, 100);
 
         try (OniLinkDashboard dashboard = new OniLinkDashboard(
-                dashboardConfig, new FakeControl(), proxyConfig, log)) {
+                dashboardConfig, new FakeControl(19130), proxyConfig, log, FakeRuntime::new)) {
             HttpClient client = HttpClient.newHttpClient();
             URI base = URI.create("http://127.0.0.1:" + dashboard.port());
 
-            HttpResponse<String> home = client.send(
-                    HttpRequest.newBuilder(base.resolve("/")).GET().build(),
-                    HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> home = get(client, base.resolve("/"), "");
             assertEquals(200, home.statusCode());
             assertTrue(home.body().contains("OniLink Control Plane"));
-            assertTrue(home.body().contains("data-page=\"add-backend\""));
-            assertTrue(home.body().contains("Create backend setup package"));
-            assertTrue(home.body().contains("OniLink needs one primary allocation"));
-            assertTrue(home.body().contains("Download complete setup ZIP"));
-            assertTrue(home.body().contains("Tenant hosting"));
-            assertTrue(home.body().contains("Provision tenant and build handoff"));
+            assertTrue(home.body().contains("<div id=\"root\"></div>"));
+            assertTrue(home.body().contains("type=\"module\""));
+            assertEquals("no-store", home.headers().firstValue("Cache-Control").orElseThrow());
             assertTrue(home.headers().firstValue("Content-Security-Policy").orElseThrow()
                     .contains("frame-ancestors 'none'"));
 
-            HttpResponse<String> application = client.send(
-                    HttpRequest.newBuilder(base.resolve("/app.js")).GET().build(),
-                    HttpResponse.BodyHandlers.ofString());
+            String applicationPath = assetPath(home.body(), "src", "js");
+            HttpResponse<String> application = get(client, base.resolve(applicationPath), "");
             assertEquals(200, application.statusCode());
-            assertTrue(application.body().contains("const form = event.currentTarget;"));
-            assertTrue(application.body().contains("/api/allowlist"));
-            assertTrue(application.body().contains("/api/hosting/tenants"));
-            assertTrue(application.body().contains("[\"add-backend\", \"configuration\"]"));
-            assertFalse(application.body().contains("event.currentTarget.reset()"),
-                    "async form handlers must retain the form before the event is released");
+            assertTrue(application.headers().firstValue("Content-Type").orElseThrow()
+                    .startsWith("text/javascript"));
+            assertTrue(application.headers().firstValue("Cache-Control").orElseThrow().contains("immutable"));
+            assertTrue(application.body().contains("/api/tenancy/tenants"));
+            assertTrue(application.body().contains("/api/tenancy/proxy/runtime"));
+            assertFalse(application.body().contains("/api/hosting"));
+            String stylesheetPath = assetPath(home.body(), "href", "css");
+            HttpResponse<String> stylesheet = get(client, base.resolve(stylesheetPath), "");
+            assertEquals(200, stylesheet.statusCode());
+            assertTrue(stylesheet.headers().firstValue("Content-Type").orElseThrow().startsWith("text/css"));
+            assertEquals(404, get(client, base.resolve("/assets/missing-deadbeef.js"), "").statusCode());
+            assertEquals(404, get(client, base.resolve("/assets/%2e%2e/index.html"), "").statusCode());
+            assertEquals(404, get(client, base.resolve("/unknown-dashboard-path"), "").statusCode());
 
-            HttpResponse<String> unauthorized = client.send(
-                    HttpRequest.newBuilder(base.resolve("/api/state")).GET().build(),
-                    HttpResponse.BodyHandlers.ofString());
-            assertEquals(401, unauthorized.statusCode());
-
+            assertEquals(401, get(client, base.resolve("/api/state"), "").statusCode());
+            HttpResponse<String> missingApi = get(client, base.resolve("/api/does-not-exist"), "");
+            assertEquals(401, missingApi.statusCode());
+            assertTrue(missingApi.headers().firstValue("Content-Type").orElseThrow()
+                    .startsWith("application/json"));
             HttpResponse<String> crossOrigin = post(client, base.resolve("/api/setup"),
                     Map.of("setupCode", "bad", "username", "owner", "password", "a secure password"),
                     Map.of("Origin", "https://attacker.example"));
@@ -83,87 +84,118 @@ class OniLinkDashboardTest {
                     "username", "owner",
                     "password", "a secure owner password"), Map.of());
             assertEquals(201, setup.statusCode());
-            Matcher token = Pattern.compile("\\\"token\\\":\\\"([^\\\"]+)\\\"").matcher(setup.body());
-            assertTrue(token.find());
+            String ownerToken = token(setup.body());
+            assertEquals(404, get(client, base.resolve("/api/does-not-exist"), ownerToken).statusCode());
 
-            HttpResponse<String> state = client.send(HttpRequest.newBuilder(base.resolve("/api/state"))
-                    .header("Authorization", "Bearer " + token.group(1)).GET().build(),
-                    HttpResponse.BodyHandlers.ofString());
+            String viewerToken = createAndLogin(client, base, ownerToken, "test-viewer", "viewer");
+            String operatorToken = createAndLogin(client, base, ownerToken, "test-operator", "operator");
+            String adminToken = createAndLogin(client, base, ownerToken, "test-admin", "admin");
+            assertEquals(200, get(client, base.resolve("/api/state"), viewerToken).statusCode());
+            assertEquals(403, get(client, base.resolve("/api/logs?limit=50"), viewerToken).statusCode());
+            assertEquals(200, get(client, base.resolve("/api/logs?limit=50"), operatorToken).statusCode());
+            assertEquals(403, get(client, base.resolve("/api/config"), operatorToken).statusCode());
+            assertEquals(200, get(client, base.resolve("/api/config"), adminToken).statusCode());
+            assertEquals(403, get(client, base.resolve("/api/users"), adminToken).statusCode());
+            assertEquals(200, get(client, base.resolve("/api/users"), ownerToken).statusCode());
+
+            HttpResponse<String> state = get(client, base.resolve("/api/state"), ownerToken);
             assertEquals(200, state.statusCode());
             assertTrue(state.body().contains("\"players\":2"));
             assertTrue(state.body().contains("\"role\":\"owner\""));
+            HttpResponse<String> tenancy = get(client, base.resolve("/api/tenancy"), ownerToken);
+            assertEquals(200, tenancy.statusCode());
+            assertTrue(tenancy.body().contains("\"mode\":\"single-container\""));
+            assertTrue(tenancy.body().contains("\"providerPort\":19130"));
 
-            HttpResponse<String> hosting = client.send(HttpRequest.newBuilder(base.resolve("/api/hosting"))
-                    .header("Authorization", "Bearer " + token.group(1)).GET().build(),
-                    HttpResponse.BodyHandlers.ofString());
-            assertEquals(200, hosting.statusCode());
-            assertTrue(hosting.body().contains("\"id\":\"starter\""));
-            assertTrue(hosting.body().contains("\"apiKeyConfigured\":false"));
+            HttpResponse<String> tenantCreate = post(client, base.resolve("/api/tenancy/tenants"), Map.of(
+                    "tenant", "acme",
+                    "label", "Acme Network",
+                    "username", "acme-admin",
+                    "password", "a secure tenant password"), bearer(ownerToken));
+            assertEquals(201, tenantCreate.statusCode());
 
-            String applicationKey = "ptla_test_key_that_must_not_be_returned";
-            HttpResponse<String> hostingSettings = post(client, base.resolve("/api/hosting/settings"), Map.of(
-                    "panelUrl", "https://panel.example.test",
-                    "apiKey", applicationKey,
-                    "eggId", "12",
-                    "dockerImage", "ghcr.io/ptero-eggs/yolks:java_21",
-                    "startup", "bash ./start-onilink.sh",
-                    "onilinkVersion", "v0.1.5",
-                    "bdsProfile", "test-profile"), Map.of(
-                    "Authorization", "Bearer " + token.group(1)));
-            assertEquals(200, hostingSettings.statusCode());
-            assertTrue(hostingSettings.body().contains("\"apiKeyConfigured\":true"));
-            assertFalse(hostingSettings.body().contains(applicationKey));
-            assertTrue(Files.readString(directory.resolve("dashboard/hosting/settings.properties"))
-                    .contains(applicationKey));
+            HttpResponse<String> proxyCreate = post(client, base.resolve("/api/tenancy/proxies"), Map.ofEntries(
+                    Map.entry("tenant", "acme"),
+                    Map.entry("proxy", "survival"),
+                    Map.entry("label", "Survival Proxy"),
+                    Map.entry("port", "19135"),
+                    Map.entry("publicHost", "45.143.196.108"),
+                    Map.entry("backendAddress", "45.143.196.160:25570"),
+                    Map.entry("proxySourceIp", "45.143.196.108"),
+                    Map.entry("maxPlayers", "20"),
+                    Map.entry("motd", "Acme Network"),
+                    Map.entry("bdsProfile", "test-profile")), bearer(ownerToken));
+            assertEquals(201, proxyCreate.statusCode());
+            assertTrue(proxyCreate.body().contains("\"status\":\"running\""));
 
-            HttpResponse<String> viewerCreate = post(client, base.resolve("/api/users"), Map.of(
-                    "username", "tenant-viewer",
-                    "password", "a secure viewer password",
-                    "role", "viewer"), Map.of(
-                    "Authorization", "Bearer " + token.group(1)));
-            assertEquals(201, viewerCreate.statusCode());
-            HttpResponse<String> viewerLogin = post(client, base.resolve("/api/login"), Map.of(
-                    "username", "tenant-viewer",
-                    "password", "a secure viewer password",
+            HttpResponse<String> login = post(client, base.resolve("/api/login"), Map.of(
+                    "username", "acme-admin",
+                    "password", "a secure tenant password",
                     "totp", ""), Map.of());
-            Matcher viewerToken = Pattern.compile("\\\"token\\\":\\\"([^\\\"]+)\\\"").matcher(viewerLogin.body());
-            assertTrue(viewerToken.find());
-            HttpResponse<String> viewerHosting = client.send(HttpRequest.newBuilder(base.resolve("/api/hosting"))
-                    .header("Authorization", "Bearer " + viewerToken.group(1)).GET().build(),
-                    HttpResponse.BodyHandlers.ofString());
-            assertEquals(403, viewerHosting.statusCode());
+            assertEquals(200, login.statusCode());
+            String tenantToken = token(login.body());
+            assertTrue(login.body().contains("\"role\":\"tenant\""));
+            assertTrue(login.body().contains("\"tenantId\":\"acme\""));
 
-            HttpResponse<String> allowlist = client.send(HttpRequest.newBuilder(base.resolve("/api/allowlist"))
-                    .header("Authorization", "Bearer " + token.group(1)).GET().build(),
-                    HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> tenantOverview = get(client, base.resolve("/api/tenancy"), tenantToken);
+            assertEquals(200, tenantOverview.statusCode());
+            assertTrue(tenantOverview.body().contains("\"tenantScope\":\"acme\""));
+            assertTrue(tenantOverview.body().contains("\"id\":\"survival\""));
+            HttpResponse<String> tenantProxy = get(client,
+                    base.resolve("/api/tenancy/proxy?tenant=acme&proxy=survival"), tenantToken);
+            assertEquals(200, tenantProxy.statusCode());
+            assertTrue(tenantProxy.body().contains("45.143.196.108:19135"));
+            assertEquals(403, get(client, base.resolve("/api/state"), tenantToken).statusCode());
+            assertEquals(403, get(client,
+                    base.resolve("/api/tenancy/proxy?tenant=other&proxy=survival"), tenantToken).statusCode());
+
+            HttpResponse<String> allowlist = get(client, base.resolve("/api/allowlist"), ownerToken);
             assertEquals(200, allowlist.statusCode());
             assertTrue(allowlist.body().contains("\"enabled\":true"));
             HttpResponse<String> allowlistAdd = post(client, base.resolve("/api/allowlist"), Map.of(
-                    "xuid", "2533274790000001", "name", "ExamplePlayer"), Map.of(
-                    "Authorization", "Bearer " + token.group(1)));
+                    "xuid", "2533274790000001", "name", "ExamplePlayer"), bearer(ownerToken));
             assertEquals(200, allowlistAdd.statusCode());
-            assertTrue(allowlistAdd.body().contains("Allow-listed"));
 
-            HttpResponse<String> config = client.send(HttpRequest.newBuilder(base.resolve("/api/config"))
-                    .header("Authorization", "Bearer " + token.group(1)).GET().build(),
-                    HttpResponse.BodyHandlers.ofString());
-            assertEquals(200, config.statusCode());
+            HttpResponse<String> config = get(client, base.resolve("/api/config"), ownerToken);
             Matcher revision = Pattern.compile("\\\"revision\\\":\\\"([^\\\"]+)\\\"").matcher(config.body());
             assertTrue(revision.find());
             HttpResponse<String> backend = post(client, base.resolve("/api/config/backends"), Map.of(
                     "revision", revision.group(1),
                     "name", "creative",
                     "address", "127.0.0.1:19134",
-                    "proxyPublicIp", "127.0.0.1"), Map.of(
-                    "Authorization", "Bearer " + token.group(1)));
+                    "proxyPublicIp", "127.0.0.1"), bearer(ownerToken));
             assertEquals(201, backend.statusCode());
-            assertTrue(backend.body().contains("\"backendName\":\"creative\""));
-            assertTrue(backend.body().contains("\"onilinkProperties\""));
             assertTrue(backend.body().contains("\"setupBundleBase64\""));
-            assertTrue(backend.body().contains("\"backendEndpoint\":\"127.0.0.1:19134\""));
-            assertTrue(backend.body().contains("active_secret_file = \\\"creative.key\\\""));
             assertTrue(Files.isRegularFile(directory.resolve("secrets/creative.key")));
         }
+    }
+
+    private static HttpResponse<String> get(HttpClient client, URI uri, String token) throws Exception {
+        HttpRequest.Builder request = HttpRequest.newBuilder(uri).GET();
+        if (!token.isBlank()) request.header("Authorization", "Bearer " + token);
+        return client.send(request.build(), HttpResponse.BodyHandlers.ofString());
+    }
+
+    private static String createAndLogin(
+            HttpClient client,
+            URI base,
+            String ownerToken,
+            String username,
+            String role
+    ) throws Exception {
+        String password = "a secure dashboard password";
+        assertEquals(201, post(client, base.resolve("/api/users"), Map.of(
+                "username", username, "password", password, "role", role), bearer(ownerToken)).statusCode());
+        HttpResponse<String> login = post(client, base.resolve("/api/login"), Map.of(
+                "username", username, "password", password, "totp", ""), Map.of());
+        assertEquals(200, login.statusCode());
+        return token(login.body());
+    }
+
+    private static String assetPath(String html, String attribute, String extension) {
+        Matcher matcher = Pattern.compile(attribute + "=\"([^\"]+\\." + extension + ")\"").matcher(html);
+        assertTrue(matcher.find(), "Generated " + extension + " asset reference is missing");
+        return matcher.group(1);
     }
 
     private static HttpResponse<String> post(
@@ -183,12 +215,42 @@ class OniLinkDashboardTest {
         return client.send(request.build(), HttpResponse.BodyHandlers.ofString());
     }
 
+    private static Map<String, String> bearer(String token) {
+        return Map.of("Authorization", "Bearer " + token);
+    }
+
+    private static String token(String body) {
+        Matcher matcher = Pattern.compile("\\\"token\\\":\\\"([^\\\"]+)\\\"").matcher(body);
+        assertTrue(matcher.find());
+        return matcher.group(1);
+    }
+
+    private record FakeRuntime(DashboardControl control) implements DashboardTenantHosting.RuntimeHandle {
+        private FakeRuntime(Path ignored) {
+            this(new FakeControl(19135));
+        }
+
+        @Override
+        public void close() {
+        }
+    }
+
     private static final class FakeControl implements DashboardControl {
+        private final int port;
+
+        private FakeControl(int port) {
+            this.port = port;
+        }
+
         @Override
         public Map<String, Object> state() {
             return Map.of(
-                    "players", 2, "backends", 1, "uptimeMillis", 1000,
-                    "memoryUsedBytes", 1024, "memoryMaxBytes", 2048);
+                    "players", 2,
+                    "backends", 1,
+                    "uptimeMillis", 1000,
+                    "memoryUsedBytes", 1024,
+                    "memoryMaxBytes", 2048,
+                    "listener", Map.of("host", "127.0.0.1", "port", port));
         }
 
         @Override
@@ -198,7 +260,7 @@ class OniLinkDashboardTest {
 
         @Override
         public List<Map<String, Object>> backends(boolean includeAddresses) {
-            return List.of();
+            return List.of(Map.of("name", "default", "host", "127.0.0.1", "port", 19132));
         }
 
         @Override
@@ -210,6 +272,11 @@ class OniLinkDashboardTest {
         @Override
         public ActionResult allowlistAdd(String xuid, String name) {
             return new ActionResult(true, "Allow-listed " + xuid);
+        }
+
+        @Override
+        public ActionResult allowlistRemove(String xuid) {
+            return new ActionResult(true, "Removed " + xuid);
         }
 
         @Override

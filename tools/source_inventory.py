@@ -18,6 +18,7 @@ EXCLUDED_PARTS = {
     "__pycache__",
     "build",
     "dist",
+    "node_modules",
 }
 EXCLUDED_SUFFIXES = {".class", ".dmp", ".log", ".pdb", ".zip"}
 

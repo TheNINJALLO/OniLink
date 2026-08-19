@@ -1,11 +1,15 @@
 package dev.onistone.onilink.dashboard;
 
+import dev.onistone.onilink.allowlist.ProxyAllowlist;
+import dev.onistone.onilink.config.ProxyConfig;
+import dev.onistone.onilink.listener.BedrockProxyListener;
+import dev.onistone.onilink.permissions.ProxyPermissions;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
@@ -29,363 +33,458 @@ import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
-/** Owner-only Pterodactyl tenant provisioning and lifecycle storage for the dashboard. */
-final class DashboardTenantHosting {
+/**
+ * Single-container tenant catalog and isolated proxy-runtime supervisor.
+ *
+ * <p>Every tenant shares the provider's authenticated web control plane, but each proxy has its
+ * own Bedrock listener, configuration directory, allowlist, forwarding key, backend set, and live
+ * connection registry. No Pterodactyl API or additional Pterodactyl server is involved.</p>
+ */
+final class DashboardTenantHosting implements AutoCloseable {
     private static final int STORAGE_VERSION = 1;
+    private static final String DEFAULT_BDS_PROFILE =
+            "bds-1.26.44.3-linux-x86_64-06effdd00067f1ae";
     private static final Pattern SLUG = Pattern.compile("[a-z][a-z0-9-]{1,31}");
+    private static final Pattern PUBLIC_HOST = Pattern.compile("[A-Za-z0-9._:-]{1,253}");
     private static final Set<PosixFilePermission> OWNER_ONLY = EnumSet.of(
             PosixFilePermission.OWNER_READ,
             PosixFilePermission.OWNER_WRITE);
 
-    private final Path settingsPath;
-    private final Path tenantsPath;
+    @FunctionalInterface
+    interface RuntimeFactory {
+        RuntimeHandle start(Path configPath) throws Exception;
+    }
+
+    interface RuntimeHandle extends AutoCloseable {
+        DashboardControl control();
+
+        @Override
+        void close();
+    }
+
+    private final Path catalogPath;
+    private final Path runtimeDirectory;
     private final Path handoffDirectory;
+    private final DashboardAccounts accounts;
+    private final RuntimeFactory runtimeFactory;
+    private final int providerPort;
     private final SecureRandom random = new SecureRandom();
-    private Settings settings;
-    private final Map<String, HostingPlan> plans = new LinkedHashMap<>();
     private final Map<String, Tenant> tenants = new LinkedHashMap<>();
+    private final Map<String, ProxyInstance> proxies = new LinkedHashMap<>();
+    private final Map<String, RuntimeHandle> runtimes = new LinkedHashMap<>();
+    private boolean closed;
 
-    DashboardTenantHosting(Path dataDirectory) throws IOException {
-        Path directory = dataDirectory.resolve("hosting");
-        this.settingsPath = directory.resolve("settings.properties");
-        this.tenantsPath = directory.resolve("tenants.properties");
+    DashboardTenantHosting(
+            Path dataDirectory,
+            DashboardAccounts accounts,
+            RuntimeFactory runtimeFactory,
+            int providerPort
+    ) throws IOException {
+        Path directory = dataDirectory.resolve("tenancy");
+        this.catalogPath = directory.resolve("catalog.properties");
+        this.runtimeDirectory = directory.resolve("runtimes");
         this.handoffDirectory = directory.resolve("handoffs");
+        this.accounts = accounts;
+        this.runtimeFactory = runtimeFactory;
+        this.providerPort = providerPort;
+        Files.createDirectories(runtimeDirectory);
         Files.createDirectories(handoffDirectory);
-        this.settings = loadSettings();
-        loadPlans();
-        loadTenants();
-        if (plans.isEmpty()) {
-            plans.put("starter", new HostingPlan("starter", "Starter", 1024, 0,
-                    1024, 500, 100, "", 0, 0, 1, 20));
-            saveSettings();
-        }
+        loadCatalog();
+        startConfiguredRuntimes();
     }
 
-    synchronized Map<String, Object> overview() {
-        return Map.of(
-                "settings", settings.asMap(),
-                "plans", plans.values().stream().map(HostingPlan::asMap).toList(),
-                "tenants", tenants.values().stream()
-                        .sorted(Comparator.comparing(Tenant::createdAt).reversed())
-                        .map(Tenant::asMap).toList()
-        );
-    }
-
-    synchronized Map<String, Object> saveSettings(Map<String, String> form) throws IOException {
-        String panelUrl = normalizedPanelUrl(form.get("panelUrl"));
-        String submittedKey = value(form.get("apiKey")).trim();
-        String apiKey = submittedKey.isBlank() ? settings.apiKey() : submittedKey;
-        if (apiKey.isBlank()) throw new IllegalArgumentException("Enter a Pterodactyl application API key");
-        int eggId = boundedIntDefault(form.get("eggId"), "egg ID", 0, 0, Integer.MAX_VALUE);
-        String dockerImage = required(form.get("dockerImage"), "Docker image", 512);
-        String startup = required(form.get("startup"), "Startup command", 2_000);
-        String onilinkVersion = safeIdentifier(form.get("onilinkVersion"), "OniLink version", 64);
-        String bdsProfile = safeIdentifier(form.get("bdsProfile"), "BDS profile", 160);
-        this.settings = new Settings(panelUrl, apiKey, eggId, dockerImage, startup,
-                onilinkVersion, bdsProfile, Instant.now().toString());
-        saveSettings();
-        return settings.asMap();
-    }
-
-    synchronized Map<String, Object> testConnection() throws IOException {
-        PterodactylApplicationClient client = client();
-        List<Map<String, Object>> nodes = client.list("/nodes");
-        return Map.of(
-                "connected", true,
-                "panelUrl", settings.panelUrl(),
-                "nodes", nodes.size(),
-                "message", "Connected to Pterodactyl and read " + nodes.size() + " node(s)."
-        );
-    }
-
-    synchronized Map<String, Object> discovery() throws IOException {
-        PterodactylApplicationClient client = client();
-        List<Map<String, Object>> users = client.list("/users").stream().map(item -> Map.<String, Object>of(
-                "id", number(item.get("id")),
-                "username", text(item.get("username")),
-                "email", text(item.get("email")),
-                "name", displayName(item)
-        )).toList();
-        List<Map<String, Object>> nodes = client.list("/nodes").stream().map(item -> Map.<String, Object>of(
-                "id", number(item.get("id")),
-                "name", text(item.get("name")),
-                "fqdn", text(item.get("fqdn"))
-        )).toList();
-        List<Map<String, Object>> eggs = new ArrayList<>();
-        for (Map<String, Object> nest : client.list("/nests")) {
-            int nestId = number(nest.get("id"));
-            String nestName = text(nest.get("name"));
-            for (Map<String, Object> egg : client.list("/nests/" + nestId + "/eggs")) {
-                Map<String, Object> item = new LinkedHashMap<>();
-                item.put("id", number(egg.get("id")));
-                item.put("name", text(egg.get("name")));
-                item.put("nest", nestName);
-                item.put("startup", text(egg.get("startup")));
-                item.put("dockerImage", preferredDockerImage(egg));
-                eggs.add(item);
+    static RuntimeFactory productionRuntimeFactory() {
+        return configPath -> {
+            ProxyConfig config = ProxyConfig.loadOrCreate(configPath);
+            Path permissionsPath = configPath.toAbsolutePath().resolveSibling("permissions.properties");
+            BedrockProxyListener listener = new BedrockProxyListener(
+                    config,
+                    ProxyPermissions.load(config.permissions(), permissionsPath),
+                    ProxyAllowlist.load(config.allowlist()),
+                    null);
+            try {
+                listener.start(false);
+            } catch (Exception exception) {
+                listener.stop();
+                throw exception;
             }
-        }
-        return Map.of("users", users, "nodes", nodes, "eggs", eggs);
+            ProxyDashboardControl control = new ProxyDashboardControl(config, listener);
+            return new RuntimeHandle() {
+                private boolean stopped;
+
+                @Override
+                public DashboardControl control() {
+                    return control;
+                }
+
+                @Override
+                public synchronized void close() {
+                    if (stopped) return;
+                    stopped = true;
+                    control.close();
+                    listener.stop();
+                }
+            };
+        };
     }
 
-    synchronized Map<String, Object> allocations(int nodeId) throws IOException {
-        if (nodeId < 1) throw new IllegalArgumentException("Select a Pterodactyl node");
-        List<Map<String, Object>> available = client().list("/nodes/" + nodeId + "/allocations?filter[server_id]=")
-                .stream()
-                .filter(item -> !booleanValue(item.get("assigned")))
-                .map(item -> Map.<String, Object>of(
-                        "id", number(item.get("id")),
-                        "ip", text(item.get("ip")),
-                        "alias", text(item.get("alias")),
-                        "port", number(item.get("port")),
-                        "address", endpointAddress(item)
-                )).toList();
-        return Map.of("allocations", available);
+    synchronized Map<String, Object> overview(String tenantScope) {
+        String scope = normalizedScope(tenantScope);
+        List<Map<String, Object>> visibleTenants = tenants.values().stream()
+                .filter(tenant -> scope.isBlank() || tenant.id().equals(scope))
+                .sorted(Comparator.comparing(Tenant::createdAt))
+                .map(tenant -> tenant.asMap(accounts.tenantUsers(tenant.id())))
+                .toList();
+        List<Map<String, Object>> visibleProxies = proxies.values().stream()
+                .filter(proxy -> scope.isBlank() || proxy.tenantId().equals(scope))
+                .sorted(Comparator.comparing(ProxyInstance::tenantId).thenComparing(ProxyInstance::id))
+                .map(this::proxyView)
+                .toList();
+        return Map.of(
+                "mode", "single-container",
+                "providerPort", providerPort,
+                "tenants", visibleTenants,
+                "proxies", visibleProxies,
+                "tenantScope", scope);
     }
 
-    synchronized Map<String, Object> savePlan(Map<String, String> form) throws IOException {
-        HostingPlan plan = new HostingPlan(
-                slug(form.get("id"), "plan ID"),
-                required(form.get("name"), "Plan name", 80),
-                boundedInt(form.get("memory"), "memory", 128, 1_048_576),
-                boundedIntDefault(form.get("swap"), "swap", 0, -1, 1_048_576),
-                boundedInt(form.get("disk"), "disk", 128, 10_485_760),
-                boundedIntDefault(form.get("io"), "I/O weight", 500, 10, 1_000),
-                boundedInt(form.get("cpu"), "CPU", 1, 100_000),
-                optional(form.get("threads"), 256),
-                boundedIntDefault(form.get("databases"), "databases", 0, 0, 100),
-                0,
-                boundedIntDefault(form.get("backups"), "backups", 1, 0, 100),
-                boundedIntDefault(form.get("maxPlayers"), "maximum players", 20, 1, 10_000)
-        );
-        plans.put(plan.id(), plan);
-        saveSettings();
-        return Map.of("plan", plan.asMap(), "created", true);
-    }
-
-    synchronized void deletePlan(String rawPlanId) throws IOException {
-        String planId = slug(rawPlanId, "plan ID");
-        if (!plans.containsKey(planId)) throw new IllegalArgumentException("Hosting plan does not exist");
-        if (tenants.values().stream().anyMatch(tenant -> tenant.planId().equals(planId))) {
-            throw new IllegalStateException("This plan is assigned to an existing tenant");
-        }
-        if (plans.size() == 1) throw new IllegalStateException("At least one hosting plan is required");
-        plans.remove(planId);
-        saveSettings();
-    }
-
-    synchronized Map<String, Object> createCustomer(Map<String, String> form) throws IOException {
-        String password = required(form.get("password"), "Temporary password", 256);
-        if (password.length() < 12) throw new IllegalArgumentException("Temporary password must be at least 12 characters");
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("email", required(form.get("email"), "Email", 254));
-        payload.put("username", required(form.get("username"), "Username", 64));
-        payload.put("first_name", required(form.get("firstName"), "First name", 64));
-        payload.put("last_name", required(form.get("lastName"), "Last name", 64));
-        payload.put("password", password);
-        payload.put("root_admin", false);
-        Map<String, Object> created = client().item("POST", "/users", payload);
-        return Map.of("user", Map.of(
-                "id", number(created.get("id")),
-                "username", text(created.get("username")),
-                "email", text(created.get("email")),
-                "name", displayName(created)
-        ));
-    }
-
-    synchronized Map<String, Object> provision(Map<String, String> form) throws IOException {
-        requireConfigured();
+    synchronized Map<String, Object> createTenant(Map<String, String> form) throws IOException {
+        ensureOpen();
         String tenantId = slug(form.get("tenant"), "tenant ID");
-        if (tenants.containsKey(tenantId)) {
-            throw new IllegalStateException("Tenant already exists in this control plane");
+        if (tenants.containsKey(tenantId)) throw new IllegalStateException("Tenant already exists");
+        String label = required(form.get("label"), "Tenant label", 100);
+        String username = required(form.get("username"), "Tenant username", 32);
+        String password = required(form.get("password"), "Tenant password", 256);
+        if (accounts.hasUser(username)) throw new IllegalStateException("Dashboard username already exists");
+
+        Tenant tenant = new Tenant(tenantId, label, false, Instant.now().toString(), Instant.now().toString());
+        tenants.put(tenantId, tenant);
+        boolean accountCreated = false;
+        try {
+            accounts.createTenantUser(username, tenantId, password);
+            accountCreated = true;
+            saveCatalog();
+        } catch (IOException | RuntimeException exception) {
+            tenants.remove(tenantId);
+            if (accountCreated) {
+                try {
+                    accounts.deleteUser("", username);
+                } catch (IOException | RuntimeException rollbackFailure) {
+                    exception.addSuppressed(rollbackFailure);
+                }
+            }
+            throw exception;
         }
-        String planId = slug(form.get("plan"), "plan ID");
-        HostingPlan plan = Optional.ofNullable(plans.get(planId))
-                .orElseThrow(() -> new IllegalArgumentException("Select a valid hosting plan"));
-        int userId = positiveInt(form.get("userId"), "customer");
-        int nodeId = positiveInt(form.get("nodeId"), "node");
-        int allocationId = positiveInt(form.get("allocationId"), "allocation");
-        PterodactylApplicationClient client = client();
-        Map<String, Object> allocation = client.list("/nodes/" + nodeId + "/allocations?filter[server_id]=")
-                .stream()
-                .filter(item -> number(item.get("id")) == allocationId)
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("The selected allocation is not available"));
-        if (booleanValue(allocation.get("assigned"))) {
-            throw new IllegalStateException("The selected allocation is already assigned");
-        }
-        if (client.findTenantServer(tenantId).isPresent()) {
-            throw new IllegalStateException(
-                    "A Pterodactyl server already uses this tenant ID; choose another ID or recover its original record");
+        return Map.of("tenant", tenant.asMap(accounts.tenantUsers(tenantId)),
+                "message", "Tenant and scoped dashboard account created.");
+    }
+
+    synchronized Map<String, Object> addTenantUser(Map<String, String> form) throws IOException {
+        ensureOpen();
+        String tenantId = existingTenant(form.get("tenant")).id();
+        String username = required(form.get("username"), "Tenant username", 32);
+        accounts.createTenantUser(username, tenantId,
+                required(form.get("password"), "Tenant password", 256));
+        return Map.of("users", accounts.tenantUsers(tenantId).stream()
+                .map(DashboardAccounts.UserView::asMap).toList());
+    }
+
+    synchronized Map<String, Object> createProxy(Map<String, String> form) throws IOException {
+        ensureOpen();
+        Tenant tenant = existingTenant(form.get("tenant"));
+        if (tenant.suspended()) throw new IllegalStateException("Restore the tenant before adding a proxy");
+        String proxyId = slug(form.get("proxy"), "proxy ID");
+        String key = runtimeKey(tenant.id(), proxyId);
+        if (proxies.containsKey(key)) throw new IllegalStateException("Proxy already exists for this tenant");
+        int port = boundedInt(form.get("port"), "listener port", 1, 65_535);
+        if (port == providerPort || proxies.values().stream().anyMatch(proxy -> proxy.port() == port)) {
+            throw new IllegalStateException("That allocation port is already used by this OniLink container");
         }
         Endpoint backend = endpoint(required(form.get("backendAddress"), "Backend address", 300));
-        String proxyAddress = endpointAddress(allocation);
-        String sourceIp = optional(form.get("proxySourceIp"), 128);
-        if (sourceIp.isBlank()) sourceIp = text(allocation.get("ip"));
-        String trustedProxyCidr = exactCidr(sourceIp);
-        String forwardingSecret = randomBase64(32);
-        String setupCode = randomUrlToken(24);
-        Tenant prepared = new Tenant(
-                tenantId,
-                required(form.get("customerLabel"), "Customer label", 100),
-                planId,
-                userId,
-                optional(form.get("userDisplay"), 160),
-                nodeId,
-                allocationId,
-                proxyAddress,
+        String publicHost = publicHost(form.get("publicHost"));
+        String proxySourceCidr = exactCidr(form.get("proxySourceIp"));
+        String profile = safeIdentifier(defaulted(form.get("bdsProfile"), DEFAULT_BDS_PROFILE),
+                "BDS profile", 160);
+        ProxyInstance proxy = new ProxyInstance(
+                proxyId,
+                tenant.id(),
+                required(form.get("label"), "Proxy label", 100),
+                port,
+                displayEndpoint(publicHost, port),
                 backend.display(),
-                trustedProxyCidr,
-                forwardingSecret,
-                setupCode,
-                0,
-                "",
-                false,
-                "provisioning",
+                proxySourceCidr,
+                profile,
+                boundedIntDefault(form.get("maxPlayers"), "maximum players", 20, 1, 10_000),
+                required(defaulted(form.get("motd"), tenant.label() + " Network"), "MOTD", 200),
+                true,
+                "starting",
                 "",
                 Instant.now().toString(),
-                Instant.now().toString()
-        );
-        tenants.put(tenantId, prepared);
-        writeHandoff(prepared);
-        saveTenants();
-        return completeProvision(prepared, plan, false);
+                Instant.now().toString());
+        writeRuntimeFiles(proxy);
+        writeHandoff(proxy);
+        proxies.put(key, proxy);
+        saveCatalog();
+        ProxyInstance updated = startProxy(proxy);
+        saveCatalog();
+        return Map.of("proxy", proxyView(updated),
+                "message", updated.status().equals("running")
+                        ? "Tenant proxy started inside this OniLink container."
+                        : "Tenant proxy was saved but could not start: " + updated.lastError());
     }
 
-    synchronized Map<String, Object> action(String rawTenant, String rawAction) throws IOException {
-        String tenantId = slug(rawTenant, "tenant ID");
-        Tenant tenant = Optional.ofNullable(tenants.get(tenantId))
-                .orElseThrow(() -> new IllegalArgumentException("Tenant does not exist"));
+    synchronized Map<String, Object> tenantAction(String rawTenant, String rawAction) throws IOException {
+        ensureOpen();
+        Tenant tenant = existingTenant(rawTenant);
         String action = value(rawAction).trim().toLowerCase(Locale.ROOT);
-        if ("retry".equals(action)) {
-            HostingPlan plan = Optional.ofNullable(plans.get(tenant.planId()))
-                    .orElseThrow(() -> new IllegalStateException("The tenant's hosting plan no longer exists"));
-            return completeProvision(tenant.withState("provisioning", ""), plan, true);
+        if (!List.of("suspend", "restore").contains(action)) {
+            throw new IllegalArgumentException("Tenant action must be suspend or restore");
         }
-        PterodactylApplicationClient client = client();
-        Map<String, Object> remote = client.findTenantServer(tenantId)
-                .orElseThrow(() -> new IllegalStateException("The tenant server was not found in Pterodactyl"));
-        int serverId = number(remote.get("id"));
-        if ("suspend".equals(action) || "unsuspend".equals(action)) {
-            client.call("POST", "/servers/" + serverId + "/" + action, Map.of());
-            remote = client.findTenantServer(tenantId).orElse(remote);
-        } else if (!"refresh".equals(action)) {
-            throw new IllegalArgumentException("Unknown tenant action");
+        boolean suspended = "suspend".equals(action);
+        Tenant updated = tenant.withSuspended(suspended);
+        tenants.put(updated.id(), updated);
+        for (ProxyInstance proxy : new ArrayList<>(proxies.values())) {
+            if (!proxy.tenantId().equals(updated.id())) continue;
+            if (suspended) stopProxy(proxy, "suspended", "");
+            else if (proxy.enabled()) startProxy(proxy);
         }
-        Tenant updated = tenant.withRemote(remote);
-        tenants.put(tenantId, updated);
-        saveTenants();
-        return Map.of("tenant", updated.asMap());
+        saveCatalog();
+        return Map.of("tenant", updated.asMap(accounts.tenantUsers(updated.id())));
     }
 
-    synchronized byte[] handoff(String rawTenant) throws IOException {
-        String tenantId = slug(rawTenant, "tenant ID");
-        if (!tenants.containsKey(tenantId)) throw new IllegalArgumentException("Tenant does not exist");
-        Path path = handoffPath(tenantId);
-        if (!Files.isRegularFile(path)) throw new IllegalStateException("Tenant handoff is unavailable");
+    synchronized Map<String, Object> proxyAction(
+            String rawTenant,
+            String rawProxy,
+            String rawAction
+    ) throws IOException {
+        ensureOpen();
+        ProxyInstance proxy = existingProxy(rawTenant, rawProxy);
+        String action = value(rawAction).trim().toLowerCase(Locale.ROOT);
+        ProxyInstance updated;
+        switch (action) {
+            case "start" -> {
+                if (existingTenant(proxy.tenantId()).suspended()) {
+                    throw new IllegalStateException("Restore the tenant before starting its proxy");
+                }
+                updated = startProxy(proxy.withEnabled(true));
+            }
+            case "restart" -> {
+                stopRuntime(proxy);
+                updated = startProxy(proxy.withEnabled(true));
+            }
+            case "stop" -> updated = stopProxy(proxy.withEnabled(false), "stopped", "");
+            default -> throw new IllegalArgumentException("Proxy action must be start, restart, or stop");
+        }
+        saveCatalog();
+        String message = updated.status().equals("error")
+                ? "Proxy could not start: " + updated.lastError()
+                : "Proxy " + action + " completed.";
+        return Map.of("proxy", proxyView(updated), "message", message);
+    }
+
+    synchronized Map<String, Object> proxyDashboard(String rawTenant, String rawProxy) {
+        ProxyInstance proxy = existingProxy(rawTenant, rawProxy);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("proxy", proxyView(proxy));
+        RuntimeHandle runtime = runtimes.get(runtimeKey(proxy));
+        if (runtime == null) {
+            result.put("state", Map.of());
+            result.put("players", List.of());
+            result.put("backends", List.of());
+            result.put("allowlist", Map.of("enabled", false, "count", 0, "entries", List.of()));
+        } else {
+            result.put("state", runtime.control().state());
+            result.put("players", runtime.control().players(true));
+            result.put("backends", runtime.control().backends(true));
+            result.put("allowlist", runtime.control().allowlist());
+        }
+        try {
+            result.put("configurationRevision", new DashboardConfigFile(configPath(proxy)).read().get("revision"));
+        } catch (IOException exception) {
+            result.put("configurationRevision", "");
+        }
+        return result;
+    }
+
+    synchronized Map<String, Object> runtimeAction(Map<String, String> form) {
+        ProxyInstance proxy = existingProxy(form.get("tenant"), form.get("proxy"));
+        DashboardControl control = runningControl(proxy);
+        String action = value(form.get("action")).trim().toLowerCase(Locale.ROOT);
+        DashboardControl.ActionResult result = switch (action) {
+            case "transfer" -> control.transfer(form.get("player"), form.get("backend"));
+            case "disconnect" -> control.disconnect(form.get("player"), form.get("reason"));
+            case "alert" -> control.alert(form.get("message"));
+            case "trace" -> control.trace(form.get("player"), boundedLongDefault(
+                    form.get("milliseconds"), "trace duration", 10_000, 1_000, 60_000));
+            default -> throw new IllegalArgumentException(
+                    "Runtime action must be transfer, disconnect, alert, or trace");
+        };
+        return result.asMap();
+    }
+
+    synchronized Map<String, Object> allowlist(
+            String rawTenant,
+            String rawProxy,
+            String method,
+            Map<String, String> form
+    ) {
+        ProxyInstance proxy = existingProxy(rawTenant, rawProxy);
+        DashboardControl control = runningControl(proxy);
+        if ("GET".equals(method)) return control.allowlist();
+        DashboardControl.ActionResult result = "DELETE".equals(method)
+                ? control.allowlistRemove(form.get("xuid"))
+                : control.allowlistAdd(form.get("xuid"), form.get("name"));
+        if (!result.success()) throw new IllegalStateException(result.message());
+        return result.asMap();
+    }
+
+    synchronized Map<String, Object> addBackend(Map<String, String> form) throws IOException {
+        ProxyInstance proxy = existingProxy(form.get("tenant"), form.get("proxy"));
+        DashboardConfigFile config = new DashboardConfigFile(configPath(proxy));
+        Map<String, Object> result = new LinkedHashMap<>(config.addBackend(form.get("revision"), form));
+        ProxyInstance updated = proxy;
+        boolean wasRunning = runtimes.containsKey(runtimeKey(proxy));
+        if (wasRunning) {
+            stopRuntime(proxy);
+            updated = startProxy(proxy);
+        }
+        result.put("proxy", proxyView(updated));
+        result.put("message", updated.status().equals("error")
+                ? "Backend saved, but the proxy could not restart: " + updated.lastError()
+                : wasRunning
+                        ? "Backend added and the proxy restarted."
+                        : "Backend added and will load when the proxy starts.");
+        return Map.copyOf(result);
+    }
+
+    synchronized byte[] handoff(String rawTenant, String rawProxy) throws IOException {
+        ProxyInstance proxy = existingProxy(rawTenant, rawProxy);
+        Path path = handoffPath(proxy);
+        if (!Files.isRegularFile(path)) throw new IllegalStateException("Proxy handoff is unavailable");
         return Files.readAllBytes(path);
     }
 
-    private Map<String, Object> completeProvision(
-            Tenant tenant,
-            HostingPlan plan,
-            boolean reconcileExisting
-    ) throws IOException {
-        PterodactylApplicationClient client = client();
+    private void startConfiguredRuntimes() throws IOException {
+        boolean changed = false;
+        for (ProxyInstance proxy : new ArrayList<>(proxies.values())) {
+            Tenant tenant = tenants.get(proxy.tenantId());
+            if (proxy.enabled() && tenant != null && !tenant.suspended()) {
+                ProxyInstance updated = startProxy(proxy);
+                changed |= updated != proxy;
+            }
+        }
+        if (changed) saveCatalog();
+    }
+
+    private ProxyInstance startProxy(ProxyInstance proxy) {
+        String key = runtimeKey(proxy);
+        RuntimeHandle current = runtimes.get(key);
+        if (current != null) return replaceProxy(proxy.withState("running", ""));
         try {
-            Map<String, Object> remote = reconcileExisting ? client.findTenantServer(tenant.id()).orElse(null) : null;
-            if (remote == null) remote = client.item("POST", "/servers", serverRequest(tenant, plan));
-            Tenant updated = tenant.withRemote(remote);
-            tenants.put(tenant.id(), updated);
-            saveTenants();
-            return Map.of("tenant", updated.asMap(), "message", "Tenant server provisioned successfully.");
-        } catch (IOException | RuntimeException exception) {
-            Tenant failed = tenant.withState("error", safeError(exception.getMessage(), tenant));
-            tenants.put(tenant.id(), failed);
-            saveTenants();
-            throw exception;
+            RuntimeHandle runtime = runtimeFactory.start(configPath(proxy));
+            runtimes.put(key, runtime);
+            return replaceProxy(proxy.withState("running", ""));
+        } catch (Exception exception) {
+            return replaceProxy(proxy.withState("error", safeError(exception)));
         }
     }
 
-    private Map<String, Object> serverRequest(Tenant tenant, HostingPlan plan) {
-        Endpoint backend = endpoint(tenant.backendAddress());
-        Map<String, Object> environment = new LinkedHashMap<>();
-        environment.put("ONILINK_VERSION", settings.onilinkVersion());
-        environment.put("SERVER_JARFILE", "OniLink.jar");
-        environment.put("CONFIG_FILE", "config.properties");
-        environment.put("DASHBOARD_ENABLED", "true");
-        environment.put("ALLOWLIST_ENABLED", "false");
-        environment.put("BACKEND_HOST", backend.host());
-        environment.put("BACKEND_PORT", Integer.toString(backend.port()));
-        environment.put("SERVER_MOTD", tenant.customerLabel() + " Network");
-        environment.put("MAX_PLAYERS", Integer.toString(plan.maxPlayers()));
-        environment.put("ONIBRIDGE_FORWARDING_SECRET", tenant.forwardingSecret());
-        environment.put("ONIBRIDGE_SURVIVAL_SECRET", "");
-        environment.put("ONIBRIDGE_JAVA_SECRET", "");
-        environment.put("ONILINK_DASHBOARD_SETUP_CODE", tenant.setupCode());
-
-        Map<String, Object> request = new LinkedHashMap<>();
-        request.put("external_id", "onilink-tenant-" + tenant.id());
-        request.put("name", "OniLink - " + tenant.id());
-        request.put("description", "Isolated OniLink proxy instance for tenant " + tenant.id() + ".");
-        request.put("user", tenant.userId());
-        request.put("egg", settings.eggId());
-        request.put("docker_image", settings.dockerImage());
-        request.put("startup", settings.startup());
-        request.put("environment", environment);
-        Map<String, Object> limits = new LinkedHashMap<>();
-        limits.put("memory", plan.memory());
-        limits.put("swap", plan.swap());
-        limits.put("disk", plan.disk());
-        limits.put("io", plan.io());
-        limits.put("cpu", plan.cpu());
-        limits.put("threads", plan.threads().isBlank() ? null : plan.threads());
-        request.put("limits", limits);
-        request.put("feature_limits", Map.of(
-                "databases", plan.databases(),
-                "allocations", 0,
-                "backups", plan.backups()
-        ));
-        request.put("allocation", Map.of("default", tenant.allocationId()));
-        request.put("skip_scripts", false);
-        request.put("oom_disabled", false);
-        return request;
+    private ProxyInstance stopProxy(ProxyInstance proxy, String status, String error) {
+        stopRuntime(proxy);
+        return replaceProxy(proxy.withState(status, error));
     }
 
-    private void writeHandoff(Tenant tenant) throws IOException {
+    private void stopRuntime(ProxyInstance proxy) {
+        RuntimeHandle runtime = runtimes.remove(runtimeKey(proxy));
+        if (runtime != null) runtime.close();
+    }
+
+    private ProxyInstance replaceProxy(ProxyInstance proxy) {
+        proxies.put(runtimeKey(proxy), proxy);
+        return proxy;
+    }
+
+    private DashboardControl runningControl(ProxyInstance proxy) {
+        RuntimeHandle runtime = runtimes.get(runtimeKey(proxy));
+        if (runtime == null) throw new IllegalStateException("Start the proxy before using runtime controls");
+        return runtime.control();
+    }
+
+    private Map<String, Object> proxyView(ProxyInstance proxy) {
+        Map<String, Object> result = proxy.asMap();
+        result.put("running", runtimes.containsKey(runtimeKey(proxy)));
+        result.put("handoffAvailable", Files.isRegularFile(handoffPath(proxy)));
+        return result;
+    }
+
+    private void writeRuntimeFiles(ProxyInstance proxy) throws IOException {
+        Path directory = proxyDirectory(proxy);
+        Files.createDirectories(directory.resolve("secrets"));
+        Files.createDirectories(directory.resolve("cache"));
+        Files.createDirectories(directory.resolve("resource-packs"));
+        String secret = randomBase64(32);
+        atomicWrite(secretPath(proxy), (secret + "\n").getBytes(StandardCharsets.UTF_8));
+
+        Endpoint backend = endpoint(proxy.backendAddress());
+        Properties properties = ProxyConfig.defaultProperties();
+        properties.setProperty("listener.host", "0.0.0.0");
+        properties.setProperty("listener.port", Integer.toString(proxy.port()));
+        properties.setProperty("backend.name", "default");
+        properties.setProperty("backend.host", backend.host());
+        properties.setProperty("backend.port", Integer.toString(backend.port()));
+        properties.setProperty("backends", "default");
+        properties.setProperty("hubBackend", "default");
+        properties.setProperty("backend.default.host", backend.host());
+        properties.setProperty("backend.default.port", Integer.toString(backend.port()));
+        properties.setProperty("forwarding.proxyId", "tenant-" + proxy.tenantId() + "-" + proxy.id());
+        properties.setProperty("backend.default.forwarding.enabled", "true");
+        properties.setProperty("backend.default.forwarding.bridgeId", proxy.id() + "-main");
+        properties.setProperty("backend.default.forwarding.activeKeyId", "key-1");
+        properties.setProperty("backend.default.forwarding.activeSecretEnv", "");
+        properties.setProperty("backend.default.forwarding.activeSecretFile", "secrets/default.key");
+        properties.setProperty("motd", proxy.motd());
+        properties.setProperty("maxPlayers", Integer.toString(proxy.maxPlayers()));
+        properties.setProperty("publicAddress", proxy.publicAddress());
+        properties.setProperty("allowlist.file", "allowlist.properties");
+        properties.setProperty("resourcePacks.dir", "resource-packs");
+        properties.setProperty("dashboard.enabled", "false");
+        properties.setProperty("dashboard.dataDirectory", "dashboard-disabled");
+        storeProperties(configPath(proxy), properties,
+                "OniLink single-container tenant proxy " + proxy.tenantId() + "/" + proxy.id());
+    }
+
+    private void writeHandoff(ProxyInstance proxy) throws IOException {
+        String secret = Files.readString(secretPath(proxy), StandardCharsets.UTF_8).trim();
         String instructions = """
-                ONILINK TENANT HANDOFF
+                ONILINK SHARED-CONTROL-PLANE TENANT HANDOFF
 
                 Tenant: %s
-                Customer: %s
-                Isolation: one dedicated Pterodactyl server; no other tenant backends are present.
+                Proxy: %s (%s)
                 Player address: %s
-                Dashboard: http://%s/
-                One-time dashboard setup code: %s
+                Backend address: %s
 
-                PORTS
-                - The OniLink server uses one primary allocation. UDP is the Bedrock listener and TCP is the
-                  dashboard on the same numeric port.
-                - The BDS server keeps its own UDP allocation: %s
-                - OniBridge needs no additional allocation.
+                This proxy runs inside the provider's existing OniLink container. The customer signs in at the
+                provider's one dashboard URL with the tenant account supplied separately. No Pterodactyl server,
+                egg, or customer-side OniLink dashboard is created.
 
                 BACKEND INSTALL
-                1. Install the matching OniBridge .so in /home/container/plugins/ on the tenant's BDS server.
-                2. Upload backend/default.key and backend/onibridge.toml from this ZIP into:
+                1. Install the matching OniBridge .so on this proxy's BDS server.
+                2. Upload backend/default.key and backend/onibridge.toml from this ZIP to:
                    /home/container/plugins/onibridge/
-                3. Start BDS and confirm the native identity hook is active.
-                4. Start OniLink and use the setup code above to create the tenant's dashboard owner.
+                3. Start BDS and confirm the production identity hook is active.
+                4. Start or restart this proxy from the provider control plane.
 
-                Treat this ZIP as a secret. It contains the backend forwarding key and setup code.
-                """.formatted(tenant.id(), tenant.customerLabel(), tenant.proxyAddress(),
-                tenant.proxyAddress(), tenant.setupCode(), tenant.backendAddress());
+                Treat this ZIP as a secret. It contains the backend forwarding key.
+                """.formatted(proxy.tenantId(), proxy.id(), proxy.label(), proxy.publicAddress(),
+                proxy.backendAddress());
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         try (ZipOutputStream zip = new ZipOutputStream(bytes, StandardCharsets.UTF_8)) {
             zip(zip, "CUSTOMER-START-HERE.txt", instructions);
-            zip(zip, "backend/default.key", tenant.forwardingSecret() + "\n");
-            zip(zip, "backend/onibridge.toml", onibridgeToml(settings.bdsProfile(), tenant.trustedProxyCidr()));
+            zip(zip, "backend/default.key", secret + "\n");
+            zip(zip, "backend/onibridge.toml", onibridgeToml(
+                    proxy.id(), proxy.bdsProfile(), proxy.trustedProxyCidr()));
         }
-        atomicWrite(handoffPath(tenant.id()), bytes.toByteArray());
+        atomicWrite(handoffPath(proxy), bytes.toByteArray());
     }
 
     private static void zip(ZipOutputStream zip, String name, String content) throws IOException {
@@ -394,12 +493,12 @@ final class DashboardTenantHosting {
         zip.closeEntry();
     }
 
-    private static String onibridgeToml(String profile, String trustedProxyCidr) {
+    private static String onibridgeToml(String proxyId, String profile, String trustedProxyCidr) {
         return """
-                # Generated by the OniLink control plane for the isolated default backend.
+                # Generated for one proxy in the OniLink shared control plane.
                 # Install as: /home/container/plugins/onibridge/onibridge.toml
 
-                bridge_id = "default-main"
+                bridge_id = "%s-main"
                 backend_name = "default"
                 trusted_proxy_cidrs = ["%s"]
                 shutdown_on_hook_failure = true
@@ -436,162 +535,120 @@ final class DashboardTenantHosting {
 
                 [legacy_verification]
                 enabled = false
-                """.formatted(trustedProxyCidr, profile);
+                """.formatted(proxyId, trustedProxyCidr, profile);
     }
 
-    private Settings loadSettings() throws IOException {
-        if (!Files.isRegularFile(settingsPath)) return Settings.empty();
-        Properties properties = loadProperties(settingsPath);
-        int version = integer(properties.getProperty("version", "0"), "hosting storage version");
-        if (version != STORAGE_VERSION) throw new IOException("Unsupported dashboard hosting settings version");
-        return new Settings(
-                properties.getProperty("panelUrl", ""),
-                properties.getProperty("apiKey", ""),
-                integer(properties.getProperty("eggId", "0"), "egg ID"),
-                properties.getProperty("dockerImage", ""),
-                properties.getProperty("startup", ""),
-                properties.getProperty("onilinkVersion", "v0.1.5"),
-                properties.getProperty("bdsProfile", "bds-1.26.44.3-linux-x86_64-06effdd00067f1ae"),
-                properties.getProperty("updatedAt", "")
-        );
-    }
-
-    private void loadPlans() throws IOException {
-        if (!Files.isRegularFile(settingsPath)) return;
-        Properties properties = loadProperties(settingsPath);
-        for (String id : csv(properties.getProperty("plans", ""))) {
-            String prefix = "plan." + id + ".";
-            plans.put(id, new HostingPlan(
-                    id,
-                    properties.getProperty(prefix + "name", id),
-                    integer(properties.getProperty(prefix + "memory", "1024"), "plan memory"),
-                    integer(properties.getProperty(prefix + "swap", "0"), "plan swap"),
-                    integer(properties.getProperty(prefix + "disk", "1024"), "plan disk"),
-                    integer(properties.getProperty(prefix + "io", "500"), "plan I/O"),
-                    integer(properties.getProperty(prefix + "cpu", "100"), "plan CPU"),
-                    properties.getProperty(prefix + "threads", ""),
-                    integer(properties.getProperty(prefix + "databases", "0"), "plan databases"),
-                    0,
-                    integer(properties.getProperty(prefix + "backups", "1"), "plan backups"),
-                    integer(properties.getProperty(prefix + "maxPlayers", "20"), "plan players")
-            ));
-        }
-    }
-
-    private void loadTenants() throws IOException {
-        if (!Files.isRegularFile(tenantsPath)) return;
-        Properties properties = loadProperties(tenantsPath);
-        int version = integer(properties.getProperty("version", "0"), "tenant storage version");
-        if (version != STORAGE_VERSION) throw new IOException("Unsupported dashboard tenant storage version");
+    private void loadCatalog() throws IOException {
+        if (!Files.isRegularFile(catalogPath)) return;
+        Properties properties = loadProperties(catalogPath);
+        int version = integer(properties.getProperty("version", "0"), "tenancy storage version");
+        if (version != STORAGE_VERSION) throw new IOException("Unsupported tenancy storage version: " + version);
         for (String id : csv(properties.getProperty("tenants", ""))) {
             String prefix = "tenant." + id + ".";
-            tenants.put(id, new Tenant(
-                    id,
-                    properties.getProperty(prefix + "customerLabel", id),
-                    properties.getProperty(prefix + "planId", "starter"),
-                    integer(properties.getProperty(prefix + "userId", "0"), "tenant user ID"),
-                    properties.getProperty(prefix + "userDisplay", ""),
-                    integer(properties.getProperty(prefix + "nodeId", "0"), "tenant node ID"),
-                    integer(properties.getProperty(prefix + "allocationId", "0"), "tenant allocation ID"),
-                    properties.getProperty(prefix + "proxyAddress", ""),
+            Tenant tenant = new Tenant(
+                    slug(id, "stored tenant ID"),
+                    properties.getProperty(prefix + "label", id),
+                    Boolean.parseBoolean(properties.getProperty(prefix + "suspended", "false")),
+                    properties.getProperty(prefix + "createdAt", ""),
+                    properties.getProperty(prefix + "updatedAt", ""));
+            tenants.put(tenant.id(), tenant);
+        }
+        for (String item : csv(properties.getProperty("proxies", ""))) {
+            String[] ids = item.split("/", 2);
+            if (ids.length != 2) throw new IOException("Invalid stored tenant proxy ID: " + item);
+            String tenantId = slug(ids[0], "stored tenant ID");
+            String proxyId = slug(ids[1], "stored proxy ID");
+            if (!tenants.containsKey(tenantId)) throw new IOException("Stored proxy references an unknown tenant");
+            String prefix = "proxy." + tenantId + "." + proxyId + ".";
+            ProxyInstance proxy = new ProxyInstance(
+                    proxyId,
+                    tenantId,
+                    properties.getProperty(prefix + "label", proxyId),
+                    integer(properties.getProperty(prefix + "port"), "stored proxy port"),
+                    properties.getProperty(prefix + "publicAddress", ""),
                     properties.getProperty(prefix + "backendAddress", ""),
                     properties.getProperty(prefix + "trustedProxyCidr", ""),
-                    properties.getProperty(prefix + "forwardingSecret", ""),
-                    properties.getProperty(prefix + "setupCode", ""),
-                    integer(properties.getProperty(prefix + "serverId", "0"), "tenant server ID"),
-                    properties.getProperty(prefix + "uuid", ""),
-                    Boolean.parseBoolean(properties.getProperty(prefix + "suspended", "false")),
-                    properties.getProperty(prefix + "status", "unknown"),
+                    properties.getProperty(prefix + "bdsProfile", DEFAULT_BDS_PROFILE),
+                    integer(properties.getProperty(prefix + "maxPlayers", "20"), "stored maximum players"),
+                    properties.getProperty(prefix + "motd", "OniLink"),
+                    Boolean.parseBoolean(properties.getProperty(prefix + "enabled", "true")),
+                    properties.getProperty(prefix + "status", "stopped"),
                     properties.getProperty(prefix + "lastError", ""),
                     properties.getProperty(prefix + "createdAt", ""),
-                    properties.getProperty(prefix + "updatedAt", "")
-            ));
+                    properties.getProperty(prefix + "updatedAt", ""));
+            if (proxy.port() == providerPort || proxies.values().stream().anyMatch(value -> value.port() == proxy.port())) {
+                throw new IOException("Stored proxy allocation conflicts on port " + proxy.port());
+            }
+            proxies.put(runtimeKey(proxy), proxy);
         }
     }
 
-    private void saveSettings() throws IOException {
-        Properties properties = new Properties();
-        properties.setProperty("version", Integer.toString(STORAGE_VERSION));
-        properties.setProperty("panelUrl", settings.panelUrl());
-        properties.setProperty("apiKey", settings.apiKey());
-        properties.setProperty("eggId", Integer.toString(settings.eggId()));
-        properties.setProperty("dockerImage", settings.dockerImage());
-        properties.setProperty("startup", settings.startup());
-        properties.setProperty("onilinkVersion", settings.onilinkVersion());
-        properties.setProperty("bdsProfile", settings.bdsProfile());
-        properties.setProperty("updatedAt", settings.updatedAt());
-        properties.setProperty("plans", String.join(",", plans.keySet()));
-        for (HostingPlan plan : plans.values()) {
-            String prefix = "plan." + plan.id() + ".";
-            properties.setProperty(prefix + "name", plan.name());
-            properties.setProperty(prefix + "memory", Integer.toString(plan.memory()));
-            properties.setProperty(prefix + "swap", Integer.toString(plan.swap()));
-            properties.setProperty(prefix + "disk", Integer.toString(plan.disk()));
-            properties.setProperty(prefix + "io", Integer.toString(plan.io()));
-            properties.setProperty(prefix + "cpu", Integer.toString(plan.cpu()));
-            properties.setProperty(prefix + "threads", plan.threads());
-            properties.setProperty(prefix + "databases", Integer.toString(plan.databases()));
-            properties.setProperty(prefix + "backups", Integer.toString(plan.backups()));
-            properties.setProperty(prefix + "maxPlayers", Integer.toString(plan.maxPlayers()));
-        }
-        storeProperties(settingsPath, properties, "OniLink owner-only Pterodactyl hosting settings");
-    }
-
-    private void saveTenants() throws IOException {
+    private void saveCatalog() throws IOException {
         Properties properties = new Properties();
         properties.setProperty("version", Integer.toString(STORAGE_VERSION));
         properties.setProperty("tenants", String.join(",", tenants.keySet()));
         for (Tenant tenant : tenants.values()) {
             String prefix = "tenant." + tenant.id() + ".";
-            properties.setProperty(prefix + "customerLabel", tenant.customerLabel());
-            properties.setProperty(prefix + "planId", tenant.planId());
-            properties.setProperty(prefix + "userId", Integer.toString(tenant.userId()));
-            properties.setProperty(prefix + "userDisplay", tenant.userDisplay());
-            properties.setProperty(prefix + "nodeId", Integer.toString(tenant.nodeId()));
-            properties.setProperty(prefix + "allocationId", Integer.toString(tenant.allocationId()));
-            properties.setProperty(prefix + "proxyAddress", tenant.proxyAddress());
-            properties.setProperty(prefix + "backendAddress", tenant.backendAddress());
-            properties.setProperty(prefix + "trustedProxyCidr", tenant.trustedProxyCidr());
-            properties.setProperty(prefix + "forwardingSecret", tenant.forwardingSecret());
-            properties.setProperty(prefix + "setupCode", tenant.setupCode());
-            properties.setProperty(prefix + "serverId", Integer.toString(tenant.serverId()));
-            properties.setProperty(prefix + "uuid", tenant.uuid());
+            properties.setProperty(prefix + "label", tenant.label());
             properties.setProperty(prefix + "suspended", Boolean.toString(tenant.suspended()));
-            properties.setProperty(prefix + "status", tenant.status());
-            properties.setProperty(prefix + "lastError", tenant.lastError());
             properties.setProperty(prefix + "createdAt", tenant.createdAt());
             properties.setProperty(prefix + "updatedAt", tenant.updatedAt());
         }
-        storeProperties(tenantsPath, properties, "OniLink owner-only tenant records and handoff secrets");
-    }
-
-    private PterodactylApplicationClient client() {
-        if (settings.panelUrl().isBlank() || settings.apiKey().isBlank()) {
-            throw new IllegalStateException("Save the Pterodactyl panel URL and application API key first");
+        properties.setProperty("proxies", String.join(",", proxies.values().stream()
+                .map(proxy -> proxy.tenantId() + "/" + proxy.id()).toList()));
+        for (ProxyInstance proxy : proxies.values()) {
+            String prefix = "proxy." + proxy.tenantId() + "." + proxy.id() + ".";
+            properties.setProperty(prefix + "label", proxy.label());
+            properties.setProperty(prefix + "port", Integer.toString(proxy.port()));
+            properties.setProperty(prefix + "publicAddress", proxy.publicAddress());
+            properties.setProperty(prefix + "backendAddress", proxy.backendAddress());
+            properties.setProperty(prefix + "trustedProxyCidr", proxy.trustedProxyCidr());
+            properties.setProperty(prefix + "bdsProfile", proxy.bdsProfile());
+            properties.setProperty(prefix + "maxPlayers", Integer.toString(proxy.maxPlayers()));
+            properties.setProperty(prefix + "motd", proxy.motd());
+            properties.setProperty(prefix + "enabled", Boolean.toString(proxy.enabled()));
+            properties.setProperty(prefix + "status", proxy.status());
+            properties.setProperty(prefix + "lastError", proxy.lastError());
+            properties.setProperty(prefix + "createdAt", proxy.createdAt());
+            properties.setProperty(prefix + "updatedAt", proxy.updatedAt());
         }
-        return new PterodactylApplicationClient(settings.panelUrl(), settings.apiKey());
+        storeProperties(catalogPath, properties,
+                "OniLink single-container tenant and proxy catalog — contains no forwarding keys");
     }
 
-    private void requireConfigured() {
-        if (!settings.configured()) {
-            throw new IllegalStateException("Save the Pterodactyl connection and OniLink egg settings first");
-        }
+    private Tenant existingTenant(String rawTenant) {
+        String tenantId = slug(rawTenant, "tenant ID");
+        return Optional.ofNullable(tenants.get(tenantId))
+                .orElseThrow(() -> new IllegalArgumentException("Tenant does not exist"));
     }
 
-    private Path handoffPath(String tenantId) {
-        return handoffDirectory.resolve(tenantId + ".handoff.zip");
+    private ProxyInstance existingProxy(String rawTenant, String rawProxy) {
+        String tenantId = existingTenant(rawTenant).id();
+        String proxyId = slug(rawProxy, "proxy ID");
+        return Optional.ofNullable(proxies.get(runtimeKey(tenantId, proxyId)))
+                .orElseThrow(() -> new IllegalArgumentException("Proxy does not exist for this tenant"));
+    }
+
+    private Path proxyDirectory(ProxyInstance proxy) {
+        return runtimeDirectory.resolve(proxy.tenantId()).resolve(proxy.id());
+    }
+
+    private Path configPath(ProxyInstance proxy) {
+        return proxyDirectory(proxy).resolve("config.properties");
+    }
+
+    private Path secretPath(ProxyInstance proxy) {
+        return proxyDirectory(proxy).resolve("secrets").resolve("default.key");
+    }
+
+    private Path handoffPath(ProxyInstance proxy) {
+        return handoffDirectory.resolve(proxy.tenantId() + "--" + proxy.id() + ".handoff.zip");
     }
 
     private String randomBase64(int bytes) {
-        byte[] value = new byte[bytes];
-        random.nextBytes(value);
-        return Base64.getEncoder().encodeToString(value);
-    }
-
-    private String randomUrlToken(int bytes) {
-        byte[] value = new byte[bytes];
-        random.nextBytes(value);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(value);
+        byte[] data = new byte[bytes];
+        random.nextBytes(data);
+        return Base64.getEncoder().encodeToString(data);
     }
 
     private static void storeProperties(Path target, Properties properties, String comment) throws IOException {
@@ -627,60 +684,66 @@ final class DashboardTenantHosting {
         try {
             Files.setPosixFilePermissions(path, OWNER_ONLY);
         } catch (UnsupportedOperationException | IOException ignored) {
-            // Windows inherits ACLs from the dashboard directory; POSIX deployments get explicit 0600.
+            // Windows inherits ACLs; POSIX deployments get explicit owner-only credential files.
         }
     }
 
-    private static String normalizedPanelUrl(String raw) {
-        String value = required(raw, "Panel URL", 2_000);
-        URI uri;
-        try {
-            uri = URI.create(value);
-        } catch (IllegalArgumentException exception) {
-            throw new IllegalArgumentException("Panel URL is invalid");
-        }
-        if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.getHost() == null
-                || uri.getUserInfo() != null || uri.getQuery() != null || uri.getFragment() != null) {
-            throw new IllegalArgumentException("Panel URL must be a plain HTTPS origin");
-        }
-        String path = value.endsWith("/") ? value.substring(0, value.length() - 1) : value;
-        if (!URI.create(path).getPath().matches("/?")) {
-            throw new IllegalArgumentException("Panel URL must not include a path");
-        }
-        return path;
+    private void ensureOpen() {
+        if (closed) throw new IllegalStateException("Tenant control plane is closed");
+    }
+
+    private static String normalizedScope(String raw) {
+        if (raw == null || raw.isBlank()) return "";
+        return slug(raw, "tenant scope");
+    }
+
+    private static String runtimeKey(ProxyInstance proxy) {
+        return runtimeKey(proxy.tenantId(), proxy.id());
+    }
+
+    private static String runtimeKey(String tenantId, String proxyId) {
+        return tenantId + "/" + proxyId;
     }
 
     private static String slug(String raw, String label) {
-        String value = required(raw, label, 32).toLowerCase(Locale.ROOT);
-        if (!SLUG.matcher(value).matches()) {
-            throw new IllegalArgumentException(label + " must be 2-32 lowercase letters, numbers, or hyphens and start with a letter");
+        String candidate = required(raw, label, 32).toLowerCase(Locale.ROOT);
+        if (!SLUG.matcher(candidate).matches()) {
+            throw new IllegalArgumentException(
+                    label + " must be 2-32 lowercase letters, numbers, or hyphens and start with a letter");
         }
-        return value;
+        return candidate;
     }
 
     private static String required(String raw, String label, int maximum) {
-        String value = value(raw).trim();
-        if (value.isBlank()) throw new IllegalArgumentException(label + " is required");
-        if (value.length() > maximum) throw new IllegalArgumentException(label + " is too long");
-        return value;
+        String candidate = value(raw).trim();
+        if (candidate.isBlank()) throw new IllegalArgumentException(label + " is required");
+        if (candidate.length() > maximum) throw new IllegalArgumentException(label + " is too long");
+        return candidate;
+    }
+
+    private static String defaulted(String raw, String fallback) {
+        String candidate = value(raw).trim();
+        return candidate.isBlank() ? fallback : candidate;
     }
 
     private static String safeIdentifier(String raw, String label, int maximum) {
-        String value = required(raw, label, maximum);
-        if (!value.matches("[A-Za-z0-9._-]+")) {
-            throw new IllegalArgumentException(label + " may contain only letters, numbers, periods, underscores, and hyphens");
+        String candidate = required(raw, label, maximum);
+        if (!candidate.matches("[A-Za-z0-9._-]+")) {
+            throw new IllegalArgumentException(
+                    label + " may contain only letters, numbers, periods, underscores, and hyphens");
         }
-        return value;
+        return candidate;
     }
 
-    private static String optional(String raw, int maximum) {
-        String value = value(raw).trim();
-        if (value.length() > maximum) throw new IllegalArgumentException("Value is too long");
-        return value;
-    }
-
-    private static int positiveInt(String raw, String label) {
-        return boundedInt(raw, label, 1, Integer.MAX_VALUE);
+    private static String publicHost(String raw) {
+        String candidate = required(raw, "Public proxy host", 253);
+        if (candidate.startsWith("[") && candidate.endsWith("]")) {
+            candidate = candidate.substring(1, candidate.length() - 1);
+        }
+        if (!PUBLIC_HOST.matcher(candidate).matches() || candidate.startsWith(".") || candidate.endsWith(".")) {
+            throw new IllegalArgumentException("Public proxy host must be an IP address or DNS name without a port");
+        }
+        return candidate;
     }
 
     private static int boundedInt(String raw, String label, int minimum, int maximum) {
@@ -688,9 +751,23 @@ final class DashboardTenantHosting {
     }
 
     private static int boundedIntDefault(String raw, String label, int fallback, int minimum, int maximum) {
-        String value = value(raw).trim();
-        if (value.isBlank() && fallback != Integer.MIN_VALUE) return fallback;
-        int parsed = integer(value, label);
+        String candidate = value(raw).trim();
+        if (candidate.isBlank() && fallback != Integer.MIN_VALUE) return fallback;
+        int parsed = integer(candidate, label);
+        if (parsed < minimum || parsed > maximum) {
+            throw new IllegalArgumentException(label + " must be between " + minimum + " and " + maximum);
+        }
+        return parsed;
+    }
+
+    private static long boundedLongDefault(String raw, String label, long fallback, long minimum, long maximum) {
+        String candidate = value(raw).trim();
+        long parsed;
+        try {
+            parsed = candidate.isBlank() ? fallback : Long.parseLong(candidate);
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException(label + " must be a number");
+        }
         if (parsed < minimum || parsed > maximum) {
             throw new IllegalArgumentException(label + " must be between " + minimum + " and " + maximum);
         }
@@ -706,173 +783,99 @@ final class DashboardTenantHosting {
     }
 
     private static Endpoint endpoint(String raw) {
-        String value = raw.trim();
+        String candidate = raw.trim();
         String host;
         String portText;
-        if (value.startsWith("[")) {
-            int close = value.indexOf(']');
-            if (close < 2 || close + 2 > value.length() || value.charAt(close + 1) != ':') {
+        if (candidate.startsWith("[")) {
+            int close = candidate.indexOf(']');
+            if (close < 2 || close + 2 > candidate.length() || candidate.charAt(close + 1) != ':') {
                 throw new IllegalArgumentException("Backend address must be host:port or [IPv6]:port");
             }
-            host = value.substring(1, close);
-            portText = value.substring(close + 2);
+            host = candidate.substring(1, close);
+            portText = candidate.substring(close + 2);
         } else {
-            int separator = value.lastIndexOf(':');
-            if (separator < 1 || value.indexOf(':') != separator) {
+            int separator = candidate.lastIndexOf(':');
+            if (separator < 1 || candidate.indexOf(':') != separator) {
                 throw new IllegalArgumentException("Backend address must be host:port or [IPv6]:port");
             }
-            host = value.substring(0, separator);
-            portText = value.substring(separator + 1);
+            host = candidate.substring(0, separator);
+            portText = candidate.substring(separator + 1);
         }
         if (host.isBlank() || host.length() > 253) throw new IllegalArgumentException("Backend host is invalid");
-        int port = boundedInt(portText, "backend port", 1, 65_535);
-        return new Endpoint(host, port);
+        return new Endpoint(host, boundedInt(portText, "backend port", 1, 65_535));
     }
 
     private static String exactCidr(String raw) {
-        String value = required(raw, "Proxy source IP", 128);
-        if (!value.matches("[0-9a-fA-F:.]+")) {
+        String candidate = required(raw, "Proxy source IP", 128);
+        if (!candidate.matches("[0-9a-fA-F:.]+")) {
             throw new IllegalArgumentException("Proxy source IP must be an IPv4 or IPv6 address, not a hostname");
         }
         try {
-            InetAddress parsed = InetAddress.getByName(value);
+            InetAddress parsed = InetAddress.getByName(candidate);
             return parsed.getHostAddress() + (parsed.getAddress().length == 4 ? "/32" : "/128");
         } catch (IOException exception) {
             throw new IllegalArgumentException("Proxy source IP is invalid");
         }
     }
 
-    private static String endpointAddress(Map<String, Object> allocation) {
-        String host = text(allocation.get("alias"));
-        if (host.isBlank()) host = text(allocation.get("ip"));
-        if (host.contains(":") && !host.startsWith("[")) host = "[" + host + "]";
-        return host + ":" + number(allocation.get("port"));
+    private static String displayEndpoint(String host, int port) {
+        return (host.contains(":") ? "[" + host + "]" : host) + ":" + port;
     }
 
-    @SuppressWarnings("unchecked")
-    private static String preferredDockerImage(Map<String, Object> egg) {
-        Object images = egg.get("docker_images");
-        if (images instanceof Map<?, ?> map && !map.isEmpty()) {
-            return text(map.values().iterator().next());
-        }
-        if (images instanceof List<?> list && !list.isEmpty()) return text(list.get(0));
-        return text(egg.get("docker_image"));
-    }
-
-    private static String displayName(Map<String, Object> user) {
-        String full = (text(user.get("first_name")) + " " + text(user.get("last_name"))).trim();
-        return full.isBlank() ? text(user.get("username")) : full;
-    }
-
-    private static String safeError(String message, Tenant tenant) {
-        String value = message == null ? "Provisioning failed" : message;
-        value = value.replace(tenant.forwardingSecret(), "[redacted]")
-                .replace(tenant.setupCode(), "[redacted]");
-        return value.substring(0, Math.min(value.length(), 500));
+    private static String safeError(Exception exception) {
+        String message = exception.getMessage();
+        if (message == null || message.isBlank()) message = exception.getClass().getSimpleName();
+        return message.substring(0, Math.min(message.length(), 500));
     }
 
     private static List<String> csv(String raw) {
         if (raw == null || raw.isBlank()) return List.of();
         List<String> values = new ArrayList<>();
-        for (String value : raw.split(",")) if (!value.isBlank()) values.add(value.trim());
+        for (String item : raw.split(",")) if (!item.isBlank()) values.add(item.trim());
         return values;
     }
 
-    private static String text(Object value) {
-        return value == null ? "" : String.valueOf(value);
+    private static String value(String raw) {
+        return raw == null ? "" : raw;
     }
 
-    private static String value(String value) {
-        return value == null ? "" : value;
+    @Override
+    public synchronized void close() {
+        if (closed) return;
+        closed = true;
+        for (RuntimeHandle runtime : new ArrayList<>(runtimes.values())) runtime.close();
+        runtimes.clear();
     }
 
-    private static int number(Object value) {
-        if (value instanceof Number number) return number.intValue();
-        return integer(text(value), "API value");
-    }
-
-    private static boolean booleanValue(Object value) {
-        return value instanceof Boolean bool ? bool : Boolean.parseBoolean(text(value));
-    }
-
-    private record Settings(
-            String panelUrl,
-            String apiKey,
-            int eggId,
-            String dockerImage,
-            String startup,
-            String onilinkVersion,
-            String bdsProfile,
-            String updatedAt
-    ) {
-        static Settings empty() {
-            return new Settings("", "", 0, "ghcr.io/ptero-eggs/yolks:java_21",
-                    "bash ./start-onilink.sh",
-                    "v0.1.5", "bds-1.26.44.3-linux-x86_64-06effdd00067f1ae", "");
-        }
-
-        boolean configured() {
-            return !panelUrl.isBlank() && !apiKey.isBlank() && eggId > 0
-                    && !dockerImage.isBlank() && !startup.isBlank();
-        }
-
-        Map<String, Object> asMap() {
+    private record Tenant(String id, String label, boolean suspended, String createdAt, String updatedAt) {
+        Map<String, Object> asMap(List<DashboardAccounts.UserView> users) {
             Map<String, Object> result = new LinkedHashMap<>();
-            result.put("configured", configured());
-            result.put("panelUrl", panelUrl);
-            result.put("apiKeyConfigured", !apiKey.isBlank());
-            result.put("apiKeyHint", apiKey.isBlank() ? "" : "••••" + apiKey.substring(Math.max(0, apiKey.length() - 4)));
-            result.put("eggId", eggId);
-            result.put("dockerImage", dockerImage);
-            result.put("startup", startup);
-            result.put("onilinkVersion", onilinkVersion);
-            result.put("bdsProfile", bdsProfile);
+            result.put("id", id);
+            result.put("label", label);
+            result.put("suspended", suspended);
+            result.put("users", users.stream().map(DashboardAccounts.UserView::asMap).toList());
+            result.put("createdAt", createdAt);
             result.put("updatedAt", updatedAt);
             return result;
         }
-    }
 
-    private record HostingPlan(
-            String id,
-            String name,
-            int memory,
-            int swap,
-            int disk,
-            int io,
-            int cpu,
-            String threads,
-            int databases,
-            int allocations,
-            int backups,
-            int maxPlayers
-    ) {
-        Map<String, Object> asMap() {
-            return Map.ofEntries(
-                    Map.entry("id", id), Map.entry("name", name),
-                    Map.entry("memory", memory), Map.entry("swap", swap),
-                    Map.entry("disk", disk), Map.entry("io", io),
-                    Map.entry("cpu", cpu), Map.entry("threads", threads),
-                    Map.entry("databases", databases), Map.entry("allocations", allocations),
-                    Map.entry("backups", backups), Map.entry("maxPlayers", maxPlayers));
+        Tenant withSuspended(boolean value) {
+            return new Tenant(id, label, value, createdAt, Instant.now().toString());
         }
     }
 
-    private record Tenant(
+    private record ProxyInstance(
             String id,
-            String customerLabel,
-            String planId,
-            int userId,
-            String userDisplay,
-            int nodeId,
-            int allocationId,
-            String proxyAddress,
+            String tenantId,
+            String label,
+            int port,
+            String publicAddress,
             String backendAddress,
             String trustedProxyCidr,
-            String forwardingSecret,
-            String setupCode,
-            int serverId,
-            String uuid,
-            boolean suspended,
+            String bdsProfile,
+            int maxPlayers,
+            String motd,
+            boolean enabled,
             String status,
             String lastError,
             String createdAt,
@@ -881,48 +884,39 @@ final class DashboardTenantHosting {
         Map<String, Object> asMap() {
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("id", id);
-            result.put("customerLabel", customerLabel);
-            result.put("plan", planId);
-            result.put("userId", userId);
-            result.put("userDisplay", userDisplay);
-            result.put("nodeId", nodeId);
-            result.put("allocationId", allocationId);
-            result.put("proxyAddress", proxyAddress);
+            result.put("tenantId", tenantId);
+            result.put("label", label);
+            result.put("port", port);
+            result.put("publicAddress", publicAddress);
             result.put("backendAddress", backendAddress);
-            result.put("serverId", serverId);
-            result.put("uuid", uuid);
-            result.put("suspended", suspended);
+            result.put("trustedProxyCidr", trustedProxyCidr);
+            result.put("bdsProfile", bdsProfile);
+            result.put("maxPlayers", maxPlayers);
+            result.put("motd", motd);
+            result.put("enabled", enabled);
             result.put("status", status);
             result.put("lastError", lastError);
-            result.put("handoffAvailable", !forwardingSecret.isBlank() && !setupCode.isBlank());
             result.put("createdAt", createdAt);
             result.put("updatedAt", updatedAt);
             return result;
         }
 
-        Tenant withRemote(Map<String, Object> remote) {
-            boolean remoteSuspended = booleanValue(remote.get("suspended"));
-            String remoteStatus = text(remote.get("status"));
-            if (remoteStatus.isBlank() || "null".equals(remoteStatus)) {
-                remoteStatus = remoteSuspended ? "suspended" : "active";
-            }
-            return new Tenant(id, customerLabel, planId, userId, userDisplay, nodeId,
-                    allocationId, proxyAddress, backendAddress, trustedProxyCidr, forwardingSecret,
-                    setupCode, number(remote.get("id")), text(remote.get("uuid")), remoteSuspended,
-                    remoteStatus, "", createdAt, Instant.now().toString());
+        ProxyInstance withEnabled(boolean value) {
+            return new ProxyInstance(id, tenantId, label, port, publicAddress, backendAddress,
+                    trustedProxyCidr, bdsProfile, maxPlayers, motd, value, status, lastError,
+                    createdAt, Instant.now().toString());
         }
 
-        Tenant withState(String state, String error) {
-            return new Tenant(id, customerLabel, planId, userId, userDisplay, nodeId,
-                    allocationId, proxyAddress, backendAddress, trustedProxyCidr, forwardingSecret,
-                    setupCode, serverId, uuid, suspended, state, error, createdAt, Instant.now().toString());
+        ProxyInstance withState(String state, String error) {
+            return new ProxyInstance(id, tenantId, label, port, publicAddress, backendAddress,
+                    trustedProxyCidr, bdsProfile, maxPlayers, motd, enabled, state, error,
+                    createdAt, Instant.now().toString());
         }
     }
 
     private record Endpoint(String host, int port) {
         String display() {
-            return (host.contains(":") ? "[" + host + "]" : host) + ":" + port;
+            return displayEndpoint(host, port);
         }
     }
-
 }

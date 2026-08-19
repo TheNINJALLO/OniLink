@@ -1,0 +1,256 @@
+.appShell {
+  min-height: 100vh;
+}
+.sidebar {
+  position: fixed;
+  z-index: 30;
+  inset: 0 auto 0 0;
+  display: flex;
+  width: 248px;
+  flex-direction: column;
+  border-right: 1px solid #1f3044;
+  background: #091421;
+}
+.sidebarBrand {
+  display: flex;
+  min-height: 74px;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-bottom: 1px solid #1f3044;
+}
+.sidebarBrand > span,
+.sidebarFoot span,
+.identity span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+.sidebarBrand strong {
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+}
+.sidebarBrand small,
+.sidebarFoot small,
+.identity small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-transform: capitalize;
+}
+.brandMark {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid #28617a;
+  border-radius: 9px;
+  background: #0c2838;
+  color: var(--cyan);
+}
+.brandMark svg {
+  width: 28px;
+  height: 28px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+.brandMark circle {
+  fill: var(--cyan);
+  stroke: none;
+}
+.sidebar nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.8rem;
+}
+.sidebar nav section + section {
+  margin-top: 1rem;
+}
+.sidebar nav h2 {
+  padding: 0 0.6rem;
+  color: #6f8297;
+  font-size: 0.64rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.sidebar nav button {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  gap: 0.7rem;
+  margin: 0.12rem 0;
+  padding: 0.65rem 0.7rem;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: #afbdcd;
+  cursor: pointer;
+  text-align: left;
+}
+.sidebar nav button:hover {
+  background: #111f2f;
+  color: var(--text);
+}
+.sidebar nav button.active {
+  border-color: #234e66;
+  background: #0e2939;
+  color: #c9f6ff;
+}
+.sidebarFoot {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 1rem;
+  border-top: 1px solid #1f3044;
+  color: var(--green);
+}
+.workspace {
+  min-width: 0;
+  margin-left: 248px;
+}
+.topbar {
+  position: sticky;
+  z-index: 20;
+  top: 0;
+  display: flex;
+  min-height: 74px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1.5rem;
+  border-bottom: 1px solid #203146;
+  background: rgba(7, 16, 29, 0.96);
+}
+.connection,
+.identity {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.refreshTime {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+.content {
+  width: min(1500px, 100%);
+  margin: 0 auto;
+  padding: 2rem;
+}
+.pageHeader {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 2rem;
+  margin-bottom: 1.35rem;
+}
+.pageHeader p:last-child {
+  max-width: 720px;
+  margin: 0;
+}
+.headerActions,
+.buttonRow,
+.rowActions,
+.dialogActions,
+.wizardActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+}
+.metricGrid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+}
+.twoColumn {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.twoColumn.uneven {
+  grid-template-columns: minmax(280px, 0.7fr) minmax(0, 1.3fr);
+}
+.threeColumn {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+  align-items: start;
+}
+.sectionTitle {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.centerState,
+.boot {
+  display: grid;
+  min-height: 60vh;
+  place-content: center;
+  justify-items: center;
+  padding: 2rem;
+  text-align: center;
+}
+.authPage {
+  display: grid;
+  min-height: 100vh;
+  grid-template-columns: minmax(300px, 0.85fr) minmax(440px, 1.15fr);
+}
+.authBrand,
+.authPanel {
+  display: grid;
+  min-width: 0;
+  align-content: center;
+  padding: clamp(2rem, 7vw, 7rem);
+}
+.authBrand {
+  background: #091725;
+  border-right: 1px solid #223448;
+}
+.authBrand .brandMark {
+  width: 58px;
+  height: 58px;
+  margin-bottom: 2rem;
+}
+.authBrand h1 {
+  max-width: 520px;
+  font-size: clamp(2.25rem, 4vw, 4rem);
+}
+.authBrand > p {
+  max-width: 580px;
+}
+.authTrust {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 2rem;
+}
+.authTrust span {
+  padding: 0.35rem 0.6rem;
+  border: 1px solid #2c4054;
+  border-radius: 99px;
+  color: #aebccd;
+  font-size: 0.72rem;
+}
+.authFormWrap {
+  width: 100%;
+  max-width: 440px;
+  min-width: 0;
+  margin: auto;
+}
+.authFormWrap h2 {
+  font-size: 1.55rem;
+}
+.authFormWrap form {
+  margin-top: 1.5rem;
+}
+.drawerBackdrop,
+.drawerClose,
+.menuButton {
+  display: none;
+}

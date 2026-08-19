@@ -3,17 +3,18 @@
 Use a separate Pterodactyl server for OniLink and for every BDS or Geyser backend. The proxy allocation is public; backend allocations are private or firewalled to the proxy.
 
 > [!NOTE]
-> Assign exactly one primary allocation to OniLink. Its Bedrock listener uses UDP and its dashboard
-> uses TCP on the same numeric port. Adding backends does not add OniLink allocations; each backend
-> uses the one UDP allocation assigned to its own server.
+> The primary allocation carries the provider proxy over UDP and the shared dashboard over TCP.
+> Each tenant proxy needs one additional UDP allocation assigned to this same OniLink server.
+> Adding a backend route to an existing proxy does not add another OniLink allocation.
 
-To sell isolated OniLink instances, use the owner-only **Tenant Hosting** page in the main control
-plane, then follow [Commercial tenant hosting](TENANT_HOSTING.md). The CLI is only a recovery and
-scripted-automation fallback.
+To provide customer access, use **Tenant Setup** in the existing OniLink control plane. Customers
+sign in at the same URL and see only their own proxies. OniLink does not create more Pterodactyl
+servers or eggs and does not need an Application API key. Follow
+[Single-container tenant hosting](TENANT_HOSTING.md).
 
 ## Import the OniLink egg
 
-Download `egg-onilink.json` from the [current release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.5) or [`packaging/pterodactyl`](../packaging/pterodactyl/README.md).
+Download `egg-onilink.json` from the [current release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.6) or [`packaging/pterodactyl`](../packaging/pterodactyl/README.md).
 
 1. Open **Admin Panel → Nests**.
 2. Select or create a nest and choose **Import Egg**.
@@ -31,7 +32,7 @@ The installer downloads the exact `ONILINK_VERSION` bootstrap tag, verifies `Oni
 
 If GitHub is unavailable or verification fails, startup keeps the currently installed JAR. A successful replacement retains the prior version as `OniLink.jar.previous`, preserves active `config.properties`, updates only `onilink.properties.example`, and records the active release tag in `.onilink-version`. A changed updater is saved as `start-onilink.sh.previous` and takes over on the next restart.
 
-Existing updater-enabled containers discover v0.1.5 and replace `OniLink.jar` on restart. No egg reimport is required for the owner-only tenant-hosting page. Reimport the v0.1.5 egg when creating hosted instances so the panel receives the current administrator-only variables and install defaults; runtime updates do not rewrite Pterodactyl's stored egg definition.
+Existing updater-enabled containers discover the newest stable release and replace `OniLink.jar` on restart. No egg reimport is required for the single-container tenant dashboard because its accounts, catalogs, and proxy supervisor are part of the JAR. Runtime updates do not rewrite Pterodactyl's stored egg definition; reimport the egg only when you need newly added panel variables or install-script changes.
 
 ### Enable the authenticated allowlist
 
@@ -191,7 +192,7 @@ The relevant layout is:
 /home/container/
 ├── bedrock_server
 ├── plugins/
-│   ├── onibridge-0.1.5-bds-1.26.44.3-linux-x86_64.so
+│   ├── onibridge-0.1.6-bds-1.26.44.3-linux-x86_64.so
 │   └── onibridge/
 │       ├── survival.key          # when using the dashboard/file method
 │       └── onibridge.toml

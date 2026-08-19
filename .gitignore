@@ -3,6 +3,7 @@
 build/
 dist/
 **/.gradle/
+**/node_modules/
 *.class
 *.zip
 *.pdb

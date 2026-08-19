@@ -17,6 +17,7 @@ The dashboard is built into `OniLink.jar`; there is no second service, database,
 | Operations | Network alert, bounded log tail, redacted support bundle, and graceful shutdown |
 | Security | First-run owner claim, PBKDF2 password hashes, expiring bearer sessions, roles, optional TOTP, login throttling, and append-only audit records |
 | Integration | Prometheus-format `/metrics` for authenticated viewers and JSON APIs used by the bundled UI |
+| Tenancy | Owner-created customer scopes, multiple isolated proxy listeners, shared login URL, and cross-tenant API enforcement |
 
 ## 1. Configure the listener
 
@@ -98,7 +99,8 @@ For automated provisioning, an administrator may set a random value of at least 
 
 ## 3. Assign roles
 
-The owner creates additional accounts under **Account → Dashboard users**.
+The owner creates provider-operator accounts under **Account → Dashboard users**. Customer accounts
+are created under **Tenant Hosting** so they receive a mandatory tenant scope.
 
 | Role | Access |
 | --- | --- |
@@ -106,6 +108,7 @@ The owner creates additional accounts under **Account → Dashboard users**.
 | `operator` | Viewer access plus logs, alerts, transfer, disconnect, and packet trace |
 | `admin` | Operator access plus endpoint details, configuration, audit, and support bundles |
 | `owner` | All access plus user administration and proxy shutdown |
+| `tenant` | Only the assigned tenant's **My Proxies** page and proxy-scoped operations |
 
 OniLink permits one owner account. Give routine operators `operator`, and reserve owner access for account recovery and shutdown.
 
@@ -145,17 +148,17 @@ The result is shown once. Download both files and place them in `/home/container
 
 The secret is never written into `config.properties` or the audit record. See [Adding another BDS backend](ADDING_BACKEND.md) for a worked Pterodactyl example, manual setup, routing/failover choices, and troubleshooting.
 
-### Operate commercial tenants
+### Operate tenant proxies
 
-Owners can open **Tenant Hosting** to connect a Pterodactyl Application API, define resource plans,
-create or select customer accounts, choose live unassigned node allocations, and provision one
-isolated OniLink server per customer. The same page synchronizes state, retries interrupted creates,
-suspends/restores service, and downloads the customer's private backend/setup handoff.
+Owners can open **Tenant Hosting** to create customer-scoped dashboard accounts and isolated proxy
+listeners inside the existing OniLink container. Each logical proxy uses one additional UDP
+allocation assigned to the same Pterodactyl server. OniLink does not create another server or egg
+and does not use a Pterodactyl Application API key.
 
-The Pterodactyl key remains server-side and is redacted from every dashboard response. Tenant
-records and handoffs are stored beneath `dashboard/hosting/`; treat that directory as credential
-material. Use this provider page only through restricted HTTPS. The complete field-by-field and
-security guide is [Commercial tenant hosting](TENANT_HOSTING.md).
+Tenants sign in at the same URL and land on **My Proxies**. They see only their tenant's listeners,
+players, backends, allowlists, handoffs, and lifecycle controls. Tenant configuration and keys are
+stored beneath `dashboard/tenancy/`; treat the complete `dashboard/` directory as credential
+material. The field-by-field guide is [Single-container tenant hosting](TENANT_HOSTING.md).
 
 ### Edit configuration safely
 
@@ -200,13 +203,80 @@ Set **Enable operations dashboard** to `false` when no web listener should be ex
 dashboard/
 ├── accounts.properties       # password hashes, roles, and permission-protected TOTP material
 ├── audit.jsonl               # append-only operator activity
-├── hosting/                  # owner-only panel key, plans, tenant records, and handoffs
+├── tenancy/                  # scoped proxy catalogs, runtime configs, keys, and handoffs
 └── FIRST_RUN_SETUP.txt       # present only until owner setup
 ```
 
 Back up `dashboard/` and `config.properties` together. Protect backups as credentials: the account file does not contain passwords, but offline access permits password-hash attacks and exposes TOTP secrets.
 
-## 7. Recovery and troubleshooting
+## 7. Frontend development and embedded builds
+
+The production control plane is a React and strict-TypeScript application in `OniLink/dashboard-ui/`.
+Node is used only while building; the deployed service remains the single Java process:
+
+```text
+java -jar OniLink.jar config.properties
+```
+
+Use Node.js 22 and the committed npm lockfile for local work:
+
+```bash
+cd OniLink/dashboard-ui
+npm ci
+npm run format:check
+npm run lint
+npm run typecheck
+npm run test -- --run
+npm run build
+```
+
+`npm run dev` starts Vite on port 5173 and proxies `/api`, `/health`, and `/metrics` to
+`http://127.0.0.1:8080`. Start a local OniLink instance with its dashboard on that address before
+testing workflows against real server state. The development server is not a production deployment.
+
+Gradle owns the release build. `npmInstall` uses `npm.cmd` on Windows and `npm` on Linux, while
+`dashboardBuild` produces content-hashed assets. `processResources` places the result beneath
+`/dashboard/`, and `standaloneJar` packages it into `dist/OniLink.jar`:
+
+```bash
+cd OniLink
+./gradlew test standaloneJar --no-daemon
+jar tf dist/OniLink.jar | grep dashboard
+```
+
+On Windows PowerShell, inspect the JAR with:
+
+```powershell
+./gradlew.bat test standaloneJar --no-daemon
+jar tf dist/OniLink.jar | Select-String dashboard
+```
+
+The embedded server sends HTML with `Cache-Control: no-store` and may cache Vite's hashed assets as
+immutable. It serves only the generated index and known files below `/assets/`; unknown files,
+encoded paths, traversal attempts, and arbitrary classpath resources return `404`. API, health, and
+metrics routes never fall back to the application shell.
+
+### Content Security Policy
+
+The UI is intentionally compatible with OniLink's existing strict policy:
+
+```text
+default-src 'self'; style-src 'self'; script-src 'self'; connect-src 'self';
+img-src 'self' data:; base-uri 'none'; frame-ancestors 'none'; form-action 'self'
+```
+
+Do not add inline scripts, inline styles, runtime style injection, remote fonts, CDN assets,
+`unsafe-inline`, or `unsafe-eval`. API values are rendered as text; do not introduce raw-HTML
+rendering for logs, configuration, names, endpoints, errors, or audit details.
+
+### CI and release behavior
+
+CI installs Node 22, runs the npm format, lint, type, test, and production build gates, and then runs
+the Java tests. The Java and release jobs also install Node before Gradle because resource processing
+builds the dashboard. The released container still needs only Java 21; npm and Node are not installed
+or started by the Pterodactyl egg.
+
+## 8. Recovery and troubleshooting
 
 | Symptom | Check |
 | --- | --- |
@@ -216,6 +286,10 @@ Back up `dashboard/` and `config.properties` together. Protect backups as creden
 | `403 Cross-origin mutation rejected` | Use the dashboard's own URL and preserve the original `Host` through the reverse proxy |
 | `409 Configuration changed on disk` | Reload the editor before saving; another process changed the file |
 | Dashboard fails at startup | Check whether another TCP service owns the configured port and whether the data directory is writable |
+| Dashboard HTML loads without styling | Rebuild with `npm ci` and `./gradlew processResources`; confirm the JAR contains `dashboard/assets/index-*.css` |
+| Browser reports a missing hashed asset | Do not copy loose dashboard files between releases; replace the complete JAR so its HTML and hashed assets match |
+| Gradle cannot find npm | Install Node.js 22 on the build machine and confirm `npm` (Linux) or `npm.cmd` (Windows) is on `PATH` |
+| CSP blocks a development dependency | Remove inline or remote content; production policy is not weakened for frontend packages |
 
 If the only owner password is lost, stop OniLink, make a protected backup, and move `dashboard/accounts.properties` out of the active path. Restart OniLink to create a new one-time setup file. This resets every dashboard account; it does not change proxy forwarding secrets or backend player data.
 

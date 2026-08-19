@@ -1,128 +1,99 @@
-# Commercial tenant hosting
+<p align="center">
+  <img src="assets/banner.svg" width="100%" alt="OniLink single-container tenant hosting">
+</p>
 
-OniLink's main control plane can create and operate paid customer instances directly through the
-Pterodactyl Application API. The supported boundary is **one dedicated OniLink server per
-customer**. Dashboard accounts inside one proxy manage that proxy; they are not tenant boundaries.
+# Single-container tenant hosting
 
-## What the main panel manages
+OniLink can host multiple customer proxies from the **one OniLink server that is already running**.
+The owner and every tenant use the same web control plane. OniLink does not create Pterodactyl
+servers, import more eggs, or require a Pterodactyl Application API key.
 
-The owner-only **Tenant Hosting** page keeps the complete operator workflow together:
-
-- the Pterodactyl connection and redacted API-key status;
-- customer discovery and optional Pterodactyl user creation;
-- reusable memory, disk, CPU, backup, database, and player plans;
-- node and unassigned-allocation discovery;
-- isolated OniLink server creation;
-- setup-package download, status synchronization, suspension, restoration, and failed-request retry.
-
-Customers do not receive access to the provider's main OniLink control plane. They receive a normal
-Pterodactyl account and the owner account for their own dedicated OniLink dashboard.
-
-## Isolation model
+## Architecture
 
 ```text
-Provider OniLink control plane (owner only)
-├── Tenant acme  → dedicated OniLink container + one allocation → acme backends only
-├── Tenant birch → dedicated OniLink container + one allocation → birch backends only
-└── Tenant cedar → dedicated OniLink container + one allocation → cedar backends only
+One Pterodactyl server / one OniLink Java process
+├── provider proxy       → primary UDP allocation
+├── shared web dashboard → primary TCP allocation
+├── acme/survival        → additional UDP allocation 19135
+├── acme/creative        → additional UDP allocation 19136
+└── birch/main           → additional UDP allocation 19137
 ```
 
-Each customer has a separate process, filesystem, `config.properties`, dashboard account store,
-allowlist, audit log, player registry, backend list, and forwarding key. A backend added to one
-tenant cannot appear in another tenant's dashboard or `/server` list.
+Each logical proxy has its own listener, configuration, backend routes, allowlist, forwarding keys,
+resource-pack cache, and live player registry. Tenant accounts are tied to one tenant ID, and the
+HTTP API rejects access to every other tenant and to the provider's global proxy controls.
 
-## 1. Prepare Pterodactyl
+All proxies still share one container and JVM. This makes deployment and updates simple, but it
+also means they share the container's CPU, memory, restart schedule, and failure boundary. Use
+separate containers only when hard operating-system resource isolation is required.
 
-1. Import the current [`egg-onilink.json`](../packaging/pterodactyl/egg-onilink.json).
-2. Make sure each Wings node has unused allocations that can be assigned to customer proxies.
-3. Create a Pterodactyl **Application API** key for the provider account.
-4. Grant the key server read/write, user read/write, and read access to nodes, allocations, nests,
-   and eggs. User write is optional only when customer accounts will always be created elsewhere.
-5. Put the provider's OniLink dashboard behind HTTPS and restrict it to provider administrators.
+## Ports and Pterodactyl allocations
 
-The provider control plane makes outbound HTTPS requests to the panel. The Pterodactyl URL must be
-an HTTPS origin such as `https://panel.example.com`, without `/admin`, `/api`, a query string, or
-embedded credentials.
+Keep the current OniLink primary allocation. It continues to provide:
 
-## 2. Connect from OniLink
+- Bedrock UDP for the provider's main proxy;
+- dashboard TCP on the same number.
 
-Sign in to the provider's dashboard as its owner and open **Tenant Hosting**.
+Assign **one additional UDP allocation to that same Pterodactyl server for each tenant proxy**.
+No extra TCP dashboard port is needed because every tenant uses the shared dashboard URL.
 
-1. Enter the Pterodactyl URL and Application API key.
-2. Select **Save and load Pterodactyl**.
-3. OniLink verifies node access and loads customers, nodes, nests, and eggs.
-4. If exactly one discovered egg is named OniLink, it is selected automatically. Otherwise select
-   the imported OniLink egg and save again.
-5. Confirm the badge shows **READY**.
+Example:
 
-The key is sent only to the provider OniLink server, stored in
-`dashboard/hosting/settings.properties`, and never returned by the dashboard API. The page shows
-only a short ending hint. Leaving the key field blank preserves the saved key; entering a new value
-rotates it.
+| Purpose | Address | Transport |
+| --- | --- | --- |
+| Provider proxy | `45.143.196.108:19130` | UDP |
+| Shared dashboard | `https://proxy.example.com/` → TCP `19130` | TCP |
+| Acme survival proxy | `45.143.196.108:19135` | UDP |
+| Acme BDS backend | `45.143.196.160:25570` | UDP |
 
-> [!IMPORTANT]
-> The embedded dashboard speaks HTTP. Complete the HTTPS reverse-proxy setup before entering a real
-> panel key over an untrusted network.
+In Pterodactyl, open the existing OniLink server, choose **Build Configuration**, and assign the
+additional allocations. The owner enters only the numeric port in OniLink. Wings already maps the
+assigned port into the container. Ensure the node and provider firewall permit UDP on every tenant
+allocation.
 
-## 3. Create plans and customers
+## First setup
 
-The built-in `starter` plan is immediately usable. Select **Add or update a plan** to change it or
-create another plan. Plan IDs use lowercase letters, numbers, and hyphens; entering an existing ID
-updates that plan. An assigned plan cannot be removed, and every tenant receives an additional
-allocation limit of zero regardless of the plan.
+### 1. Create the tenant login
 
-If the customer is not already in the customer dropdown, use **Create Pterodactyl login**. The
-temporary password goes directly to Pterodactyl and is not stored by OniLink. The created account is
-selected automatically for the next server.
+Sign in to the existing OniLink dashboard as its owner and open **Tenant Setup**. Under **Create a
+tenant**, enter:
 
-Give customers normal Pterodactyl accounts, never panel-administrator or provider-dashboard access.
+| Field | Example | Meaning |
+| --- | --- | --- |
+| Tenant label | `Acme Network` | Human-readable customer name |
+| Tenant ID | `acme` | Stable lowercase security scope |
+| Dashboard username | `acme-admin` | Login used at the shared dashboard URL |
+| Temporary password | a unique 12+ character password | Initial tenant credential |
 
-## 4. Provision a tenant
+Select **Create tenant and login**. Use **Add another tenant user** when more than one person should
+operate the same customer's proxies. Do not create ordinary viewer/operator/admin accounts for
+customers; those roles apply to the provider proxy. Tenant accounts must be created on this page so
+their tenant scope is stored with the account.
 
-Complete **Create an isolated OniLink server**:
+### 2. Add a proxy listener
 
-| Field | Meaning |
-| --- | --- |
-| Customer | The Pterodactyl account that will own this server |
-| Hosting plan | The resources and feature limits applied at creation |
-| Customer label | A readable provider-side name, such as `Acme Network` |
-| Tenant ID | Stable lowercase ID used in `onilink-tenant-<id>` |
-| Pterodactyl node | The Wings node that will run the customer proxy |
-| Available OniLink allocation | A live, unassigned allocation loaded from that node |
-| Customer BDS address | The existing BDS UDP endpoint reachable from the new proxy |
-| Proxy source IP seen by BDS | Exact egress/NAT address BDS sees; blank uses the allocation IP |
+Under **Add a proxy to this container**, complete these fields:
 
-Select **Provision tenant and build handoff**. OniLink then:
+| Field | Example | Meaning |
+| --- | --- | --- |
+| Tenant | `Acme Network (acme)` | Customer that owns the proxy |
+| Proxy ID | `survival` | Stable lowercase ID within that tenant |
+| Proxy label | `Survival Proxy` | Display name shown to the customer |
+| Assigned UDP allocation port | `19135` | Additional allocation on this same Pterodactyl server |
+| Public proxy IP or domain | `45.143.196.108` | Player-facing host, without a port |
+| Customer BDS address | `45.143.196.160:25570` | Existing Endstone/BDS endpoint |
+| Proxy source IP seen by BDS | `45.143.196.108` | Exact source address BDS observes |
+| Maximum players | `20` | Displayed capacity for this proxy |
+| MOTD | `Acme Network` | Bedrock server-list message |
+| Approved BDS profile | release profile ID | Matching production OniBridge profile |
 
-1. rechecks that the selected allocation is still unassigned;
-2. creates unique forwarding and one-time dashboard setup secrets;
-3. saves a recoverable provisioning record before contacting Pterodactyl;
-4. creates one Pterodactyl server with one primary allocation and no additional allocations;
-5. passes the egg's protected startup variables, including the matching forwarding secret;
-6. records the returned Pterodactyl server ID and UUID;
-7. creates a private handoff ZIP for the customer/backend administrator.
+Select **Create and start proxy**. OniLink rejects the provider port and any tenant port already in
+use. It generates a unique 256-bit forwarding key, writes an isolated runtime directory, and starts
+the listener inside the existing JVM.
 
-The operation uses the stable external ID `onilink-tenant-<tenant>`. If the API response is
-interrupted after Pterodactyl creates the server, **Retry** finds that external ID and reconciles it
-instead of creating a second server.
+### 3. Install the backend handoff
 
-## Port assignment
-
-Each tenant OniLink server needs exactly one primary allocation:
-
-```text
-tenant allocation / UDP → Bedrock player listener
-same number / TCP       → tenant OniLink dashboard
-tenant BDS allocation   → backend Bedrock server
-additional bridge port  → not required
-```
-
-TCP and UDP can use the same number. The Wings mapping and network firewall must allow both when the
-tenant dashboard will be reachable. Each BDS server retains its own UDP allocation.
-
-## 5. Install the handoff
-
-Select **Handoff ZIP** beside the tenant. It contains:
+Select **Handoff ZIP** beside the proxy. The private archive contains:
 
 ```text
 CUSTOMER-START-HERE.txt
@@ -131,55 +102,99 @@ backend/
 └── onibridge.toml
 ```
 
-Install the matching OniBridge `.so` from the same OniLink release on the customer's BDS server,
-then upload `default.key` and `onibridge.toml` to
-`/home/container/plugins/onibridge/`. Start BDS first and confirm the production hook is active;
-then start the tenant OniLink server. The customer uses the ZIP's one-time setup code to create the
-owner of their own dashboard.
+On the customer's Endstone server:
 
-The ZIP contains credentials. Send it through a protected channel and never attach it to a public
-ticket or repository.
+1. Install the matching OniBridge `.so` from the same OniLink release.
+2. Upload `default.key` and `onibridge.toml` to
+   `/home/container/plugins/onibridge/`.
+3. Start BDS and confirm OniBridge reports that its production identity hook is active.
+4. Start or restart only this proxy from **Tenant Setup** or **My Proxies**.
+5. Join the proxy's public address and verify the backend name appears in the tenant dashboard.
 
-## 6. Operate the customer fleet
+The ZIP contains an authentication key. Never attach it to a public ticket or commit it to a
+repository.
 
-- **Sync** reads the current server ID, UUID, status, and suspension state from Pterodactyl.
-- **Suspend** stops service through Pterodactyl after the provider's billing/grace-period decision.
-- **Restore** removes that suspension after payment recovery.
-- **Retry** resumes a prepared or failed provisioning record without rotating the saved handoff.
-- **Refresh list** synchronizes every displayed tenant.
+## Tenant access
 
-Deletion is intentionally absent. Cancellation, backup retention, and permanent deletion require a
-separate deliberate provider process so a billing mistake cannot erase customer data.
+Tenants browse to the **same URL the owner uses**, for example:
 
-OniLink does not expose a public billing webhook. A billing platform must authenticate and verify
-its own events before an owner makes a lifecycle decision or before a future private integration
-calls these authenticated controls.
+```text
+https://proxy.example.com/
+```
+
+They sign in with the username and temporary password created in **Tenant Setup**. A tenant login
+lands on **My Proxies** and can see only proxies assigned to its tenant. From that page it can:
+
+- start, restart, or stop its logical proxies;
+- view connected players and backend routes;
+- transfer, trace, or disconnect its players;
+- broadcast an alert to one proxy;
+- maintain that proxy's authenticated XUID allowlist;
+- add another BDS backend and download its generated setup ZIP;
+- download the private backend handoff.
+
+The provider's main proxy, configuration, logs, audit log, support bundle, normal account list, and
+other tenants are not available to tenant accounts. Cross-tenant API requests fail with HTTP 403.
+
+## Add more proxies and backends
+
+A tenant may have several proxies. Assign one more UDP allocation to the existing Pterodactyl
+server, return to **Tenant Setup**, and create another proxy ID under the same tenant.
+
+A backend route does not need another OniLink allocation. Open the proxy in **My Proxies**, enter
+the new BDS address and source IP, and select **Add backend and download setup**. OniLink creates a
+different forwarding key, updates only that proxy, restarts only that listener, and downloads the
+matched Endstone ZIP.
+
+## Suspension and lifecycle
+
+The owner can suspend a tenant from **Tenant Setup**. Suspension stops all of that tenant's proxy
+listeners and keeps them stopped across container restarts. Restoring the tenant starts every proxy
+that was enabled before suspension. Stopping one proxy manually marks only that listener disabled.
+
+OniLink does not process payments, expose an unauthenticated billing webhook, or delete customer
+data. A billing system should verify its own events and leave the final suspend/restore decision to
+an authenticated owner workflow.
 
 ## Storage and backup
 
 ```text
-dashboard/hosting/
-├── settings.properties   # panel key, selected egg, startup values, and plans
-├── tenants.properties    # tenant metadata plus recovery copies of generated secrets
-└── handoffs/
-    └── <tenant>.handoff.zip
+dashboard/
+├── accounts.properties
+└── tenancy/
+    ├── catalog.properties
+    ├── handoffs/
+    │   └── acme--survival.handoff.zip
+    └── runtimes/
+        └── acme/
+            └── survival/
+                ├── config.properties
+                ├── allowlist.properties
+                ├── permissions.properties
+                ├── secrets/default.key
+                ├── cache/
+                └── resource-packs/
 ```
 
-POSIX deployments set these files to owner read/write (`0600`). Back up the entire `dashboard/`
-directory as credential material. Anyone who can read this storage can administer the configured
-Pterodactyl resources and impersonate a proxy to a tenant backend.
+Back up the complete `dashboard/` directory and restrict it as credential material. On POSIX
+systems OniLink writes key and catalog files with owner-only permissions when the filesystem
+supports them. Restoring `dashboard/` restores tenant accounts, assignments, keys, allowlists, and
+enabled/suspended state.
 
 ## Security checklist
 
-- Keep the provider control plane behind restricted HTTPS and enable TOTP for its owner.
-- Use the narrowest compatible Application API permissions and rotate the key after exposure.
-- Restrict each BDS UDP allocation to the exact tenant proxy source CIDR.
-- Never reuse a handoff, forwarding key, writable mount, or configuration directory across tenants.
-- Keep customer billing records outside OniLink and link them with the stable tenant ID.
-- Audit **Tenant Hosting** actions in the provider dashboard before resolving disputes.
+- Put the one shared dashboard behind HTTPS and restrict provider-owner access.
+- Give each tenant a unique password and encourage TOTP enrollment.
+- Allocate a unique UDP port to every logical proxy.
+- Use a different generated forwarding key for every backend.
+- Restrict each BDS listener to the exact proxy source CIDR.
+- Never share tenant handoff ZIPs between customers.
+- Size the one container for the combined player load and monitor its memory.
+- Back up `dashboard/` before upgrades and test a restore procedure.
 
-## CLI fallback
+## Moving from the retired separate-server workflow
 
-`tools/tenantctl.py` remains in release bundles for offline recovery and scripted environments. It
-uses the same dedicated-server model, but it is no longer the normal setup path. Operators should
-use the owner-only main panel unless the dashboard itself is unavailable.
+The earlier v0.1.5 tenant hoster stored a Pterodactyl Application API key under
+`dashboard/hosting/`. The single-container control plane does not read that directory or contact the
+Application API. If it was configured, revoke the old key in Pterodactyl and archive or securely
+remove `dashboard/hosting/` after confirming it is no longer needed for rollback.

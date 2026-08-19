@@ -272,7 +272,7 @@ printf '%s\\n' \"$*\" > \"$JAVA_LOG\"
         ):
             self.assertIn(required, variables)
 
-        self.assertEqual("v0.1.5", variables["ONILINK_VERSION"]["default_value"])
+        self.assertEqual("v0.1.6", variables["ONILINK_VERSION"]["default_value"])
         self.assertEqual("true", variables["DASHBOARD_ENABLED"]["default_value"])
         self.assertEqual("false", variables["ALLOWLIST_ENABLED"]["default_value"])
         for name in (

@@ -4,13 +4,13 @@ Run OniLink and every backend as separate Pterodactyl servers.
 
 ## Import the released egg
 
-Download [`egg-onilink.json`](https://github.com/TheNINJALLO/OniLink/releases/download/v0.1.5/egg-onilink.json), then open **Admin Panel → Nests → Import Egg**.
+Download [`egg-onilink.json`](https://github.com/TheNINJALLO/OniLink/releases/download/v0.1.6/egg-onilink.json), then open **Admin Panel → Nests → Import Egg**.
 
 Create an **OniLink Bedrock Proxy** server with the Java 21 image and one public UDP allocation. Set the private backend host/port and enter a generated Base64 secret in the administrator-only `ONIBRIDGE_FORWARDING_SECRET` variable. Put the same value on the backend validator.
 
 The egg verifies its bootstrap downloads, creates `config.properties` only when missing, and preserves it on reinstall. Every container start checks GitHub's latest stable release, verifies the JAR, updater, and reference configuration, and atomically installs valid changes. Drafts and prereleases are ignored. A failed update starts the existing JAR; a successful one keeps previous runtime files for rollback. It also maps the primary allocation number to Bedrock UDP and the authenticated dashboard over TCP. The BDS/Endstone and Geyser processes still use separate servers/eggs.
 
-The updater changes runtime files, not the egg definition stored in the panel. Existing updater-enabled servers discover and download the v0.1.5 JAR on their next restart. No reimport is required for the owner-only tenant-hosting page. Reimport the current egg before provisioning new hosted instances so the panel receives its current administrator-only variables and defaults.
+The updater changes runtime files, not the egg definition stored in the panel. Existing updater-enabled servers discover and download the latest stable JAR on their next restart. The single-container tenant dashboard is part of that JAR, so it needs no egg reimport. Reimport the egg only when you need newly added panel variables or install defaults.
 
 The BDS image must provide glibc 2.35 or newer for native OniBridge. The current amd64 `ghcr.io/parkervcp/yolks:python_3.14` image is Debian Bookworm-based and meets that floor. Recheck mutable image tags with `ldd --version` after updates, and never replace `libc.so.6` manually.
 
@@ -19,6 +19,7 @@ The BDS image must provide glibc 2.35 or newer for native OniBridge. The current
 | Server | Port | Exposure |
 | --- | --- | --- |
 | OniLink | `19132/udp` | Public |
+| Tenant proxy on the same OniLink server | `19135/udp` | Public, one additional allocation per proxy |
 | BDS backend | `19133/udp` | Private/firewalled to OniLink |
 | Geyser backend | `19134/udp` | Private/firewalled to OniLink |
 

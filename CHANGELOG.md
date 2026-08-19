@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## 0.1.6 - 2026-08-19
+
+- Replaced the v0.1.5 Pterodactyl Application API provisioner with a single-container tenant
+  supervisor: one existing OniLink process now runs multiple isolated proxy listeners and serves
+  every customer through the same authenticated control-plane URL.
+- Added tenant-scoped dashboard accounts, strict cross-tenant authorization, owner-managed tenant
+  suspension, per-proxy lifecycle/player/allowlist/backend controls, and private backend handoffs.
+- Added per-tenant proxy configuration, forwarding keys, allowlists, caches, restart persistence,
+  allocation-conflict checks, integration coverage, and a complete same-server setup guide.
+- Rebuilt the embedded control plane as a typed React application with responsive navigation,
+  accessible workflows, reusable components, and hashed production assets inside `OniLink.jar`.
+- Added focused frontend formatting, lint, type, component, and production-build gates to local and
+  GitHub Actions builds while retaining server-side role enforcement and secret redaction.
+- Removed the obsolete `tenantctl` separate-server utility and its release assets.
+
 ## 0.1.5 - 2026-08-19
 
 - Moved commercial Pterodactyl tenancy into an owner-only main control-plane page with redacted
