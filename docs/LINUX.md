@@ -17,7 +17,13 @@
 
 The release `.so` is built natively on GitHub's Ubuntu 22.04 runner by `.github/workflows/linux-artifacts.yml`. That workflow builds both Java components, compiles and links the profile-specific native plugin, runs the native unit suite and synthetic executable hook harness, enforces a maximum `GLIBC_2.35` symbol requirement, packages the candidate, and uploads the exact release bundle.
 
-The `v0.1.0-candidate.1` library is ELF64 little-endian x86-64. Verify its exact SHA-256 against the release's `SHA256SUMS`; the Linux compatibility manifest records both the highest required GLIBC symbol version and the enforced maximum.
+The corrected `v0.1.0-candidate.1` library is ELF64 little-endian x86-64 and has SHA-256:
+
+```text
+418cc2a3c4119b5c7814535f4d25de9d88a8bf15d0196580d411d642850aa7b7
+```
+
+Verify it against the release's `SHA256SUMS`; the Linux compatibility manifest records `GLIBC_2.35` as both the highest required symbol version and the enforced maximum.
 
 The build uses LLVM/libc++ 18 packages compiled for Ubuntu 22.04. Deploy it only in an Endstone environment providing glibc 2.35 or newer plus the matching C++ runtime libraries.
 
