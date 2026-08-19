@@ -20,12 +20,12 @@ The release `.so` is built natively on GitHub's Ubuntu 22.04 runner by `.github/
 The corrected `v0.1.0-candidate.1` library is ELF64 little-endian x86-64 and has SHA-256:
 
 ```text
-418cc2a3c4119b5c7814535f4d25de9d88a8bf15d0196580d411d642850aa7b7
+be1da82f396b6f319b5e81fbdca2f9f810bf45296dc86c6e9fc4fb8bc063041b
 ```
 
 Verify it against the release's `SHA256SUMS`; the Linux compatibility manifest records `GLIBC_2.35` as both the highest required symbol version and the enforced maximum.
 
-The build uses LLVM/libc++ 18 packages compiled for Ubuntu 22.04. The release gate accepts a runtime-neutral plugin or direct/host-resolved libc++ references while rejecting every `libstdc++.so` dependency and unresolved `std::__cxx11` or `GLIBCXX` symbol. Deploy it only in an Endstone environment providing glibc 2.35 or newer.
+The build uses LLVM/libc++ 18 packages compiled for Ubuntu 22.04. The published plugin is runtime-neutral: its only dynamic dependencies are `libc.so.6` and `libm.so.6`. The release gate accepts a runtime-neutral plugin or direct/host-resolved libc++ references while rejecting every `libstdc++.so` dependency and unresolved `std::__cxx11` or `GLIBCXX` symbol. Deploy it only in an Endstone environment providing glibc 2.35 or newer.
 
 ## Remaining validation
 
