@@ -55,8 +55,8 @@ allocation.
 
 ### 1. Create the tenant login
 
-Sign in to the existing OniLink dashboard as its owner and open **Tenant Setup**. Under **Create a
-tenant**, enter:
+Sign in to the existing OniLink dashboard as its owner and open **Tenant Hosting**. Under **Create
+the tenant and first login**, enter:
 
 | Field | Example | Meaning |
 | --- | --- | --- |
@@ -70,19 +70,21 @@ operate the same customer's proxies. Do not create ordinary viewer/operator/admi
 customers; those roles apply to the provider proxy. Tenant accounts must be created on this page so
 their tenant scope is stored with the account.
 
-### 2. Add a proxy listener
+### 2. Connect the tenant proxy
 
-Under **Add a proxy to this container**, complete these fields:
+Under **Connect this tenant's proxy**, keep the player-facing proxy and destination game server in
+their separate sections:
 
 | Field | Example | Meaning |
 | --- | --- | --- |
 | Tenant | `Acme Network (acme)` | Customer that owns the proxy |
 | Proxy ID | `survival` | Stable lowercase ID within that tenant |
 | Proxy label | `Survival Proxy` | Display name shown to the customer |
-| Assigned UDP allocation port | `19135` | Additional allocation on this same Pterodactyl server |
 | Public proxy IP or domain | `45.143.196.108` | Player-facing host, without a port |
-| Customer BDS address | `45.143.196.160:25570` | Existing Endstone/BDS endpoint |
-| Proxy source IP seen by BDS | `45.143.196.108` | Exact source address BDS observes |
+| Assigned proxy UDP port | `19135` | Additional allocation on this same OniLink server |
+| Destination server IP or domain | `45.143.196.160` | Customer's BDS/Endstone server |
+| Destination server UDP port | `25570` | UDP allocation assigned to that BDS server |
+| Proxy IP seen by the destination server | `45.143.196.108` | Exact source IP BDS observes, without a port |
 | Maximum players | `20` | Displayed capacity for this proxy |
 | MOTD | `Acme Network` | Bedrock server-list message |
 | Approved BDS profile | release profile ID | Matching production OniBridge profile |
@@ -90,6 +92,13 @@ Under **Add a proxy to this container**, complete these fields:
 Select **Create and start proxy**. OniLink rejects the provider port and any tenant port already in
 use. It generates a unique 256-bit forwarding key, writes an isolated runtime directory, and starts
 the listener inside the existing JVM.
+
+Before submitting, verify the page shows this direction:
+
+```text
+Players connect to this proxy        OniLink forwards them to this server
+45.143.196.108:19135            ->   45.143.196.160:25570
+```
 
 ### 3. Install the backend handoff
 
@@ -108,7 +117,7 @@ On the customer's Endstone server:
 2. Upload `default.key` and `onibridge.toml` to
    `/home/container/plugins/onibridge/`.
 3. Start BDS and confirm OniBridge reports that its production identity hook is active.
-4. Start or restart only this proxy from **Tenant Setup** or **My Proxies**.
+4. Start or restart only this proxy from **Tenant Hosting** or **My Proxies**.
 5. Join the proxy's public address and verify the backend name appears in the tenant dashboard.
 
 The ZIP contains an authentication key. Never attach it to a public ticket or commit it to a
@@ -122,7 +131,7 @@ Tenants browse to the **same URL the owner uses**, for example:
 https://proxy.example.com/
 ```
 
-They sign in with the username and temporary password created in **Tenant Setup**. A tenant login
+They sign in with the username and temporary password created in **Tenant Hosting**. A tenant login
 lands on **My Proxies** and can see only proxies assigned to its tenant. From that page it can:
 
 - start, restart, or stop its logical proxies;
@@ -139,16 +148,16 @@ other tenants are not available to tenant accounts. Cross-tenant API requests fa
 ## Add more proxies and backends
 
 A tenant may have several proxies. Assign one more UDP allocation to the existing Pterodactyl
-server, return to **Tenant Setup**, and create another proxy ID under the same tenant.
+server, return to **Tenant Hosting**, and create another proxy ID under the same tenant.
 
 A backend route does not need another OniLink allocation. Open the proxy in **My Proxies**, enter
-the new BDS address and source IP, and select **Add backend and download setup**. OniLink creates a
-different forwarding key, updates only that proxy, restarts only that listener, and downloads the
-matched Endstone ZIP.
+the destination server IP and UDP port separately, confirm the visual connection path, and select
+**Generate server setup package**. OniLink creates a different forwarding key, updates only that
+proxy, restarts only that listener, and downloads the matched Endstone ZIP.
 
 ## Suspension and lifecycle
 
-The owner can suspend a tenant from **Tenant Setup**. Suspension stops all of that tenant's proxy
+The owner can suspend a tenant from **Tenant Hosting**. Suspension stops all of that tenant's proxy
 listeners and keeps them stopped across container restarts. Restoring the tenant starts every proxy
 that was enabled before suspension. Stopping one proxy manually marks only that listener disabled.
 

@@ -30,3 +30,14 @@ export function timestamp(value?: string | number): string {
 export function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : "The request could not be completed.";
 }
+
+export function endpoint(host: string, port: string | number): string {
+  const cleanHost = host.trim();
+  const cleanPort = String(port).trim();
+  if (!cleanHost || !cleanPort) return "Not entered yet";
+  const wrappedHost =
+    cleanHost.includes(":") && !(cleanHost.startsWith("[") && cleanHost.endsWith("]"))
+      ? `[${cleanHost}]`
+      : cleanHost;
+  return `${wrappedHost}:${cleanPort}`;
+}

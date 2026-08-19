@@ -31,7 +31,7 @@
 <!-- onilink-professional-header:end -->
 
 > [!IMPORTANT]
-> `v0.1.6` is the current production release. It delivers the responsive React control plane and replaces the former separate-server tenant provisioner with one shared control plane and multiple isolated proxy listeners inside the existing OniLink container. Secure backend onboarding, the authenticated XUID allowlist, stable updates, and the production-approved Linux BDS `1.26.44.3` + Endstone `0.11.9` profile remain fail closed.
+> `v0.1.7` is the current production release. Tenant and backend setup now separate the proxy address players join from the destination game server address, with individual IP/domain and UDP-port fields, examples, and a live connection-path preview. Secure backend onboarding, authenticated XUID allowlisting, shared-container tenancy, stable updates, and the production-approved Linux BDS `1.26.44.3` + Endstone `0.11.9` profile remain fail closed.
 
 ## What this repository provides
 
@@ -64,7 +64,7 @@ OniLink preserves the authenticated name, XUID, UUID, and observed client addres
 
 ## Quick start
 
-1. Read the [v0.1.6 release notes](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.6) and download only the files for your backend path.
+1. Read the [v0.1.7 release notes](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.7) and download only the files for your backend path.
 2. Verify the download directory against `SHA256SUMS`.
 3. Generate a unique 32-byte-or-stronger secret for each backend and expose it through an environment variable—not a committed configuration file.
 4. Configure matching backend name, bridge ID, key ID, and secret environment variable on both sides.
@@ -76,7 +76,7 @@ After the first server works, open the dashboard's dedicated **Add Backend** pag
 Download the current release with GitHub CLI:
 
 ```bash
-gh release download v0.1.6 \
+gh release download v0.1.7 \
   --repo TheNINJALLO/OniLink \
   --dir onilink-release
 ```
@@ -89,7 +89,7 @@ Pterodactyl administrators can import [`egg-onilink.json`](packaging/pterodactyl
 
 For remote use, put the dashboard behind HTTPS and restrict it to administrator networks. See the [complete dashboard guide](docs/DASHBOARD.md) for standalone, reverse-proxy, account, role, recovery, and Pterodactyl examples.
 
-Hosting providers can use the owner-only **Tenant Setup** page to create scoped customer logins and
+Hosting providers can use the owner-only **Tenant Hosting** page to create scoped customer logins and
 isolated proxy listeners inside the one existing OniLink container. Tenants use the same dashboard
 URL and see only **My Proxies**. Assign one additional UDP allocation to that same Pterodactyl
 server per logical proxy; no new server, egg, or Application API key is required. See
@@ -99,7 +99,7 @@ server per logical proxy; no new server, egg, or Application API key is required
 
 ### Native BDS + Endstone
 
-Use `onibridge-0.1.6-bds-1.26.44.3-linux-x86_64.so` with the exact BDS `1.26.44.3` Linux executable and Endstone `0.11.9`. Install the matching profile JSON, start once to generate `onibridge.toml`, configure it, and keep `allow_unreviewed_profile=false` for this production-approved profile.
+Use `onibridge-0.1.7-bds-1.26.44.3-linux-x86_64.so` with the exact BDS `1.26.44.3` Linux executable and Endstone `0.11.9`. Install the matching profile JSON, start once to generate `onibridge.toml`, configure it, and keep `allow_unreviewed_profile=false` for this production-approved profile.
 
 [Native installation guide →](docs/INSTALLATION.md)
 

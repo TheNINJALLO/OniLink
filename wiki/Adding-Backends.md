@@ -19,9 +19,17 @@ matched setup ZIP without hand-editing both sides.
 
    | Field | Example |
    | --- | --- |
-   | Backend name | `creative` |
-   | BDS allocation | `198.51.100.20:25571` |
-   | OniLink public IP | `198.51.100.10` |
+   | Backend route name | `creative` |
+   | Destination server IP or domain | `198.51.100.20` |
+   | Destination server UDP port | `25571` |
+   | Proxy IP seen by the game server | `198.51.100.10` |
+
+   The wizard shows the direction before it saves anything:
+
+   ```text
+   Players connect to this proxy          OniLink forwards them to this server
+   198.51.100.10:<proxy port>        ->   198.51.100.20:25571
+   ```
 
 5. Select **Create backend setup package** and immediately download
    `creative-onibridge-setup.zip`.

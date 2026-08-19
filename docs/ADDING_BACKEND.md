@@ -12,16 +12,25 @@ For Geyser-backed Java servers, use [Geyser integration](GEYSER.md). The BDS wiz
 - An OniLink dashboard account with the `admin` or `owner` role.
 - A BDS `1.26.44.3` + Endstone `0.11.9` server.
 - The matching Linux OniBridge `.so` already in the backend's `plugins/` directory.
-- The BDS server's UDP allocation, which the OniLink container can reach.
-- OniLink's public or egress IP, without its player port.
+- The destination BDS server's IP/domain and UDP port, which the OniLink container can reach.
+- OniLink's public or egress IP, without its player port. The dashboard shows the existing proxy
+  port automatically.
 
 Write down these values:
 
-| Wizard field | Example | Meaning |
+| Dashboard field | Example | Meaning |
 | --- | --- | --- |
-| Backend name | `creative` | Lowercase route name used by `/server creative` |
-| BDS allocation | `198.51.100.20:25571` | IP and UDP port assigned to the BDS server |
-| OniLink public IP | `198.51.100.10` | IP BDS observes for OniLink; do not include OniLink's player port |
+| Backend route name | `creative` | Lowercase internal name used by `/server creative` |
+| Destination server IP or domain | `198.51.100.20` | Address of the BDS/Endstone server receiving players |
+| Destination server UDP port | `25571` | UDP port assigned to that BDS server |
+| Proxy IP seen by the game server | `198.51.100.10` | IP BDS observes for OniLink; enter no port |
+
+The page keeps the two sides visually separate:
+
+```text
+Players connect to this proxy              OniLink forwards them to this server
+198.51.100.10:<existing proxy port>   ->   198.51.100.20:25571
+```
 
 The wizard converts the OniLink IP to an exact `/32` IPv4 or `/128` IPv6 trust rule. It also
 generates the bridge ID, key ID, and secret. Existing installations performing a key rotation can
@@ -43,7 +52,8 @@ ports differ.
 
 1. Sign in to the OniLink dashboard.
 2. Open **Add Backend** in the main navigation. You can also select **Add BDS backend** from the Backends page.
-3. Enter the backend name, BDS `IP:port`, and OniLink IP from the worksheet above.
+3. Enter the route name, destination server IP, destination server UDP port, and proxy IP in their
+   separately labeled fields. Confirm the connection-path preview points in the expected direction.
 4. Select **Create backend setup package** once.
 
 The operation is revision-checked and validated before it changes the live file. OniLink creates `config.properties.dashboard.bak`, preserves every existing backend, and appends the new route to `backends=`.
@@ -96,7 +106,7 @@ the layout is exactly:
 ```text
 /home/container/
 └── plugins/
-    ├── onibridge-0.1.6-bds-1.26.44.3-linux-x86_64.so
+    ├── onibridge-0.1.7-bds-1.26.44.3-linux-x86_64.so
     └── onibridge/
         ├── creative.key
         └── onibridge.toml

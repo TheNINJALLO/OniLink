@@ -6,8 +6,9 @@ import { dashboardApi } from "../../api/dashboard";
 import { useAuth } from "../../auth/AuthProvider";
 import { Button, Card, Empty, Loading, Notice, PageHeader, Status } from "../../components/ui";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { ConnectionPath } from "../../components/ConnectionPath";
 import type { AllowlistEntry, BackendSetup, Player } from "../../types/dashboard";
-import { duration, messageOf } from "../../utilities/format";
+import { duration, endpoint, messageOf } from "../../utilities/format";
 
 type Selection = { tenant: string; proxy: string };
 type RuntimeSelection = { player: Player; action: "transfer" | "disconnect" | "trace" };
@@ -117,9 +118,15 @@ export function TenantPortalPage() {
   const [allow, setAllow] = useState({ xuid: "", name: "" });
   const [remove, setRemove] = useState<AllowlistEntry | null>(null);
   const [alert, setAlert] = useState("");
-  const [backend, setBackend] = useState({ name: "", address: "", proxyPublicIp: "" });
+  const [backend, setBackend] = useState({
+    name: "",
+    host: "",
+    port: "",
+    proxyPublicIp: "",
+  });
   const [backendResult, setBackendResult] = useState<BackendSetup | null>(null);
   const [runtime, setRuntime] = useState<RuntimeSelection | null>(null);
+  const defaultProxySourceIp = selectedProxy?.trustedProxyCidr.replace(/\/(32|128)$/, "") ?? "";
   const refresh = async () => {
     await client.invalidateQueries({ queryKey: ["tenant-proxy"] });
     await client.invalidateQueries({ queryKey: ["tenancy"] });
@@ -161,12 +168,14 @@ export function TenantPortalPage() {
     mutationFn: () =>
       dashboardApi.addTenantBackend({
         ...selection!,
-        ...backend,
+        name: backend.name,
+        address: endpoint(backend.host, backend.port),
+        proxyPublicIp: backend.proxyPublicIp || defaultProxySourceIp,
         revision: proxy.data?.configurationRevision ?? "",
       }),
     onSuccess: async (result) => {
       setBackendResult(result);
-      setBackend({ name: "", address: "", proxyPublicIp: "" });
+      setBackend({ name: "", host: "", port: "", proxyPublicIp: "" });
       await refresh();
     },
   });
@@ -184,7 +193,7 @@ export function TenantPortalPage() {
     <>
       <PageHeader
         title={principal?.role === "tenant" ? "My Proxies" : "Tenant Proxy"}
-        description="Operate one isolated proxy and its permitted routing resources."
+        description="See the address players join and the separate game servers this proxy forwards them to."
         actions={
           <Button className="secondary" onClick={() => void refresh()}>
             <RefreshCw aria-hidden="true" />
@@ -206,7 +215,7 @@ export function TenantPortalPage() {
           >
             {available.map((item) => (
               <option key={`${item.tenantId}/${item.id}`} value={`${item.tenantId}/${item.id}`}>
-                {item.label} · {item.publicAddress}:{item.port}
+                {item.label} · {item.publicAddress}
               </option>
             ))}
           </select>
@@ -241,10 +250,12 @@ export function TenantPortalPage() {
             </div>
             <dl className="detailList">
               <div>
-                <dt>Player endpoint</dt>
-                <dd>
-                  {selectedProxy.publicAddress}:{selectedProxy.port}
-                </dd>
+                <dt>Players connect to</dt>
+                <dd>{selectedProxy.publicAddress}</dd>
+              </div>
+              <div>
+                <dt>Initial game server</dt>
+                <dd>{selectedProxy.backendAddress}</dd>
               </div>
               <div>
                 <dt>Players</dt>
@@ -415,8 +426,11 @@ export function TenantPortalPage() {
             </Card>
           </div>
           <Card>
-            <h2>Add backend route</h2>
-            <p>Generate an isolated bridge key and installation bundle for this proxy.</p>
+            <h2>Add another destination game server</h2>
+            <p>
+              Players keep joining the selected proxy address. Enter the separate server address
+              OniLink should forward them to.
+            </p>
             {backendResult ? (
               <div className="resultCard">
                 <div className="warningBox">
@@ -444,14 +458,16 @@ export function TenantPortalPage() {
               </div>
             ) : (
               <form
-                className="inlineForm"
                 onSubmit={(event) => {
                   event.preventDefault();
                   addBackend.mutate();
                 }}
               >
                 <label>
-                  Route name
+                  Backend route name
+                  <span className="fieldHelp">
+                    A short internal name, such as creative, events, or lobby.
+                  </span>
                   <input
                     pattern="[a-z][a-z0-9_-]{0,31}"
                     required
@@ -459,26 +475,55 @@ export function TenantPortalPage() {
                     onChange={(event) => setBackend({ ...backend, name: event.target.value })}
                   />
                 </label>
+                <div className="connectionSection">
+                  <h3>Destination game server</h3>
+                  <p>This is the BDS/Endstone server that will receive the players.</p>
+                  <div className="formGrid">
+                    <label>
+                      Destination server IP or domain
+                      <span className="fieldHelp">Example: 45.143.196.160</span>
+                      <input
+                        required
+                        placeholder="45.143.196.160"
+                        value={backend.host}
+                        onChange={(event) => setBackend({ ...backend, host: event.target.value })}
+                      />
+                    </label>
+                    <label>
+                      Destination server UDP port
+                      <span className="fieldHelp">Example: 25570</span>
+                      <input
+                        type="number"
+                        required
+                        min="1"
+                        max="65535"
+                        placeholder="25570"
+                        value={backend.port}
+                        onChange={(event) => setBackend({ ...backend, port: event.target.value })}
+                      />
+                    </label>
+                  </div>
+                </div>
+                <ConnectionPath
+                  proxyEndpoint={selectedProxy.publicAddress}
+                  destinationEndpoint={endpoint(backend.host, backend.port)}
+                />
                 <label>
-                  BDS endpoint
+                  Proxy IP seen by the destination server
+                  <span className="fieldHelp">
+                    Usually the IP portion of {selectedProxy.publicAddress}. Do not include a port.
+                  </span>
                   <input
                     required
-                    value={backend.address}
-                    onChange={(event) => setBackend({ ...backend, address: event.target.value })}
-                  />
-                </label>
-                <label>
-                  Proxy source IP
-                  <input
-                    required
-                    value={backend.proxyPublicIp}
+                    placeholder="45.143.196.108"
+                    value={backend.proxyPublicIp || defaultProxySourceIp}
                     onChange={(event) =>
                       setBackend({ ...backend, proxyPublicIp: event.target.value })
                     }
                   />
                 </label>
                 <Button type="submit" disabled={addBackend.isPending}>
-                  {addBackend.isPending ? "Generating…" : "Generate backend setup"}
+                  {addBackend.isPending ? "Generating…" : "Generate server setup package"}
                 </Button>
               </form>
             )}

@@ -117,17 +117,78 @@ describe("administrative features", () => {
       .mockResolvedValue({ message: "Tenant and account created" });
     renderRoute("owner", "tenant-hosting");
     const user = userEvent.setup();
-    await user.type(await screen.findByLabelText("Tenant ID"), "acme");
-    await user.type(screen.getByLabelText("Display label"), "Acme Network");
-    await user.type(screen.getByLabelText("Initial tenant username"), "acme-admin");
-    await user.type(screen.getByLabelText("Initial tenant password"), "secure tenant password");
-    await user.click(screen.getByRole("button", { name: "Create tenant" }));
+    await user.type(await screen.findByLabelText(/^Tenant ID \(internal\)/), "acme");
+    await user.type(screen.getByLabelText(/^Customer or network name/), "Acme Network");
+    await user.type(screen.getByLabelText(/^Customer dashboard username/), "acme-admin");
+    await user.type(
+      screen.getByLabelText(/^Temporary dashboard password/),
+      "secure tenant password",
+    );
+    await user.click(screen.getByRole("button", { name: "Create tenant and login" }));
     await waitFor(() =>
       expect(createTenant).toHaveBeenCalledWith({
         tenant: "acme",
         label: "Acme Network",
         username: "acme-admin",
         password: "secure tenant password",
+      }),
+    );
+  });
+
+  it("keeps the proxy and destination server addresses separate when creating a tenant proxy", async () => {
+    vi.spyOn(dashboardApi, "tenancy").mockResolvedValue({
+      mode: "single-container",
+      providerPort: 19130,
+      tenants: [
+        {
+          id: "acme",
+          label: "Acme Network",
+          suspended: false,
+          users: [],
+          createdAt: "2026-08-19T20:00:00Z",
+          updatedAt: "2026-08-19T20:00:00Z",
+        },
+      ],
+      proxies: [],
+      tenantScope: "",
+    });
+    const createProxy = vi
+      .spyOn(dashboardApi, "createTenantProxy")
+      .mockResolvedValue({ message: "Proxy created" });
+    renderRoute("owner", "tenant-hosting");
+    const user = userEvent.setup();
+    const card = (
+      await screen.findByRole("heading", {
+        name: "Connect this tenant's proxy",
+      })
+    ).closest(".card") as HTMLElement;
+    await within(card).findByRole("option", { name: "Acme Network" });
+    await user.selectOptions(within(card).getByLabelText("Tenant"), "acme");
+    await user.type(within(card).getByLabelText(/^Proxy ID \(internal\)/), "survival");
+    await user.type(within(card).getByLabelText(/^Proxy display name/), "Survival Proxy");
+    await user.type(within(card).getByLabelText(/^Public proxy IP or domain/), "45.143.196.108");
+    await user.type(within(card).getByLabelText(/^Assigned proxy UDP port/), "19135");
+    await user.type(
+      within(card).getByLabelText(/^Destination server IP or domain/),
+      "45.143.196.160",
+    );
+    await user.type(within(card).getByLabelText(/^Destination server UDP port/), "25570");
+    expect(within(card).getByLabelText(/^Proxy IP seen by the destination server/)).toHaveValue(
+      "45.143.196.108",
+    );
+    await user.click(within(card).getByRole("button", { name: "Create and start proxy" }));
+    await waitFor(() =>
+      expect(createProxy).toHaveBeenCalledWith({
+        tenant: "acme",
+        proxy: "survival",
+        label: "Survival Proxy",
+        port: "19135",
+        publicHost: "45.143.196.108",
+        backendAddress: "45.143.196.160:25570",
+        proxySourceIp: "45.143.196.108",
+        maxPlayers: "100",
+        motd: "OniLink Network",
+        bdsProfile: "",
       }),
     );
   });
@@ -161,10 +222,11 @@ describe("administrative features", () => {
     });
     renderRoute("admin", "add-backend");
     const user = userEvent.setup();
-    await user.type(await screen.findByLabelText("Backend name"), "creative");
-    await user.type(screen.getByLabelText("BDS allocation"), "10.0.0.3:19132");
+    await user.type(await screen.findByLabelText(/^Backend route name/), "creative");
+    await user.type(screen.getByLabelText(/^Destination server IP or domain/), "10.0.0.3");
+    await user.type(screen.getByLabelText(/^Destination server UDP port/), "19132");
     await user.click(screen.getByRole("button", { name: /Continue/ }));
-    await user.type(screen.getByLabelText("OniLink public IP"), "45.143.196.108");
+    await user.type(screen.getByLabelText(/^Proxy IP seen by the game server/), "45.143.196.108");
     await user.click(screen.getByRole("button", { name: /Continue/ }));
     await user.click(screen.getByRole("button", { name: /Continue/ }));
     await user.click(screen.getByRole("button", { name: "Create backend setup package" }));
@@ -179,6 +241,80 @@ describe("administrative features", () => {
     });
     await user.click(screen.getByRole("button", { name: "Clear result" }));
     expect(screen.queryByText("one-time-secret")).not.toBeInTheDocument();
+  });
+
+  it("keeps a tenant proxy address visible while adding a separate destination server", async () => {
+    const tenantProxy = {
+      id: "survival",
+      tenantId: "acme",
+      label: "Survival Proxy",
+      port: 19135,
+      publicAddress: "45.143.196.108:19135",
+      backendAddress: "45.143.196.160:25570",
+      trustedProxyCidr: "45.143.196.108/32",
+      bdsProfile: "bds-1.26.44.3-linux-x86_64",
+      maxPlayers: 100,
+      motd: "Acme Network",
+      enabled: true,
+      running: true,
+      status: "running",
+      lastError: "",
+      handoffAvailable: true,
+    };
+    vi.spyOn(dashboardApi, "tenancy").mockResolvedValue({
+      mode: "single-container",
+      providerPort: 19130,
+      tenants: [],
+      proxies: [tenantProxy],
+      tenantScope: "",
+    });
+    vi.spyOn(dashboardApi, "tenantProxy").mockResolvedValue({
+      proxy: tenantProxy,
+      state: { players: 0 },
+      players: [],
+      backends: [],
+      allowlist: { enabled: false, count: 0, entries: [] },
+      configurationRevision: "tenant-revision-1",
+    });
+    const addBackend = vi.spyOn(dashboardApi, "addTenantBackend").mockResolvedValue({
+      path: "config.properties",
+      content: "",
+      revision: "tenant-revision-2",
+      backupAvailable: true,
+      redactedPlaceholder: "<redacted>",
+      backendName: "creative",
+      secret: "tenant-one-time-secret",
+      secretFileName: "creative.key",
+      onilinkSecretFile: "secrets/creative.key",
+      onilinkProperties: "backend.creative.address=45.143.196.161:25571",
+      onibridgeToml: 'bridge_id = "creative-main"',
+      backendEndpoint: "45.143.196.161:25571",
+      trustedProxyCidr: "45.143.196.108/32",
+      setupBundleFileName: "creative-setup.zip",
+      setupBundleBase64: "WklQ",
+      restartRequired: true,
+      message: "Backend added",
+    });
+    renderRoute("owner", "my-proxies");
+    const user = userEvent.setup();
+    expect((await screen.findAllByText("45.143.196.108:19135")).length).toBeGreaterThan(0);
+    await user.type(screen.getByLabelText(/^Backend route name/), "creative");
+    await user.type(screen.getByLabelText(/^Destination server IP or domain/), "45.143.196.161");
+    await user.type(screen.getByLabelText(/^Destination server UDP port/), "25571");
+    expect(screen.getByLabelText(/^Proxy IP seen by the destination server/)).toHaveValue(
+      "45.143.196.108",
+    );
+    await user.click(screen.getByRole("button", { name: "Generate server setup package" }));
+    await waitFor(() =>
+      expect(addBackend).toHaveBeenCalledWith({
+        tenant: "acme",
+        proxy: "survival",
+        name: "creative",
+        address: "45.143.196.161:25571",
+        proxyPublicIp: "45.143.196.108",
+        revision: "tenant-revision-1",
+      }),
+    );
   });
 
   it("adds and removes allowlist entries", async () => {

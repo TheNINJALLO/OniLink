@@ -7,14 +7,14 @@ Use a separate Pterodactyl server for OniLink and for every BDS or Geyser backen
 > Each tenant proxy needs one additional UDP allocation assigned to this same OniLink server.
 > Adding a backend route to an existing proxy does not add another OniLink allocation.
 
-To provide customer access, use **Tenant Setup** in the existing OniLink control plane. Customers
+To provide customer access, use **Tenant Hosting** in the existing OniLink control plane. Customers
 sign in at the same URL and see only their own proxies. OniLink does not create more Pterodactyl
 servers or eggs and does not need an Application API key. Follow
 [Single-container tenant hosting](TENANT_HOSTING.md).
 
 ## Import the OniLink egg
 
-Download `egg-onilink.json` from the [current release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.6) or [`packaging/pterodactyl`](../packaging/pterodactyl/README.md).
+Download `egg-onilink.json` from the [current release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.7) or [`packaging/pterodactyl`](../packaging/pterodactyl/README.md).
 
 1. Open **Admin Panel → Nests**.
 2. Select or create a nest and choose **Import Egg**.
@@ -192,7 +192,7 @@ The relevant layout is:
 /home/container/
 ├── bedrock_server
 ├── plugins/
-│   ├── onibridge-0.1.6-bds-1.26.44.3-linux-x86_64.so
+│   ├── onibridge-0.1.7-bds-1.26.44.3-linux-x86_64.so
 │   └── onibridge/
 │       ├── survival.key          # when using the dashboard/file method
 │       └── onibridge.toml

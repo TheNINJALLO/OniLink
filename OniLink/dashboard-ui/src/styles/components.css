@@ -211,6 +211,59 @@ legend {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.65rem;
 }
+.connectionSection {
+  margin: 1rem 0;
+  padding: 0.9rem;
+  border: 1px solid #2c4259;
+  border-radius: 8px;
+  background: #0d1927;
+}
+.connectionSection > h3 {
+  margin: 0 0 0.2rem;
+  color: #e8f5ff;
+}
+.connectionSection > p {
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+}
+.fieldHelp {
+  display: block;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 450;
+}
+.connectionPath {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.8rem;
+  margin: 1rem 0;
+  padding: 0.9rem;
+  border: 1px solid #28617a;
+  border-radius: 8px;
+  background: #0b2231;
+}
+.connectionPath > div {
+  display: grid;
+  min-width: 0;
+  gap: 0.2rem;
+}
+.connectionPath span {
+  color: #8fb1c4;
+  font-size: 0.7rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.connectionPath strong {
+  overflow-wrap: anywhere;
+  color: #e7f8ff;
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.88rem;
+}
+.connectionPath > svg {
+  color: var(--cyan);
+}
 .filterRow {
   align-items: end;
 }

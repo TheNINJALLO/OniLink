@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 0.1.7 - 2026-08-19
+
+- Reworked tenant and backend onboarding around plainly labeled proxy and destination-server
+  sections, with separate IP/domain and UDP-port inputs plus a live forwarding-path preview.
+- Added field-level examples, automatic tenant proxy-source defaults, and clearer customer-account
+  terminology for operators without proxy or networking experience.
+- Fixed tenant proxy addresses being displayed with their UDP port appended twice.
+- Added frontend coverage for tenant creation, proxy allocation, global backend setup, tenant
+  backend setup, endpoint formatting, and the separated connection-field payloads.
+
 ## 0.1.6 - 2026-08-19
 
 - Replaced the v0.1.5 Pterodactyl Application API provisioner with a single-container tenant

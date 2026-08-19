@@ -6,13 +6,21 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { downloadBase64, downloadText } from "../../api/client";
 import { dashboardApi } from "../../api/dashboard";
+import { ConnectionPath } from "../../components/ConnectionPath";
 import { Button, Card, FieldError, Loading, Notice, PageHeader } from "../../components/ui";
 import type { BackendSetup } from "../../types/dashboard";
-import { messageOf } from "../../utilities/format";
+import { endpoint, messageOf } from "../../utilities/format";
+
+const port = z
+  .string()
+  .trim()
+  .regex(/^\d+$/, "Enter the UDP port assigned to the game server")
+  .refine((value) => Number(value) >= 1 && Number(value) <= 65535, "Port must be 1-65535");
 
 const schema = z.object({
   name: z.string().regex(/^[a-z][a-z0-9_-]{0,31}$/, "Use 1–32 lowercase route characters"),
-  address: z.string().trim().min(3, "BDS address is required").max(320),
+  backendHost: z.string().trim().min(3, "Destination server IP or domain is required").max(253),
+  backendPort: port,
   proxyPublicIp: z.string().trim().min(3, "Proxy public IP is required").max(64),
   bridgeId: z.string().trim().max(64),
   activeKeyId: z.string().trim().min(1, "Key label is required").max(64),
@@ -24,25 +32,43 @@ export function AddBackendPage() {
     queryKey: ["config"],
     queryFn: ({ signal }) => dashboardApi.config(signal),
   });
+  const runtime = useQuery({
+    queryKey: ["state"],
+    queryFn: ({ signal }) => dashboardApi.state(signal),
+  });
   const [step, setStep] = useState(0);
   const [result, setResult] = useState<BackendSetup | null>(null);
   const form = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { name: "", address: "", proxyPublicIp: "", bridgeId: "", activeKeyId: "key-1" },
+    defaultValues: {
+      name: "",
+      backendHost: "",
+      backendPort: "",
+      proxyPublicIp: "",
+      bridgeId: "",
+      activeKeyId: "key-1",
+    },
   });
   const mutation = useMutation({
     mutationFn: (values: Values) =>
-      dashboardApi.addBackend({ ...values, revision: config.data?.revision ?? "" }),
+      dashboardApi.addBackend({
+        name: values.name,
+        address: endpoint(values.backendHost, values.backendPort),
+        proxyPublicIp: values.proxyPublicIp,
+        bridgeId: values.bridgeId,
+        activeKeyId: values.activeKeyId,
+        revision: config.data?.revision ?? "",
+      }),
     onSuccess: (data) => {
       setResult(data);
       setStep(4);
     },
   });
   const values = form.watch();
-  const steps = ["Identity", "Proxy trust", "Bridge key", "Review", "Result"];
+  const steps = ["Game server", "Proxy address", "Security", "Confirm", "Download"];
   async function next() {
     const fields: Array<Array<keyof Values>> = [
-      ["name", "address"],
+      ["name", "backendHost", "backendPort"],
       ["proxyPublicIp"],
       ["bridgeId", "activeKeyId"],
     ];
@@ -53,7 +79,7 @@ export function AddBackendPage() {
       <>
         <PageHeader
           title="Add Backend"
-          description="Generate a secured OniBridge route and installation bundle."
+          description="Tell OniLink where the game server is. The proxy address is shown separately."
         />
         <Loading label="Loading configuration revision" />
       </>
@@ -62,7 +88,7 @@ export function AddBackendPage() {
     <>
       <PageHeader
         title="Add Backend"
-        description="A guided setup for the OniLink route, trusted source, and bridge key."
+        description="Players join the OniLink proxy; OniLink then forwards them to the destination game server."
       />
       <ol className="stepper" aria-label="Backend setup progress">
         {steps.map((label, index) => (
@@ -149,10 +175,13 @@ export function AddBackendPage() {
           <form onSubmit={form.handleSubmit((data) => mutation.mutate(data))} noValidate>
             {step === 0 ? (
               <fieldset>
-                <legend>Backend identity and private endpoint</legend>
-                <p>Name the route and enter the BDS allocation exactly as shown by the host.</p>
+                <legend>Where should OniLink send the players?</legend>
+                <p>Enter the IP address and UDP port of the Bedrock server running OniBridge.</p>
                 <label>
-                  Backend name
+                  Backend route name
+                  <span className="fieldHelp">
+                    A short internal name shown in OniLink, such as survival or creative.
+                  </span>
                   <input
                     placeholder="creative"
                     autoComplete="off"
@@ -163,48 +192,88 @@ export function AddBackendPage() {
                 <FieldError id="backend-name-error">
                   {form.formState.errors.name?.message}
                 </FieldError>
-                <label>
-                  BDS allocation
-                  <input
-                    placeholder="45.143.196.160:25570"
-                    autoComplete="off"
-                    {...form.register("address")}
-                    aria-describedby="backend-address-error"
-                  />
-                </label>
-                <FieldError id="backend-address-error">
-                  {form.formState.errors.address?.message}
-                </FieldError>
+                <div className="connectionSection">
+                  <h3>Destination game server</h3>
+                  <p>This is the BDS/Endstone server OniLink will forward players to.</p>
+                  <div className="formGrid">
+                    <label>
+                      Destination server IP or domain
+                      <span className="fieldHelp">Example: 45.143.196.160</span>
+                      <input
+                        placeholder="45.143.196.160"
+                        autoComplete="off"
+                        {...form.register("backendHost")}
+                        aria-describedby="backend-host-error"
+                      />
+                    </label>
+                    <label>
+                      Destination server UDP port
+                      <span className="fieldHelp">Example: 25570</span>
+                      <input
+                        type="number"
+                        min="1"
+                        max="65535"
+                        placeholder="25570"
+                        {...form.register("backendPort")}
+                        aria-describedby="backend-port-error"
+                      />
+                    </label>
+                  </div>
+                  <FieldError id="backend-host-error">
+                    {form.formState.errors.backendHost?.message}
+                  </FieldError>
+                  <FieldError id="backend-port-error">
+                    {form.formState.errors.backendPort?.message}
+                  </FieldError>
+                </div>
               </fieldset>
             ) : null}
             {step === 1 ? (
               <fieldset>
-                <legend>Proxy source trust</legend>
-                <p>Use the public IP that BDS sees for OniLink. Do not include the player port.</p>
-                <label>
-                  OniLink public IP
-                  <input
-                    placeholder="45.143.196.108"
-                    autoComplete="off"
-                    {...form.register("proxyPublicIp")}
-                    aria-describedby="proxy-ip-error"
-                  />
-                </label>
+                <legend>Which OniLink proxy is sending the players?</legend>
+                <p>The game server trusts connections coming from this proxy IP.</p>
+                <div className="connectionSection">
+                  <h3>Player-facing proxy</h3>
+                  <p>
+                    This is the OniLink address players connect to before they reach the backend.
+                  </p>
+                  <div className="formGrid">
+                    <label>
+                      Proxy IP seen by the game server
+                      <span className="fieldHelp">
+                        Usually the public IP of this OniLink server. Do not include a port.
+                      </span>
+                      <input
+                        placeholder="45.143.196.108"
+                        autoComplete="off"
+                        {...form.register("proxyPublicIp")}
+                        aria-describedby="proxy-ip-error"
+                      />
+                    </label>
+                    <label>
+                      Proxy UDP port players join
+                      <span className="fieldHelp">
+                        Already configured; adding a backend needs no new proxy port.
+                      </span>
+                      <input readOnly value={runtime.data?.listener.port ?? "Loading..."} />
+                    </label>
+                  </div>
+                </div>
                 <FieldError id="proxy-ip-error">
                   {form.formState.errors.proxyPublicIp?.message}
                 </FieldError>
                 <div className="infoBox">
-                  The server creates the exact IPv4 /32 or IPv6 /128 CIDR. One OniLink player
-                  allocation serves every backend.
+                  OniLink converts the proxy IP into an exact trusted CIDR. Every backend attached
+                  to this proxy uses the same player-facing proxy port.
                 </div>
               </fieldset>
             ) : null}
             {step === 2 ? (
               <fieldset>
-                <legend>Bridge and key settings</legend>
+                <legend>Security labels</legend>
                 <p>
-                  Labels identify the bridge and key rotation. The server generates the secret
-                  securely.
+                  Most users can leave these values at their defaults. OniLink generates the secret
+                  automatically.
                 </p>
                 <label>
                   Bridge ID <span className="optional">Optional</span>
@@ -229,18 +298,22 @@ export function AddBackendPage() {
             ) : null}
             {step === 3 ? (
               <fieldset>
-                <legend>Review secured route</legend>
+                <legend>Confirm where players connect and where they go</legend>
+                <ConnectionPath
+                  proxyEndpoint={endpoint(values.proxyPublicIp, runtime.data?.listener.port ?? "")}
+                  destinationEndpoint={endpoint(values.backendHost, values.backendPort)}
+                />
                 <dl className="reviewList">
                   <div>
-                    <dt>Route</dt>
+                    <dt>Internal route name</dt>
                     <dd>{values.name}</dd>
                   </div>
                   <div>
-                    <dt>Private BDS endpoint</dt>
-                    <dd>{values.address}</dd>
+                    <dt>Destination game server</dt>
+                    <dd>{endpoint(values.backendHost, values.backendPort)}</dd>
                   </div>
                   <div>
-                    <dt>Trusted proxy</dt>
+                    <dt>Trusted proxy IP</dt>
                     <dd>{values.proxyPublicIp}</dd>
                   </div>
                   <div>

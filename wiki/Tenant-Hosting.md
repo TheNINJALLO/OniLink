@@ -18,10 +18,16 @@ one OniLink container
 As the owner:
 
 1. Assign one additional UDP allocation to the existing OniLink Pterodactyl server for each proxy.
-2. Sign in to the current OniLink URL and open **Tenant Setup**.
+2. Sign in to the current OniLink URL and open **Tenant Hosting**.
 3. Create a tenant ID, dashboard username, and temporary password.
-4. Add a proxy using its assigned port, public host, BDS endpoint, and source IP seen by BDS.
-5. Download the handoff ZIP and install its key plus `onibridge.toml` on the matching Endstone server.
+4. Under **Connect this tenant's proxy**, enter these as four separate connection fields:
+   - public proxy IP/domain players join;
+   - UDP port assigned to that specific proxy;
+   - destination BDS server IP/domain;
+   - destination BDS server UDP port.
+5. Confirm the page shows `public proxy:port -> destination server:port`, then enter the proxy IP
+   that BDS sees without a port.
+6. Download the handoff ZIP and install its key plus `onibridge.toml` on the matching Endstone server.
 
 Tenants sign in at the same dashboard URL. Their **My Proxies** page exposes only their own
 listeners, players, routes, allowlist, backend wizard, and lifecycle actions. The provider proxy and

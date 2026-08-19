@@ -43,7 +43,7 @@ Use operator accounts for routine work and reserve the single owner for access a
 
 ## Tenant hosting
 
-Hosting providers use the owner-only **Tenant Setup** page to create customer-scoped logins and
+Hosting providers use the owner-only **Tenant Hosting** page to create customer-scoped logins and
 isolated proxy listeners inside the existing OniLink container. Give the same Pterodactyl server
 one additional UDP allocation per logical proxy. Tenants sign in at this same URL and see only
 **My Proxies**; no Application API key, extra server, or repeated egg is needed. See [[Tenant Hosting]].

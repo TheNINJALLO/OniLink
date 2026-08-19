@@ -94,6 +94,12 @@
   .stepper li > span {
     font-size: 0.75rem;
   }
+  .connectionPath {
+    grid-template-columns: 1fr;
+  }
+  .connectionPath > svg {
+    transform: rotate(90deg);
+  }
 }
 @media (max-width: 540px) {
   .topbar {

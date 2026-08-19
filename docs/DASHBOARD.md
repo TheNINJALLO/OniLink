@@ -132,7 +132,11 @@ Before turning enforcement on, add your own account and confirm it appears in th
 
 ### Add a BDS backend
 
-Open the dedicated **Add Backend** page as an admin or owner. It is also linked from **Backends** and **Configuration**. Enter a lowercase route name, the private BDS endpoint, the proxy source CIDR observed by that backend, and optional bridge/key IDs.
+Open the dedicated **Add Backend** page as an admin or owner. It is also linked from **Backends**
+and **Configuration**. The wizard separates **Players connect to this proxy** from **OniLink
+forwards them to this server**. Enter the destination BDS IP/domain and UDP port in separate fields,
+then enter the proxy IP that BDS observes. The existing proxy port is shown automatically; adding a
+backend does not require another proxy allocation.
 
 On generation, OniLink:
 
