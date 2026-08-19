@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-## 0.1.1 - 2026-08-18
+## 0.1.1 - 2026-08-19
 
 - Promoted the exact Linux BDS `1.26.44.3` + Endstone `0.11.9` profile to production after operator approval of the human-review and live-acceptance gates.
 - Regenerated the native adapter as a production profile, removed the unreviewed-profile opt-in from shipped Linux examples and the dashboard backend wizard, and made the release manifest report `production_ready=true`.
