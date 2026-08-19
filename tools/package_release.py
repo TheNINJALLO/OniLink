@@ -125,6 +125,11 @@ def main() -> int:
         "OniBridge-Geyser.jar": Path("OniBridge-Geyser/dist/OniBridge-Geyser.jar"),
         "egg-onilink.json": Path("packaging/pterodactyl/egg-onilink.json"),
         "start-onilink.sh": Path("packaging/pterodactyl/start-onilink.sh"),
+        "tenantctl.py": Path("tools/tenantctl.py"),
+        "tenantctl.example.json": Path(
+            "packaging/tenant-hosting/tenantctl.example.json"
+        ),
+        "tenantctl-README.md": Path("packaging/tenant-hosting/README.md"),
         f"onibridge-{args.version}-bds-{args.bds_version}-linux-x86_64.so": Path(
             "OniBridge/build/linux-release/onibridge.so"
         ),

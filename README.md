@@ -31,7 +31,7 @@
 <!-- onilink-professional-header:end -->
 
 > [!IMPORTANT]
-> `v0.1.3` is the current production release. It makes secure multi-backend onboarding a first-class control-plane workflow while retaining the authenticated XUID allowlist, stable Pterodactyl updates, and production-approved Linux BDS `1.26.44.3` + Endstone `0.11.9` profile. Unknown binaries, platforms, Endstone versions, and profile IDs still fail closed.
+> `v0.1.4` is the current production release. It streamlines secure backend onboarding and adds isolated Pterodactyl tenant provisioning while retaining the authenticated XUID allowlist, stable updates, and production-approved Linux BDS `1.26.44.3` + Endstone `0.11.9` profile. Unknown binaries, platforms, Endstone versions, and profile IDs still fail closed.
 
 ## What this repository provides
 
@@ -64,7 +64,7 @@ OniLink preserves the authenticated name, XUID, UUID, and observed client addres
 
 ## Quick start
 
-1. Read the [v0.1.3 release notes](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.3) and download only the files for your backend path.
+1. Read the [v0.1.4 release notes](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.4) and download only the files for your backend path.
 2. Verify the download directory against `SHA256SUMS`.
 3. Generate a unique 32-byte-or-stronger secret for each backend and expose it through an environment variable—not a committed configuration file.
 4. Configure matching backend name, bridge ID, key ID, and secret environment variable on both sides.
@@ -76,7 +76,7 @@ After the first server works, open the dashboard's dedicated **Add Backend** pag
 Download the current release with GitHub CLI:
 
 ```bash
-gh release download v0.1.3 \
+gh release download v0.1.4 \
   --repo TheNINJALLO/OniLink \
   --dir onilink-release
 ```
@@ -93,7 +93,7 @@ For remote use, put the dashboard behind HTTPS and restrict it to administrator 
 
 ### Native BDS + Endstone
 
-Use `onibridge-0.1.3-bds-1.26.44.3-linux-x86_64.so` with the exact BDS `1.26.44.3` Linux executable and Endstone `0.11.9`. Install the matching profile JSON, start once to generate `onibridge.toml`, configure it, and keep `allow_unreviewed_profile=false` for this production-approved profile.
+Use `onibridge-0.1.4-bds-1.26.44.3-linux-x86_64.so` with the exact BDS `1.26.44.3` Linux executable and Endstone `0.11.9`. Install the matching profile JSON, start once to generate `onibridge.toml`, configure it, and keep `allow_unreviewed_profile=false` for this production-approved profile.
 
 [Native installation guide →](docs/INSTALLATION.md)
 
@@ -123,8 +123,8 @@ Exact executable hashes, profile IDs, and remaining gates are maintained in [Com
 | [Deployment examples](examples/README.md) | [Windows status](docs/WINDOWS.md) | [Compatibility](docs/COMPATIBILITY.md) |
 | [Troubleshooting](docs/TROUBLESHOOTING.md) | [Dashboard](docs/DASHBOARD.md) | [Building](docs/BUILDING.md) |
 | [GitHub Wiki](https://github.com/TheNINJALLO/OniLink/wiki) | [Pterodactyl](docs/PTERODACTYL.md) | [Source audit](docs/SOURCE_AUDIT.md) |
+| [Tenant hosting](docs/TENANT_HOSTING.md) | [Add a BDS backend](docs/ADDING_BACKEND.md) | [Contributing](CONTRIBUTING.md) |
 | [Migration](docs/MIGRATION.md) | [Testing](docs/TESTING.md) | [Feature parity](docs/FEATURE_PARITY.md) |
-|  |  | [Contributing](CONTRIBUTING.md) |
 
 ## Build and test
 

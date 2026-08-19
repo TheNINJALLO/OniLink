@@ -15,7 +15,7 @@ OniLink is a Java 21 Bedrock proxy with two fail-closed backend identity validat
 - **OniBridge-Geyser** verifies the same signed claim before Geyser opens a Java connection.
 
 > [!IMPORTANT]
-> `v0.1.3` is the current production release. It adds first-class secure backend onboarding while retaining authenticated XUID allowlisting, stable startup updates, and the reviewed Linux BDS `1.26.44.3` + Endstone `0.11.9` profile.
+> `v0.1.4` is the current production release. It streamlines secure backend onboarding and adds isolated Pterodactyl tenant provisioning while retaining authenticated XUID allowlisting, stable startup updates, and the reviewed Linux BDS `1.26.44.3` + Endstone `0.11.9` profile.
 
 ## Start by goal
 
@@ -38,7 +38,7 @@ OniLink is a Java 21 Bedrock proxy with two fail-closed backend identity validat
 
 | Item | Value |
 | --- | --- |
-| Application release | [`v0.1.3`](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.3) |
+| Application release | [`v0.1.4`](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.4) |
 | BDS | `1.26.44.3` |
 | Endstone | `0.11.9` |
 | Linux | x86-64, System V AMD64, libc++ |

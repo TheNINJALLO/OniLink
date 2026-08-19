@@ -46,7 +46,9 @@ class OniLinkDashboardTest {
             assertEquals(200, home.statusCode());
             assertTrue(home.body().contains("OniLink Control Plane"));
             assertTrue(home.body().contains("data-page=\"add-backend\""));
-            assertTrue(home.body().contains("Generate key + both configs"));
+            assertTrue(home.body().contains("Create backend setup package"));
+            assertTrue(home.body().contains("OniLink needs one primary allocation"));
+            assertTrue(home.body().contains("Download complete setup ZIP"));
             assertTrue(home.headers().firstValue("Content-Security-Policy").orElseThrow()
                     .contains("frame-ancestors 'none'"));
 
@@ -108,13 +110,14 @@ class OniLinkDashboardTest {
             HttpResponse<String> backend = post(client, base.resolve("/api/config/backends"), Map.of(
                     "revision", revision.group(1),
                     "name", "creative",
-                    "host", "127.0.0.1",
-                    "port", "19134",
-                    "trustedProxyCidr", "127.0.0.1/32"), Map.of(
+                    "address", "127.0.0.1:19134",
+                    "proxyPublicIp", "127.0.0.1"), Map.of(
                     "Authorization", "Bearer " + token.group(1)));
             assertEquals(201, backend.statusCode());
             assertTrue(backend.body().contains("\"backendName\":\"creative\""));
             assertTrue(backend.body().contains("\"onilinkProperties\""));
+            assertTrue(backend.body().contains("\"setupBundleBase64\""));
+            assertTrue(backend.body().contains("\"backendEndpoint\":\"127.0.0.1:19134\""));
             assertTrue(backend.body().contains("active_secret_file = \\\"creative.key\\\""));
             assertTrue(Files.isRegularFile(directory.resolve("secrets/creative.key")));
         }

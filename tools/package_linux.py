@@ -43,6 +43,11 @@ def main() -> int:
         ),
         "egg-onilink.json": Path("packaging/pterodactyl/egg-onilink.json"),
         "start-onilink.sh": Path("packaging/pterodactyl/start-onilink.sh"),
+        "tenantctl.py": Path("tools/tenantctl.py"),
+        "tenantctl.example.json": Path(
+            "packaging/tenant-hosting/tenantctl.example.json"
+        ),
+        "tenantctl-README.md": Path("packaging/tenant-hosting/README.md"),
         f"onibridge-profile-{args.bds_version}-linux-x86_64.json": profile_path,
     }
     missing = [str(path) for path in inputs.values() if not path.is_file()]

@@ -37,6 +37,7 @@ build-linux-all:
 test:
     python -m unittest discover -s OniBridge/tools/bdsctl/tests -t OniBridge/tools/bdsctl
     python -m unittest discover -s OniBridge/tools/sdkgen/tests -t OniBridge/tools/sdkgen
+    python -m unittest discover -s tools -p "test_*.py"
     OniLink/gradlew test
     OniLink/gradlew -p OniBridge-Geyser test
 

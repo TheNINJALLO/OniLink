@@ -351,7 +351,7 @@
               <b>03</b
               ><span
                 ><strong>Install on BDS</strong
-                ><small>Two files, then restart</small></span
+                ><small>One ZIP, then restart</small></span
               >
             </div>
           </div>
@@ -365,9 +365,18 @@
                 <span class="badge">BDS 1.26.44.3</span>
               </div>
               <p class="muted">
-                Use the private address OniLink connects to. Existing routes,
-                hub selection, join order, and failover rules are preserved.
+                Enter the two server addresses exactly as they appear in
+                Pterodactyl. OniLink fills in the bridge identity, key label,
+                CIDR, proxy configuration, and Endstone configuration.
               </p>
+              <div class="port-answer">
+                <b>How many allocations?</b>
+                <span
+                  >OniLink needs one primary allocation. Every BDS server keeps
+                  its own one UDP allocation. Adding a backend does not consume
+                  another OniLink port.</span
+                >
+              </div>
               <form id="add-backend-form">
                 <label class="field"
                   ><span>Backend name</span
@@ -383,66 +392,59 @@
                     <code>/server creative</code>.</small
                   ></label
                 >
-                <div class="form-columns">
-                  <label class="field"
-                    ><span>BDS host or IP</span
-                    ><input
-                      name="host"
-                      required
-                      maxlength="253"
-                      placeholder="198.51.100.20"
-                      autocomplete="off"
-                    /><small
-                      >The private/reachable address of this BDS server.</small
-                    ></label
-                  ><label class="field"
-                    ><span>BDS UDP port</span
-                    ><input
-                      name="port"
-                      type="number"
-                      min="1"
-                      max="65535"
-                      value="19132"
-                      required
-                    /><small>Not OniLink's public port.</small></label
-                  >
-                </div>
                 <label class="field"
-                  ><span>OniLink source CIDR seen by BDS</span
+                  ><span>BDS allocation</span
                   ><input
-                    name="trustedProxyCidr"
+                    name="address"
                     required
-                    placeholder="198.51.100.10/32"
+                    maxlength="320"
+                    placeholder="45.143.196.160:25570"
                     autocomplete="off"
                   /><small
-                    >Usually OniLink's node or container IP followed by
-                    <code>/32</code>. Never enter a player's IP.</small
+                    >Copy the IP and UDP port assigned to the BDS server. This
+                    is not the port players use.</small
                   ></label
                 >
-                <div class="form-columns">
-                  <label class="field"
-                    ><span>Bridge ID <small>(optional)</small></span
-                    ><input
-                      name="bridgeId"
-                      maxlength="64"
-                      placeholder="creative-main"
-                      autocomplete="off"
-                    /><small
-                      >Defaults to <code>&lt;name&gt;-main</code>.</small
-                    ></label
-                  ><label class="field"
-                    ><span>Key ID</span
-                    ><input
-                      name="activeKeyId"
-                      maxlength="64"
-                      value="key-1"
-                      required
-                      autocomplete="off"
-                    /><small>A label, not the secret.</small></label
-                  >
-                </div>
+                <label class="field"
+                  ><span>OniLink public IP</span
+                  ><input
+                    name="proxyPublicIp"
+                    required
+                    maxlength="64"
+                    placeholder="45.143.196.108"
+                    autocomplete="off"
+                  /><small
+                    >Enter the IP only, without OniLink's player port. The
+                    wizard automatically creates the exact <code>/32</code> or
+                    <code>/128</code> trust rule.</small
+                  ></label
+                >
+                <details class="advanced-setup">
+                  <summary>Advanced identity labels</summary>
+                  <div class="form-columns">
+                    <label class="field"
+                      ><span>Bridge ID</span
+                      ><input
+                        name="bridgeId"
+                        maxlength="64"
+                        placeholder="Defaults to name-main"
+                        autocomplete="off"
+                      /><small
+                        >Leave blank unless rotating an existing bridge.</small
+                      ></label
+                    ><label class="field"
+                      ><span>Key ID</span
+                      ><input
+                        name="activeKeyId"
+                        maxlength="64"
+                        value="key-1"
+                        autocomplete="off"
+                      /><small>A label, never the secret itself.</small></label
+                    >
+                  </div>
+                </details>
                 <button class="button primary wide" type="submit">
-                  Generate key + both configs
+                  Create backend setup package
                 </button>
               </form>
             </article>
@@ -500,10 +502,9 @@
               <div class="warning">
                 <b>Before generating</b
                 ><span
-                  >Install the current OniBridge <code>.so</code> on the new BDS
-                  + Endstone server. The wizard creates configuration and key
-                  files; it does not upload the plugin to another
-                  container.</span
+                  >The setup ZIP contains configuration, the key, and exact
+                  instructions. Install the matching OniBridge
+                  <code>.so</code> from the same release separately.</span
                 >
               </div>
             </article>
@@ -531,85 +532,101 @@
             <div class="warning secret-once">
               <b>Save the key now</b
               ><span
-                >This is the only time the key text is returned by the
-                dashboard. It is never placed in
-                <code>config.properties</code> or the audit log.</span
+                >Download the setup ZIP now. It contains the only returned copy
+                of the Endstone key, the complete TOML, and exact installation
+                steps. The proxy copy is already protected on disk.</span
               >
             </div>
-            <div class="result-grid">
-              <div>
-                <label class="field"
-                  ><span
-                    >Saved OniLink properties
-                    <small>(reference copy)</small></span
-                  ><textarea
-                    id="backend-proxy-result"
-                    class="code-editor setup-proxy"
-                    rows="12"
-                    readonly
-                  ></textarea>
-                </label>
-                <div class="button-row">
-                  <button class="button" id="copy-backend-proxy" type="button">
-                    Copy proxy properties
-                  </button>
-                </div>
-              </div>
-              <div>
-                <label class="field"
-                  ><span id="backend-secret-label">backend.key</span
-                  ><textarea
-                    id="backend-secret-result"
-                    class="compact-editor"
-                    rows="3"
-                    readonly
-                  ></textarea>
-                </label>
-                <div class="button-row">
-                  <button
-                    class="button primary"
-                    id="download-backend-secret"
-                    type="button"
-                  >
-                    Download key file</button
-                  ><button
-                    class="button"
-                    id="copy-backend-secret"
-                    type="button"
-                  >
-                    Copy key
-                  </button>
-                </div>
-              </div>
-            </div>
-            <label class="field result-toml"
-              ><span>Complete Endstone onibridge.toml</span
-              ><textarea
-                id="backend-toml-result"
-                class="code-editor setup-toml"
-                rows="24"
-                readonly
-              ></textarea>
-            </label>
-            <div class="button-row">
+            <div class="setup-download">
               <button
-                class="button primary"
-                id="download-backend-toml"
+                class="button primary wide"
+                id="download-backend-bundle"
                 type="button"
               >
-                Download onibridge.toml</button
-              ><button class="button" id="copy-backend-toml" type="button">
-                Copy TOML</button
-              ><button class="button" id="reset-backend-wizard" type="button">
-                Add another backend
+                Download complete setup ZIP
               </button>
+              <small id="backend-endpoint-summary"></small>
             </div>
+            <details class="advanced-setup result-details">
+              <summary>Show individual files and reference values</summary>
+              <div class="result-grid">
+                <div>
+                  <label class="field"
+                    ><span
+                      >Saved OniLink properties
+                      <small>(reference copy)</small></span
+                    ><textarea
+                      id="backend-proxy-result"
+                      class="code-editor setup-proxy"
+                      rows="12"
+                      readonly
+                    ></textarea>
+                  </label>
+                  <div class="button-row">
+                    <button
+                      class="button"
+                      id="copy-backend-proxy"
+                      type="button"
+                    >
+                      Copy proxy properties
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label class="field"
+                    ><span id="backend-secret-label">backend.key</span
+                    ><textarea
+                      id="backend-secret-result"
+                      class="compact-editor"
+                      rows="3"
+                      readonly
+                    ></textarea>
+                  </label>
+                  <div class="button-row">
+                    <button
+                      class="button primary"
+                      id="download-backend-secret"
+                      type="button"
+                    >
+                      Download key file</button
+                    ><button
+                      class="button"
+                      id="copy-backend-secret"
+                      type="button"
+                    >
+                      Copy key
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <label class="field result-toml"
+                ><span>Complete Endstone onibridge.toml</span
+                ><textarea
+                  id="backend-toml-result"
+                  class="code-editor setup-toml"
+                  rows="24"
+                  readonly
+                ></textarea>
+              </label>
+              <div class="button-row">
+                <button
+                  class="button primary"
+                  id="download-backend-toml"
+                  type="button"
+                >
+                  Download onibridge.toml</button
+                ><button class="button" id="copy-backend-toml" type="button">
+                  Copy TOML
+                </button>
+              </div>
+            </details>
             <div class="install-callout">
               <p class="eyebrow">FINISH IN PTERODACTYL</p>
               <ol class="setup-steps">
                 <li>Stop the new BDS/Endstone server.</li>
                 <li>
-                  Upload the downloaded key and <code>onibridge.toml</code> into
+                  Extract the setup ZIP, then upload its key and
+                  <code>onibridge.toml</code> into
                   <code>/home/container/plugins/onibridge/</code>. No secret
                   goes in a startup variable.
                 </li>
@@ -623,6 +640,11 @@
                   <code id="backend-test-command">/server backend</code>.
                 </li>
               </ol>
+            </div>
+            <div class="button-row">
+              <button class="button" id="reset-backend-wizard" type="button">
+                Add another backend
+              </button>
             </div>
           </article>
         </section>

@@ -1,6 +1,6 @@
 # Quick start: Linux release
 
-This guide brings up the production OniLink `v0.1.3` release in front of one BDS `1.26.44.3` + Endstone `0.11.9` backend. The included exact Linux profile is production-approved and still fails closed on every mismatched runtime detail.
+This guide brings up the production OniLink `v0.1.4` release in front of one BDS `1.26.44.3` + Endstone `0.11.9` backend. The included exact Linux profile is production-approved and still fails closed on every mismatched runtime detail.
 
 For service setup, firewalls, secret files, full configuration references, Pterodactyl, key rotation, and rollback, use the [complete installation guide](INSTALLATION.md). Ready-to-copy configurations are in the [single-BDS example](../examples/single-bds/README.md).
 
@@ -12,14 +12,14 @@ You need:
 - Endstone `0.11.9` on that backend.
 - Java 21 for OniLink.
 - A private or firewalled UDP path from OniLink to BDS.
-- The [current release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.3).
+- The [current release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.1.4).
 
 Do not expose the backend's Bedrock listener publicly. Players connect to OniLink; only OniLink connects to the backend.
 
 ## 2. Download and verify the release
 
 ```bash
-gh release download v0.1.3 \
+gh release download v0.1.4 \
   --repo TheNINJALLO/OniLink \
   --dir onilink-release
 cd onilink-release
@@ -52,7 +52,7 @@ Store the result in your secret manager or panel environment as `ONIBRIDGE_FORWA
 ## 4. Install OniBridge
 
 1. Stop BDS.
-2. Copy `onibridge-0.1.3-bds-1.26.44.3-linux-x86_64.so` into the Endstone `plugins/` directory.
+2. Copy `onibridge-0.1.4-bds-1.26.44.3-linux-x86_64.so` into the Endstone `plugins/` directory.
 3. Start BDS once. OniBridge creates `plugins/onibridge/onibridge.toml` and shuts the server down because it is not configured yet.
 4. Edit the generated file:
 

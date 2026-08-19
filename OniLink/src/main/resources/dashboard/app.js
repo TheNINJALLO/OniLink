@@ -48,6 +48,21 @@ function downloadText(name, content) {
   setTimeout(() => URL.revokeObjectURL(link.href), 2000);
 }
 
+function downloadBase64(name, encoded, type) {
+  const binary = atob(encoded);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index++) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(new Blob([bytes], { type }));
+  link.download = name;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(link.href), 2000);
+}
+
 async function copyText(value) {
   if (navigator.clipboard?.writeText) {
     await navigator.clipboard.writeText(value);
@@ -453,6 +468,8 @@ function showBackendSetup(result) {
   $("#backend-proxy-result").value = result.onilinkProperties;
   $("#backend-secret-result").value = result.secret;
   $("#backend-toml-result").value = result.onibridgeToml;
+  $("#backend-endpoint-summary").textContent =
+    `${result.backendEndpoint} · trusted proxy ${result.trustedProxyCidr}`;
   $("#backend-test-command").textContent = `/server ${result.backendName}`;
   $("#backend-setup-result").hidden = false;
   $("#backend-setup-result").scrollIntoView({
@@ -681,7 +698,7 @@ $("#add-backend-form").addEventListener("submit", async (event) => {
   const data = Object.fromEntries(new FormData(form));
   data.revision = model.config.revision;
   submit.disabled = true;
-  submit.textContent = "Generating secure setup…";
+  submit.textContent = "Building secure setup package…";
   try {
     const result = await api("/api/config/backends", {
       method: "POST",
@@ -697,8 +714,17 @@ $("#add-backend-form").addEventListener("submit", async (event) => {
     notice(error.message, true);
   } finally {
     submit.disabled = false;
-    submit.textContent = "Generate key + both configs";
+    submit.textContent = "Create backend setup package";
   }
+});
+$("#download-backend-bundle").addEventListener("click", () => {
+  if (!model.backendSetup) return;
+  downloadBase64(
+    model.backendSetup.setupBundleFileName,
+    model.backendSetup.setupBundleBase64,
+    "application/zip",
+  );
+  notice("Setup ZIP downloaded. Keep it private until it is installed on BDS.");
 });
 $("#download-backend-secret").addEventListener("click", () => {
   if (!model.backendSetup) return;

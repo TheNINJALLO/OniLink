@@ -12,21 +12,30 @@ For Geyser-backed Java servers, use [Geyser integration](GEYSER.md). The BDS wiz
 - An OniLink dashboard account with the `admin` or `owner` role.
 - A BDS `1.26.44.3` + Endstone `0.11.9` server.
 - The matching Linux OniBridge `.so` already in the backend's `plugins/` directory.
-- A private UDP allocation that the OniLink container can reach.
-- The source IP that the BDS container sees when OniLink connects.
+- The BDS server's UDP allocation, which the OniLink container can reach.
+- OniLink's public or egress IP, without its player port.
 
 Write down these values:
 
 | Wizard field | Example | Meaning |
 | --- | --- | --- |
 | Backend name | `creative` | Lowercase route name used by `/server creative` |
-| Backend host or IP | `198.51.100.20` | Address OniLink uses to reach BDS |
-| UDP port | `25571` | BDS allocation, not OniLink's public listener |
-| Trusted OniLink source CIDR | `198.51.100.10/32` | Address BDS observes for OniLink; never a player's address |
-| Bridge ID | `creative-main` | Trust scope that must match on both sides |
-| Key ID | `key-1` | Label for the active secret; this is not the secret itself |
+| BDS allocation | `198.51.100.20:25571` | IP and UDP port assigned to the BDS server |
+| OniLink public IP | `198.51.100.10` | IP BDS observes for OniLink; do not include OniLink's player port |
 
-Two BDS servers may share one IP if each uses a different UDP port. The backend name and bridge ID must still be unique.
+The wizard converts the OniLink IP to an exact `/32` IPv4 or `/128` IPv6 trust rule. It also
+generates the bridge ID, key ID, and secret. Existing installations performing a key rotation can
+open **Advanced identity labels** to override the generated labels.
+
+## Allocation answer
+
+The OniLink container needs **one primary allocation**, regardless of the number of backends. Bedrock
+uses that port over UDP and the dashboard uses the same number over TCP. Every BDS server keeps its
+own one UDP allocation. OniBridge runs inside BDS and does not need another port.
+
+For three BDS servers, the layout is therefore one OniLink allocation plus three BDS allocations;
+only the first is assigned to the OniLink container. Two BDS servers may share one IP if their UDP
+ports differ.
 
 ## Recommended: use the dashboard wizard
 
@@ -34,19 +43,23 @@ Two BDS servers may share one IP if each uses a different UDP port. The backend 
 
 1. Sign in to the OniLink dashboard.
 2. Open **Add Backend** in the main navigation. You can also select **Add BDS backend** from the Backends page.
-3. Fill in all required fields from the worksheet above.
-4. Select **Generate key + both configs** once.
+3. Enter the backend name, BDS `IP:port`, and OniLink IP from the worksheet above.
+4. Select **Create backend setup package** once.
 
 The operation is revision-checked and validated before it changes the live file. OniLink creates `config.properties.dashboard.bak`, preserves every existing backend, and appends the new route to `backends=`.
 
-### 2. Save the generated files
+### 2. Download the setup package
 
-The result separates the completed proxy side from the files still needed by Endstone. It shows the non-secret proxy properties already saved and provides two downloads:
+The proxy route and its protected key are installed automatically. Download
+`<backend>-onibridge-setup.zip` immediately. It contains:
 
 - `<backend>.key` — the new 32-byte Base64 forwarding secret.
 - `onibridge.toml` — a complete matched Endstone configuration.
+- `INSTALL.txt` — the allocation summary, destination paths, and startup checks.
 
-Download both immediately. The secret is returned only by that setup response and is never written into `config.properties` or the audit log.
+The setup ZIP is returned only by that setup response. Keep it private. The secret is never written
+into `config.properties` or the audit log. Individual downloads remain under **Show individual files
+and reference values** as a recovery option.
 
 The OniLink route and its copy of the key are already installed automatically. Do not paste the displayed key into the proxy properties:
 
@@ -76,12 +89,14 @@ Do not replace `activeSecretFile` with the secret value. It is a file path.
 
 ### 3. Install the files in Pterodactyl
 
-Open the new BDS/Endstone server in Pterodactyl and stop it. In **Files**, create `plugins/onibridge/` if it does not exist, then upload both generated files so the layout is exactly:
+Extract the setup ZIP locally. Open the new BDS/Endstone server in Pterodactyl and stop it. In
+**Files**, create `plugins/onibridge/` if it does not exist, then upload the generated key and TOML so
+the layout is exactly:
 
 ```text
 /home/container/
 └── plugins/
-    ├── onibridge-0.1.3-bds-1.26.44.3-linux-x86_64.so
+    ├── onibridge-0.1.4-bds-1.26.44.3-linux-x86_64.so
     └── onibridge/
         ├── creative.key
         └── onibridge.toml

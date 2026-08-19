@@ -36,7 +36,7 @@
             "name": "OniLink bootstrap release tag",
             "description": "Exact public GitHub release used only during create/reinstall. Normal starts query GitHub's latest stable non-prerelease release and install its checksum-verified runtime files.",
             "env_variable": "ONILINK_VERSION",
-            "default_value": "v0.1.3",
+            "default_value": "v0.1.4",
             "user_viewable": true,
             "user_editable": true,
             "rules": "required|string|max:64|regex:/^[A-Za-z0-9][A-Za-z0-9._-]*$/",
@@ -70,6 +70,16 @@
             "user_viewable": true,
             "user_editable": true,
             "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "Dashboard owner setup code",
+            "description": "ADMIN ONLY. Optional one-time setup code for automated tenant provisioning. Leave blank for a randomly generated code in dashboard/FIRST_RUN_SETUP.txt.",
+            "env_variable": "ONILINK_DASHBOARD_SETUP_CODE",
+            "default_value": "",
+            "user_viewable": false,
+            "user_editable": false,
+            "rules": "nullable|string|min:16|max:256",
             "field_type": "text"
         },
         {

@@ -4,13 +4,13 @@ Run OniLink and every backend as separate Pterodactyl servers.
 
 ## Import the released egg
 
-Download [`egg-onilink.json`](https://github.com/TheNINJALLO/OniLink/releases/download/v0.1.3/egg-onilink.json), then open **Admin Panel → Nests → Import Egg**.
+Download [`egg-onilink.json`](https://github.com/TheNINJALLO/OniLink/releases/download/v0.1.4/egg-onilink.json), then open **Admin Panel → Nests → Import Egg**.
 
 Create an **OniLink Bedrock Proxy** server with the Java 21 image and one public UDP allocation. Set the private backend host/port and enter a generated Base64 secret in the administrator-only `ONIBRIDGE_FORWARDING_SECRET` variable. Put the same value on the backend validator.
 
 The egg verifies its bootstrap downloads, creates `config.properties` only when missing, and preserves it on reinstall. Every container start checks GitHub's latest stable release, verifies the JAR, updater, and reference configuration, and atomically installs valid changes. Drafts and prereleases are ignored. A failed update starts the existing JAR; a successful one keeps previous runtime files for rollback. It also maps the primary allocation number to Bedrock UDP and the authenticated dashboard over TCP. The BDS/Endstone and Geyser processes still use separate servers/eggs.
 
-The updater changes runtime files, not the egg definition stored in the panel. Existing v0.1.1 and v0.1.2 servers discover and download the normal v0.1.3 JAR on their next restart. No reimport is required for the new backend page; reimport the current egg only if an older server still lacks the v0.1.2 updater and allowlist variables.
+The updater changes runtime files, not the egg definition stored in the panel. Existing updater-enabled servers discover and download the v0.1.4 JAR on their next restart. No reimport is required for the simplified backend page. Reimport the current egg when using automated tenant provisioning so the panel receives its administrator-only dashboard setup-code variable.
 
 The BDS image must provide glibc 2.35 or newer for native OniBridge. The current amd64 `ghcr.io/parkervcp/yolks:python_3.14` image is Debian Bookworm-based and meets that floor. Recheck mutable image tags with `ldd --version` after updates, and never replace `libc.so.6` manually.
 

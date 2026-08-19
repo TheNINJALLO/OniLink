@@ -52,6 +52,14 @@ All other fields remain under direct operator control in `config.properties`.
 
 The dashboard is reachable at `http://NODE-OR-DOMAIN:PRIMARY_PORT/` when **Enable operations dashboard** is true and TCP is published. Use a trusted network for first-run setup, then place it behind restricted HTTPS. Bedrock and the dashboard share a number without conflict because Bedrock binds UDP and the dashboard binds TCP. Persist `dashboard/` and protect it as credential material. The [dashboard guide](../../docs/DASHBOARD.md) covers roles, TOTP, reverse proxies, backups, and recovery.
 
+The optional admin-only `ONILINK_DASHBOARD_SETUP_CODE` variable supports automated provisioning. A
+blank value keeps the normal randomly generated `dashboard/FIRST_RUN_SETUP.txt` flow. Never make the
+variable customer-editable or reuse a setup code between instances.
+
+For commercial hosting, use one egg-created server and one primary allocation per customer. The
+[`tenantctl` guide](../tenant-hosting/README.md) prepares an isolated plan, creates the server through
+the Pterodactyl Application API, and provides explicit billing suspension commands.
+
 ## Automatic updates and rollback
 
 Restart the container to check for an update. `start-onilink.sh` queries GitHub's `/releases/latest` endpoint, which returns the newest normal release and excludes drafts and prereleases. It downloads `OniLink.jar`, `start-onilink.sh`, `onilink.properties.example`, and `SHA256SUMS`, verifies all three runtime files, and only then installs changes.

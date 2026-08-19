@@ -7,6 +7,7 @@
 - [[Native BDS Setup]]
 - [[Geyser Java Setup]]
 - [[Pterodactyl Setup]]
+- [[Tenant Hosting]]
 - [[Operations Dashboard|Dashboard]]
 - [[Configuration]]
 - [[Architecture and Security]]

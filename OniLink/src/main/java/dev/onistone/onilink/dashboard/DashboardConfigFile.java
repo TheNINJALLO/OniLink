@@ -2,6 +2,7 @@ package dev.onistone.onilink.dashboard;
 
 import dev.onistone.onilink.config.ProxyConfig;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.StringReader;
 import java.net.InetAddress;
@@ -26,6 +27,8 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 /** Safe dashboard access to config.properties with secret redaction, validation, backup, and rollback. */
 final class DashboardConfigFile {
@@ -95,12 +98,13 @@ final class DashboardConfigFile {
             throw new IllegalArgumentException(
                     "Backend name must start with a letter and contain only lowercase letters, numbers, _ or -");
         }
-        String host = required(fields, "host");
+        BackendEndpoint endpoint = backendEndpoint(fields);
+        String host = endpoint.host();
         if (!HOST.matcher(host).matches()) {
             throw new IllegalArgumentException("Backend host must be a hostname or numeric IP address without spaces");
         }
-        int port = integer(fields.get("port"), "Backend port", 1, 65_535);
-        String trustedProxyCidr = cidr(required(fields, "trustedProxyCidr"));
+        int port = endpoint.port();
+        String trustedProxyCidr = trustedProxyCidr(fields);
         String bridgeId = optionalIdentifier(fields.get("bridgeId"), name + "-main", "Bridge ID");
         String keyId = optionalIdentifier(fields.get("activeKeyId"), "key-1", "Active key ID");
 
@@ -153,6 +157,10 @@ final class DashboardConfigFile {
         RANDOM.nextBytes(secretBytes);
         String secret = Base64.getEncoder().encodeToString(secretBytes);
         java.util.Arrays.fill(secretBytes, (byte) 0);
+        String bridgeToml = onibridgeToml(name, bridgeId, keyId, trustedProxyCidr, secretFileName);
+        String setupBundleFileName = name + "-onibridge-setup.zip";
+        byte[] setupBundle = setupBundle(
+                name, secretFileName, secret, bridgeToml, host, port, trustedProxyCidr);
         Path secretsDirectory = path.getParent().resolve("secrets");
         Path secretPath = secretsDirectory.resolve(secretFileName).normalize();
         if (!secretPath.startsWith(secretsDirectory) || Files.exists(secretPath)) {
@@ -191,8 +199,11 @@ final class DashboardConfigFile {
         result.put("secretFileName", secretFileName);
         result.put("onilinkSecretFile", secretRelativePath);
         result.put("onilinkProperties", onilinkProperties);
-        result.put("onibridgeToml", onibridgeToml(
-                name, bridgeId, keyId, trustedProxyCidr, secretFileName));
+        result.put("onibridgeToml", bridgeToml);
+        result.put("backendEndpoint", displayEndpoint(host, port));
+        result.put("trustedProxyCidr", trustedProxyCidr);
+        result.put("setupBundleFileName", setupBundleFileName);
+        result.put("setupBundleBase64", Base64.getEncoder().encodeToString(setupBundle));
         result.put("restartRequired", true);
         result.put("message", "Backend added. Install the generated files on Endstone, then restart OniLink.");
         return Map.copyOf(result);
@@ -378,6 +389,58 @@ final class DashboardConfigFile {
         return value.trim();
     }
 
+    private static BackendEndpoint backendEndpoint(Map<String, String> fields) {
+        String combined = fields.get("address");
+        if (combined == null || combined.isBlank()) {
+            return new BackendEndpoint(
+                    required(fields, "host"),
+                    integer(fields.get("port"), "Backend port", 1, 65_535));
+        }
+        String value = safeValue(combined, "BDS address");
+        if (value.startsWith("[")) {
+            int closing = value.indexOf(']');
+            if (closing < 2 || closing + 2 >= value.length() || value.charAt(closing + 1) != ':') {
+                throw new IllegalArgumentException("IPv6 BDS addresses must use [address]:port");
+            }
+            return new BackendEndpoint(
+                    value.substring(1, closing),
+                    integer(value.substring(closing + 2), "BDS port", 1, 65_535));
+        }
+        int colon = value.lastIndexOf(':');
+        if (colon < 1 || colon == value.length() - 1) {
+            throw new IllegalArgumentException("BDS address must include a port, for example 198.51.100.20:25571");
+        }
+        if (value.indexOf(':') != colon) {
+            throw new IllegalArgumentException("IPv6 BDS addresses must use [address]:port");
+        }
+        return new BackendEndpoint(
+                value.substring(0, colon),
+                integer(value.substring(colon + 1), "BDS port", 1, 65_535));
+    }
+
+    private static String trustedProxyCidr(Map<String, String> fields) {
+        String configured = fields.get("trustedProxyCidr");
+        if (configured != null && !configured.isBlank()) return cidr(safeValue(configured, "Trusted proxy CIDR"));
+        String publicIp = safeValue(fields.get("proxyPublicIp"), "OniLink public IP");
+        if (!publicIp.matches("[0-9A-Fa-f:.]+") || (!publicIp.contains(".") && !publicIp.contains(":"))) {
+            throw new IllegalArgumentException("OniLink public IP must be a numeric IPv4 or IPv6 address");
+        }
+        try {
+            InetAddress parsed = InetAddress.getByName(publicIp);
+            return parsed.getHostAddress() + "/" + (parsed.getAddress().length * 8);
+        } catch (UnknownHostException exception) {
+            throw new IllegalArgumentException("OniLink public IP is invalid", exception);
+        }
+    }
+
+    private static String safeValue(String value, String label) {
+        if (value == null || value.isBlank()) throw new IllegalArgumentException(label + " is required");
+        if (value.indexOf('\0') >= 0 || value.indexOf('\r') >= 0 || value.indexOf('\n') >= 0) {
+            throw new IllegalArgumentException(label + " contains an invalid character");
+        }
+        return value.trim();
+    }
+
     private static int integer(String value, String label, int minimum, int maximum) {
         final int parsed;
         try {
@@ -486,6 +549,61 @@ final class DashboardConfigFile {
                 """.formatted(bridgeId, name, trustedProxyCidr, keyId, secretFileName, LINUX_PROFILE);
     }
 
+    private static byte[] setupBundle(
+            String name,
+            String secretFileName,
+            String secret,
+            String bridgeToml,
+            String host,
+            int port,
+            String trustedProxyCidr
+    ) throws IOException {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (ZipOutputStream zip = new ZipOutputStream(bytes, StandardCharsets.UTF_8)) {
+            zipText(zip, secretFileName, secret + System.lineSeparator());
+            zipText(zip, "onibridge.toml", bridgeToml);
+            zipText(zip, "INSTALL.txt", """
+                    ONILINK BACKEND SETUP: %s
+
+                    PORTS
+                    - OniLink needs one primary allocation. Bedrock uses UDP and the dashboard uses TCP
+                      on that same numeric port.
+                    - This backend uses its existing BDS UDP allocation: %s
+                    - OniBridge does not need another port.
+
+                    INSTALL
+                    1. Stop this BDS/Endstone server in Pterodactyl.
+                    2. Install the matching OniBridge Linux .so from the same OniLink release in:
+                       /home/container/plugins/
+                    3. Create this directory if it does not exist:
+                       /home/container/plugins/onibridge/
+                    4. Upload %s and onibridge.toml from this ZIP into that directory.
+                    5. Start BDS and confirm the native identity hook reports active.
+                    6. Restart OniLink so it loads the new route.
+                    7. Join through OniLink and run: /server %s
+
+                    TRUST
+                    BDS address: %s
+                    Trusted OniLink source: %s
+
+                    Keep the key private. Do not paste its contents into active_secret_env; the generated
+                    TOML intentionally loads it from the file beside onibridge.toml.
+                    """.formatted(name, displayEndpoint(host, port), secretFileName, name,
+                            displayEndpoint(host, port), trustedProxyCidr));
+        }
+        return bytes.toByteArray();
+    }
+
+    private static void zipText(ZipOutputStream zip, String name, String content) throws IOException {
+        zip.putNextEntry(new ZipEntry(name));
+        zip.write(content.getBytes(StandardCharsets.UTF_8));
+        zip.closeEntry();
+    }
+
+    private static String displayEndpoint(String host, int port) {
+        return (host.indexOf(':') >= 0 ? "[" + host + "]" : host) + ":" + port;
+    }
+
     private static void setPosixPermissions(Path target, Set<PosixFilePermission> permissions) throws IOException {
         if (Files.getFileAttributeView(target, java.nio.file.attribute.PosixFileAttributeView.class) != null) {
             Files.setPosixFilePermissions(target, permissions);
@@ -504,5 +622,8 @@ final class DashboardConfigFile {
     }
 
     private record LineBlock(List<String> lines, ParsedLine parsed) {
+    }
+
+    private record BackendEndpoint(String host, int port) {
     }
 }

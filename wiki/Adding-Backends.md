@@ -4,7 +4,8 @@
 
 # Adding Backends
 
-The OniLink dashboard can add a BDS + Endstone route, generate a unique secret, and create the matching native plugin configuration without hand-editing both sides.
+The OniLink dashboard can add a BDS + Endstone route, generate a unique secret, and create one
+matched setup ZIP without hand-editing both sides.
 
 > [!IMPORTANT]
 > Use a unique backend name, bridge ID, and secret for every server. The wizard is for native BDS; follow [[Geyser Java Setup]] for a Java backend.
@@ -19,14 +20,12 @@ The OniLink dashboard can add a BDS + Endstone route, generate a unique secret, 
    | Field | Example |
    | --- | --- |
    | Backend name | `creative` |
-   | Host | `198.51.100.20` |
-   | UDP port | `25571` |
-   | Trusted OniLink CIDR | `198.51.100.10/32` |
-   | Bridge ID | `creative-main` |
-   | Key ID | `key-1` |
+   | BDS allocation | `198.51.100.20:25571` |
+   | OniLink public IP | `198.51.100.10` |
 
-5. Select **Generate key + both configs**. Confirm the proxy side says **Installed automatically**, then immediately download the key and `onibridge.toml`.
-6. Stop the new BDS server and upload the files here:
+5. Select **Create backend setup package** and immediately download
+   `creative-onibridge-setup.zip`.
+6. Extract the ZIP, stop the new BDS server, and upload its key and TOML here:
 
    ```text
    /home/container/plugins/onibridge/
@@ -41,6 +40,10 @@ The OniLink dashboard can add a BDS + Endstone route, generate a unique secret, 
 OniLink has already created its own `secrets/creative.key` and updated `config.properties`; the result page shows the exact non-secret properties for reference. Do not copy the secret text into `active_secret_env`; the wizard uses `active_secret_file` on both sides. The current Linux plugin automatically restricts an uploaded key to owner-only access.
 
 Adding the backend does not change the hub. Use the raw configuration editor only when you deliberately want to update `hubBackend`, `join.try`, or failover settings.
+
+OniLink itself needs one primary allocation. Bedrock uses UDP and the dashboard uses TCP on that same
+number. Every backend keeps its own BDS UDP allocation; adding a backend does not require another
+OniLink port.
 
 ## Manual fallback
 

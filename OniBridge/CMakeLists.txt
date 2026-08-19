@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 if(NOT DEFINED ONIBRIDGE_VERSION)
-    set(ONIBRIDGE_VERSION "0.1.3")
+    set(ONIBRIDGE_VERSION "0.1.4")
 endif()
 project(OniBridge VERSION "${ONIBRIDGE_VERSION}" LANGUAGES CXX)
 

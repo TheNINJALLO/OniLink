@@ -7,7 +7,7 @@
 Use this page as the canonical map for operators, testers, and contributors. The [GitHub Wiki](https://github.com/TheNINJALLO/OniLink/wiki) provides a shorter task-oriented copy of the operator guidance.
 
 > [!IMPORTANT]
-> `v0.1.3` is the current production release. Its exact Linux BDS `1.26.44.3` + Endstone `0.11.9` profile is production-approved; other platforms and profiles retain separate compatibility gates.
+> `v0.1.4` is the current production release. Its exact Linux BDS `1.26.44.3` + Endstone `0.11.9` profile is production-approved; other platforms and profiles retain separate compatibility gates.
 
 ## Start here
 
@@ -17,9 +17,10 @@ Use this page as the canonical map for operators, testers, and contributors. The
 | Install the current Linux release | [Quick start](QUICKSTART.md) |
 | Install and configure the complete network | [Installation](INSTALLATION.md) |
 | Add another BDS server automatically | [Adding a BDS backend](ADDING_BACKEND.md) |
-| Review the current changes and upgrade steps | [v0.1.3 release notes](releases/v0.1.3.md) |
+| Review the current changes and upgrade steps | [v0.1.4 release notes](releases/v0.1.4.md) |
 | Copy a complete working configuration | [Deployment examples](../examples/README.md) |
 | Import the OniLink Pterodactyl egg | [Pterodactyl](PTERODACTYL.md) |
+| Provision isolated paid customer instances | [Tenant hosting](TENANT_HOSTING.md) |
 | Configure and secure the operations UI | [Dashboard](DASHBOARD.md) |
 | Connect a Geyser-backed Java server | [Geyser integration](GEYSER.md) |
 | Resolve a failed startup or rejected join | [Troubleshooting](TROUBLESHOOTING.md) |
@@ -31,6 +32,7 @@ Use this page as the canonical map for operators, testers, and contributors. The
 - [Linux](LINUX.md) — supported ABI, runtime requirements, and Linux evidence.
 - [Windows](WINDOWS.md) — Windows candidate status and required validation.
 - [Pterodactyl](PTERODACTYL.md) — process separation, allocations, environment secrets, and startup order.
+- [Tenant hosting](TENANT_HOSTING.md) — isolated customer instances, provisioning plans, handoff packages, and billing state changes.
 - [Dashboard](DASHBOARD.md) — first-run ownership, roles, TOTP, HTTPS, operations, recovery, and panel setup.
 - [Migration](MIGRATION.md) — preserving identity and storage continuity when introducing OniLink.
 - [Testing](TESTING.md) — completed evidence and the live acceptance checklist.
@@ -58,7 +60,7 @@ Use this page as the canonical map for operators, testers, and contributors. The
 
 | Item | Current value |
 | --- | --- |
-| Application release | `v0.1.3` |
+| Application release | `v0.1.4` |
 | Locked BDS | `1.26.44.3` |
 | Endstone | `0.11.9` |
 | Public proxy runtime | Java 21 |

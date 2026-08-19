@@ -4,6 +4,7 @@ import dev.onistone.onilink.config.ProxyConfig;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.ByteArrayInputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFileAttributeView;
@@ -11,6 +12,9 @@ import java.nio.file.attribute.PosixFilePermission;
 import java.util.Base64;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -60,11 +64,8 @@ class DashboardConfigFileTest {
 
         Map<String, Object> result = editor.addBackend(revision, Map.of(
                 "name", "creative",
-                "host", "198.51.100.20",
-                "port", "25571",
-                "trustedProxyCidr", "198.51.100.10/32",
-                "bridgeId", "creative-main",
-                "activeKeyId", "key-2026-08"));
+                "address", "198.51.100.20:25571",
+                "proxyPublicIp", "198.51.100.10"));
 
         assertTrue((Boolean) result.get("added"));
         String secret = String.valueOf(result.get("secret"));
@@ -94,10 +95,22 @@ class DashboardConfigFileTest {
         String toml = String.valueOf(result.get("onibridgeToml"));
         assertTrue(toml.contains("backend_name = \"creative\""));
         assertTrue(toml.contains("trusted_proxy_cidrs = [\"198.51.100.10/32\"]"));
+        assertTrue(toml.contains("active_key_id = \"key-1\""));
         assertTrue(toml.contains("active_secret_file = \"creative.key\""));
         assertTrue(toml.contains(
                 "required_profile = \"bds-1.26.44.3-linux-x86_64-06effdd00067f1ae\""));
         assertTrue(toml.contains("allow_unreviewed_profile = false"));
+        assertEquals("198.51.100.20:25571", result.get("backendEndpoint"));
+        assertEquals("198.51.100.10/32", result.get("trustedProxyCidr"));
+        assertEquals("creative-onibridge-setup.zip", result.get("setupBundleFileName"));
+
+        Map<String, String> bundle = unzip(Base64.getDecoder().decode(
+                String.valueOf(result.get("setupBundleBase64"))));
+        assertEquals(Set.of("INSTALL.txt", "creative.key", "onibridge.toml"), bundle.keySet());
+        assertEquals(secret, bundle.get("creative.key").trim());
+        assertEquals(toml, bundle.get("onibridge.toml"));
+        assertTrue(bundle.get("INSTALL.txt").contains("OniLink needs one primary allocation"));
+        assertTrue(bundle.get("INSTALL.txt").contains("198.51.100.20:25571"));
 
         assertThrows(IllegalStateException.class,
                 () -> editor.addBackend(String.valueOf(result.get("revision")), Map.of(
@@ -116,6 +129,20 @@ class DashboardConfigFileTest {
                 () -> editor.addBackend(revision, Map.of(
                         "name", "bad.name=owned", "host", "127.0.0.1", "port", "19133",
                         "trustedProxyCidr", "127.0.0.1/32")));
+        assertThrows(IllegalArgumentException.class,
+                () -> editor.addBackend(revision, Map.of(
+                        "name", "shortip", "address", "127.0.0.1:19135",
+                        "proxyPublicIp", "1")));
         assertEquals(1, ProxyConfig.loadOrCreate(path).backends().size());
+    }
+
+    private static Map<String, String> unzip(byte[] archive) throws Exception {
+        Map<String, String> entries = new TreeMap<>();
+        try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(archive))) {
+            for (ZipEntry entry; (entry = zip.getNextEntry()) != null; ) {
+                entries.put(entry.getName(), new String(zip.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8));
+            }
+        }
+        return entries;
     }
 }

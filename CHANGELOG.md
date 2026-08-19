@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 0.1.4 - 2026-08-19
+
+- Simplified native-backend onboarding to three normal inputs: backend name, BDS allocation, and
+  OniLink public IP; bridge/key labels remain available only as advanced overrides.
+- Added a one-click backend setup ZIP containing the matched Endstone key, complete
+  `onibridge.toml`, allocation explanation, upload paths, restart order, and validation steps.
+- Added an isolated commercial-hosting provisioner that creates one Pterodactyl OniLink server and
+  one primary allocation per tenant, produces a private customer handoff, and supports idempotent
+  status, suspend, and unsuspend operations for verified billing workflows.
+- Added a hidden, administrator-controlled first-owner setup code to the Pterodactyl egg so hosted
+  tenants can receive their dashboard without exposing the code as a customer-editable variable.
 - Standardized project-owned C++, Python, and dashboard sources with checked-in formatter rules and
   a CI style gate; generated and vendored source boundaries remain explicit.
 - Reworked dense runtime templates and native parsing code for readability without changing the
@@ -9,6 +20,8 @@
 - Removed obsolete StartGame fixup state and shortened incident-style comments to the protocol and
   maintenance decisions they document.
 - Added a contributor guide with source ownership, formatting, testing, and privacy requirements.
+- Bumped OniLink, OniBridge, OniBridge-Geyser, the Pterodactyl bootstrap, tenant templates, and Linux
+  release automation to `0.1.4`.
 
 ## 0.1.3 - 2026-08-19
 
