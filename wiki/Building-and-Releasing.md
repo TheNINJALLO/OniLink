@@ -8,7 +8,7 @@ Install Java 21, Python 3, CMake, Ninja, LLVM 18, libc++ 18, and libc++abi 18, t
 scripts/build-linux.sh
 ```
 
-The script builds/tests OniLink and OniBridge-Geyser, compiles/tests native OniBridge with the committed Linux adapter, rejects imports newer than `GLIBC_2.35`, and packages `dist/linux` with the ABI result in its manifest.
+The script builds/tests OniLink, compiles/tests native OniBridge with the committed Linux adapter, rejects imports newer than `GLIBC_2.35`, and packages `dist/linux` with the ABI result in its manifest.
 
 The same process runs in [Linux Release Artifacts](https://github.com/TheNINJALLO/OniLink/actions/workflows/linux-artifacts.yml) on Ubuntu 22.04.
 
@@ -18,7 +18,6 @@ A release bundle includes only project-owned runtime/configuration files:
 
 - `OniLink.jar`
 - profile-specific `onibridge.so`
-- `OniBridge-Geyser.jar`
 - example configurations
 - exact profile JSON
 - compatibility manifest

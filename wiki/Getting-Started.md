@@ -1,29 +1,20 @@
 # Getting Started
 
-OniLink is the public Bedrock listener. Every backend stays private and validates a fresh signed `OniForward` claim before accepting identity data.
-
-## Choose your path
-
-| Backend | Install | Use when |
-| --- | --- | --- |
-| BDS + Endstone | `OniLink.jar` + matching native `onibridge.so`/`.dll` | You need native BDS player-data continuity |
-| Geyser + Java | `OniLink.jar` + `OniBridge-Geyser.jar` | Bedrock players enter a Java server through Geyser |
-
-Do not install both validators on the same backend path.
+OniLink is the public Bedrock listener. Every BDS/Endstone backend stays private and uses OniBridge
+to validate a fresh signed `OniForward` claim before accepting identity data.
 
 ## Prerequisites
 
 - Java 21 for OniLink.
+- Exact BDS `1.26.44.3` and Endstone `0.11.9` for the approved Linux profile.
 - A private UDP route between proxy and backend.
 - One unique 32-byte-or-stronger Base64 secret per backend.
-- Synchronized clocks.
-- A backup of worlds, permissions, operators, allowlists, and plugin data.
-- For native BDS: an exact supported BDS/Endstone/platform combination.
+- Synchronized clocks and current backups.
 
 ## Download
 
 ```bash
-gh release download v0.2.0-beta.2 \
+gh release download v0.2.0 \
   --repo TheNINJALLO/OniLink \
   --dir onilink-release
 cd onilink-release
@@ -32,21 +23,17 @@ sha256sum -c SHA256SUMS
 
 Stop if any checksum differs.
 
-## Shared configuration rule
+## The matching rule
 
-These values must match on OniLink and the selected validator:
+These values must match on OniLink and OniBridge:
 
-1. Backend name
-2. Bridge ID
-3. Active key ID
-4. Secret bytes and source
+1. backend name;
+2. bridge ID;
+3. active key ID;
+4. secret bytes and source.
 
-The validator's trusted proxy CIDR must match the source address actually observed at the backend.
+OniBridge's trusted proxy CIDR must match the source address the backend actually observes.
 
-## Continue
-
-- For the full beginning-to-end procedure, use [[Installation Guide]].
-- For BDS, continue to [[Native BDS Setup]].
-- For Java, continue to [[Geyser Java Setup]].
-- For all available settings, see [[Configuration]].
-- For copyable files, choose the [single-BDS](https://github.com/TheNINJALLO/OniLink/tree/main/examples/single-bds) or [mixed BDS/Geyser](https://github.com/TheNINJALLO/OniLink/tree/main/examples/mixed-bds-geyser) example.
+Continue with [[Installation Guide]], then [[Native BDS Setup]]. The copyable
+[single-BDS example](https://github.com/TheNINJALLO/OniLink/tree/main/examples/single-bds) supplies
+both sides of the initial configuration.

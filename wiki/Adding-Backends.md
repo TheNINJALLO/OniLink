@@ -8,7 +8,7 @@ The OniLink dashboard can add a BDS + Endstone route, generate a unique secret, 
 matched setup ZIP without hand-editing both sides.
 
 > [!IMPORTANT]
-> Use a unique backend name, bridge ID, and secret for every server. The wizard is for native BDS; follow [[Geyser Java Setup]] for a Java backend.
+> Use a unique backend name, bridge ID, and secret for every BDS server.
 
 ## Dashboard setup
 

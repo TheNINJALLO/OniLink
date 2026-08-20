@@ -28,9 +28,6 @@ build-windows adapter:
     cmake --preset windows-release -S OniBridge -DONIBRIDGE_GENERATED_ADAPTER={{adapter}}
     cmake --build --preset windows-release
 
-build-geyser:
-    OniLink/gradlew -p OniBridge-Geyser test jar --no-daemon
-
 build-linux-all:
     sh scripts/build-linux.sh
 
@@ -39,7 +36,6 @@ test:
     python -m unittest discover -s OniBridge/tools/sdkgen/tests -t OniBridge/tools/sdkgen
     python -m unittest discover -s tools -p "test_*.py"
     OniLink/gradlew test
-    OniLink/gradlew -p OniBridge-Geyser test
 
 package version bds_version:
     python tools/package_release.py --version {{version}} --bds-version {{bds_version}}

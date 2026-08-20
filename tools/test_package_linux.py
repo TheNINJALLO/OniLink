@@ -39,7 +39,6 @@ class PackageLinuxTests(unittest.TestCase):
         for path in (
             root / "OniBridge/onibridge.example.toml",
             root / "examples/single-bds/onibridge.toml",
-            root / "examples/mixed-bds-geyser/onibridge-survival.toml",
         ):
             self.assertIn(
                 "allow_unreviewed_profile = false", path.read_text(encoding="utf-8")

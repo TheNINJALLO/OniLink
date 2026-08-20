@@ -2,8 +2,6 @@
 
 This guide adds a second, third, or later BDS + Endstone server to an existing OniLink network. The dedicated dashboard wizard is the recommended path: it updates OniLink, generates a unique secret, and creates the matching Endstone configuration as one operation.
 
-For Geyser-backed Java servers, use [Geyser integration](GEYSER.md). The BDS wizard generates a native OniBridge configuration and should not be used for Geyser.
-
 > [!IMPORTANT]
 > Every backend needs its own backend name, bridge ID, and secret. Reusing a secret across servers is rejected by OniLink and weakens backend isolation.
 
@@ -106,7 +104,7 @@ the layout is exactly:
 ```text
 /home/container/
 └── plugins/
-    ├── onibridge-0.2.0-beta.2-bds-1.26.44.3-linux-x86_64.so
+    ├── onibridge-0.2.0-bds-1.26.44.3-linux-x86_64.so
     └── onibridge/
         ├── creative.key
         └── onibridge.toml

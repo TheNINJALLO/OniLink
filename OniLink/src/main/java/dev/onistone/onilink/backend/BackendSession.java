@@ -8,7 +8,6 @@ import org.cloudburstmc.protocol.bedrock.packet.BedrockPacketHandler;
 public final class BackendSession extends BedrockClientSession {
     private ProxyConnection connection;
     private boolean disconnectClientOnClose = true;
-    private boolean dropSubChunkRequests;
     private BedrockPacketWrapper currentInboundPacket;
 
     public BackendSession(BedrockPeer peer, int subClientId) {
@@ -25,15 +24,6 @@ public final class BackendSession extends BedrockClientSession {
 
     public void setDisconnectClientOnClose(boolean disconnectClientOnClose) {
         this.disconnectClientOnClose = disconnectClientOnClose;
-    }
-
-    /** @see dev.onistone.onilink.config.BackendConfig#dropSubChunkRequests() */
-    public boolean dropSubChunkRequests() {
-        return dropSubChunkRequests;
-    }
-
-    public void setDropSubChunkRequests(boolean dropSubChunkRequests) {
-        this.dropSubChunkRequests = dropSubChunkRequests;
     }
 
     public void discardInboundPackets() {

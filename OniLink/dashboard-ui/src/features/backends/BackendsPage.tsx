@@ -84,9 +84,6 @@ export function BackendsPage({ navigate }: { navigate: (route: string) => void }
                   <td>{backend.default ? "Default" : backend.hub ? "Hub" : "Route"}</td>
                   <td>
                     <span className="tag">{backend.forwarding ? "Forwarded" : "Direct"}</span>
-                    {backend.dropSubChunkRequests ? (
-                      <span className="tag">Sub-chunks filtered</span>
-                    ) : null}
                   </td>
                 </tr>
               ))}

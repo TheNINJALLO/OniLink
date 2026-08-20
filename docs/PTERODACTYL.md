@@ -1,292 +1,232 @@
-# Pterodactyl deployment
+# Pterodactyl setup
 
-Use a separate Pterodactyl server for OniLink and for every BDS or Geyser backend. The proxy allocation is public; backend allocations are private or firewalled to the proxy.
+Run OniLink in one Pterodactyl server and each BDS/Endstone backend in its own server. OniLink's
+player allocation is public; backend allocations must be private or firewalled to OniLink.
 
-> [!NOTE]
-> The primary allocation carries the provider proxy over UDP and the shared dashboard over TCP.
-> Each tenant proxy needs one additional UDP allocation assigned to this same OniLink server.
-> Adding a backend route to an existing proxy does not add another OniLink allocation.
+## Import the egg
 
-To provide customer access, use **Tenant Hosting** in the existing OniLink control plane. Customers
-sign in at the same URL and see only their own proxies. OniLink does not create more Pterodactyl
-servers or eggs and does not need an Application API key. Follow
-[Single-container tenant hosting](TENANT_HOSTING.md).
+Download `egg-onilink.json` from the stable
+[`v0.2.0` release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.2.0), then open:
 
-## Import the OniLink egg
+```text
+Admin Panel → Nests → Import Egg
+```
 
-Download `egg-onilink.json` from the [current beta](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.2.0-beta.2) or [`packaging/pterodactyl`](../packaging/pterodactyl/README.md).
+Create an OniLink server from the imported egg. Assign:
 
-1. Open **Admin Panel → Nests**.
-2. Select or create a nest and choose **Import Egg**.
-3. Upload `egg-onilink.json`.
-4. Create a server using **OniLink Bedrock Edge System** and the Java 21 image.
-5. Assign one public allocation. The egg writes its primary port to the Bedrock UDP listener and dashboard TCP listener.
-6. Set **Default backend host** and **Default backend UDP port** to the private address reachable from the OniLink container.
-7. Leave **Enable authenticated XUID allowlist** off for the first join.
-8. Generate a forwarding secret with `openssl rand -base64 32` and enter it in the admin-only **Default OniForward secret** variable.
-9. Put the identical value in the default backend validator.
-10. Start the backend and confirm its validator first; then start OniLink.
-11. Open **Files → dashboard → FIRST_RUN_SETUP.txt**, copy the one-time code, and browse to `http://NODE-OR-DOMAIN:PRIMARY_PORT/` from a trusted network to create the dashboard owner.
+- one public UDP allocation for players;
+- one TCP allocation for the dashboard if you publish it through a protected route;
+- one extra UDP allocation on this same server for every tenant proxy listener you create.
 
-The installer downloads the exact `ONILINK_VERSION` bootstrap tag, verifies `OniLink.jar`, `start-onilink.sh`, and the configuration template against that release's `SHA256SUMS`, and preserves an existing `config.properties` during reinstall. Every later container start uses **Automatic update channel**, verifies the JAR, updater, and reference configuration, then updates changed runtime files atomically.
+TCP and UDP may use the same numeric port because they are different protocols. A normal
+single-proxy installation does not need a separate port per backend: OniLink initiates connections
+to each backend's own private allocation.
 
-| Channel | Startup behavior |
+## Automatic updates
+
+The egg bootstraps the selected `ONILINK_VERSION`, verifies `OniLink.jar`, `start-onilink.sh`, and the
+reference configuration against `SHA256SUMS`, and preserves an existing `config.properties` during
+reinstall. Every container start checks **Automatic update channel** and atomically installs only
+checksum-valid changes.
+
+| Channel | Behavior |
 | --- | --- |
-| `stable` | Installs GitHub's latest normal release and ignores prereleases. |
-| `beta` | Installs the newest published release, including prereleases. The `v0.2.0-beta.2` egg defaults here. |
-| `pinned` | Verifies and stays on the exact `ONILINK_VERSION` release tag. |
+| `stable` | Newest published non-prerelease; default for `v0.2.0` |
+| `beta` | Newest published release including prereleases |
+| `pinned` | Stays on the exact `ONILINK_VERSION` |
 
-If GitHub is unavailable or verification fails, startup keeps the currently installed JAR. A successful replacement retains the prior version as `OniLink.jar.previous`, preserves active `config.properties`, updates only `onilink.properties.example`, and records the active release tag in `.onilink-version`. A changed updater is saved as `start-onilink.sh.previous` and takes over on the next restart.
+If an update fails, the existing JAR starts and the log explains the failure. A successful update
+keeps previous runtime files for rollback. To add the updater to an older egg, back up the server,
+reimport the current egg, verify its variables, and run **Reinstall Server** once. Reinstall preserves
+the live proxy configuration and dashboard data but always take a backup first.
 
-Existing updater-enabled containers without `ONILINK_UPDATE_CHANNEL` remain on `stable` and do not
-discover this beta. To cross that stable-to-beta boundary:
+## Understand the ports
 
-1. Back up `config.properties`, `dashboard/`, `allowlist.properties`, and forwarding keys.
-2. Reimport the `v0.2.0-beta.2` egg and confirm `ONILINK_VERSION=v0.2.0-beta.2` and
-   `ONILINK_UPDATE_CHANNEL=beta`.
-3. Run **Reinstall Server** once so the verified beta installer replaces the old stable-only
-   `start-onilink.sh`. The installer preserves an existing `config.properties`.
-4. Start the container. Later normal reboots follow the selected beta channel automatically.
+Use labels that describe direction, not implementation jargon:
 
-Reimporting an egg changes the definition stored by Pterodactyl; it does not by itself replace a
-runtime updater already in `/home/container`. Reimport again only when you need later panel variables
-or install-script changes.
-
-### Enable the authenticated allowlist
-
-1. Join once while **Enable authenticated XUID allowlist** is `false`.
-2. In **Dashboard → Allowlist**, select your connected account and add it. Alternatively run `allowlist add <gamertag>` in the Pterodactyl console while the player is connected, or `allowlist add <XUID> <label>` at any time.
-3. Confirm the entry with `allowlist list`.
-4. Stop OniLink, set **Enable authenticated XUID allowlist** to `true`, and start it again.
-5. Add every additional player by authenticated XUID. Removing a player takes effect immediately by default.
-
-The egg maps the panel switch to `allowlist.enabled`. Entries persist in `/home/container/allowlist.properties`; back up that file with `config.properties` and `dashboard/`. Keep BDS `online-mode=false` and `allow-list=false` because OniLink now performs the Xbox-authenticated access check before forwarding.
-
-The egg enables OniLink's embedded dashboard by default. Bedrock uses `PRIMARY_PORT/UDP`; the dashboard uses the same number over TCP. They can coexist because TCP and UDP are separate transports. Ensure the Wings mapping and node/provider firewall allow both protocols. The dashboard is HTTP, so restrict initial setup to a trusted network and put normal remote access behind HTTPS. See [Dashboard](DASHBOARD.md) for reverse-proxy and account examples.
-
-The egg covers only the OniLink proxy process. It cannot redistribute BDS. Use an existing licensed BDS/Endstone server or egg for the native backend, and Geyser's official standalone egg or an existing Geyser server for the Java path.
-
-The BDS container image must also satisfy the native OniBridge runtime. The current Linux production artifact is built on Ubuntu 22.04 and cannot import symbols newer than `GLIBC_2.35`. The current amd64 `ghcr.io/parkervcp/yolks:python_3.14` image is Debian Bookworm-based and meets that floor; verify mutable image tags with `ldd --version` after an image update. The OniLink-only egg still uses its Java 21 image. Do not copy a host `libc.so.6` into either container.
-
-## Recommended server layout
-
-| Panel server | Example allocation | Public? | Persistent data |
-| --- | --- | --- | --- |
-| OniLink | `19132/udp` + `19132/tcp` | Bedrock public; dashboard restricted | `config.properties`, `cache/`, `dashboard/`, `logs/`, packs |
-| Survival BDS | `19133/udp` | No | Worlds, BDS config, Endstone plugins/data |
-| Geyser | `19134/udp` | No | Geyser/Floodgate config, extensions/data |
-
-Do not assign the backend allocation as a public/player address. If the panel cannot create a truly private allocation, enforce the source boundary at the node/provider firewall.
-
-## Administrator-only secret variables
-
-Generate one different Base64 secret per backend. Add it as a non-user-viewable environment variable to exactly two Pterodactyl servers: OniLink and that backend. Panel administrators can still access server variables, so restrict panel administration and protect panel/database backups.
-
-| Backend | OniLink variable | Backend variable |
+| Field | Example | Meaning |
 | --- | --- | --- |
-| Survival BDS | `ONIBRIDGE_SURVIVAL_SECRET` | `ONIBRIDGE_SURVIVAL_SECRET` |
-| Geyser/Java | `ONIBRIDGE_JAVA_SECRET` | `ONIBRIDGE_JAVA_SECRET` |
+| Player-facing proxy IP | `45.143.196.108` | Public address players type into Minecraft |
+| Player-facing proxy port | `19130/udp` | Public OniLink listener |
+| Dashboard port | `19135/tcp` | Browser control plane; protect with HTTPS/access rules |
+| Destination BDS IP | `45.143.196.160` | Address OniLink uses to reach the backend |
+| Destination BDS port | `25570/udp` | BDS/Endstone allocation receiving forwarded sessions |
 
-The names and values must match within each row. Values must differ between rows.
+The backend port is assigned to the backend server, not to the OniLink server. For one normal proxy
+plus one dashboard, OniLink therefore needs two allocations: one UDP and one TCP. Add OniLink UDP
+allocations only for tenant listeners hosted in the same container.
 
-Do not bake secrets into an egg, image, startup command, Git repository, or public variable default.
+## Required OniLink variables
 
-The released egg declares these without values:
+| Variable | Example | Guidance |
+| --- | --- | --- |
+| `ONILINK_VERSION` | `v0.2.0` | Bootstrap/pinned release tag |
+| `ONILINK_UPDATE_CHANNEL` | `stable` | Normal production channel |
+| `SERVER_JARFILE` | `OniLink.jar` | Leave at default |
+| `CONFIG_FILE` | `config.properties` | Leave at default unless deliberately renamed |
+| `BACKEND_HOST` | `45.143.196.160` | Initial destination BDS address |
+| `BACKEND_PORT` | `25570` | Initial destination BDS UDP port |
+| `DASHBOARD_ENABLED` | `true` | Starts the control plane |
+| `ONILINK_DASHBOARD_SETUP_CODE` | empty | Optional admin-only first-run override |
+| `ALLOWLIST_ENABLED` | `false` | Enable after at least one XUID is stored |
+| `ONIBRIDGE_FORWARDING_SECRET` | generated Base64 | Admin-only secret shared with the default backend |
 
-| Egg variable | Use |
-| --- | --- |
-| `ONIBRIDGE_FORWARDING_SECRET` | Required by the shipped one-backend template |
-| `ONIBRIDGE_SURVIVAL_SECRET` | Optional named variable for the mixed example |
-| `ONIBRIDGE_JAVA_SECRET` | Optional named variable for the mixed example |
+Secret variables are admin-only. Do not make them user-viewable, paste them into `config.properties`,
+or include them in exported eggs.
 
-When using the mixed example, the survival and Java values must be different. An egg export contains only blank defaults; never add a real value to `egg-onilink.json`.
+## Configure the default route
 
-### Easier file-based setup for additional BDS servers
-
-You do not need to add or edit Endstone egg variables for a second native BDS server. In the OniLink dashboard, open the dedicated **Add Backend** page. The wizard creates a unique key under OniLink's `secrets/` directory, appends the validated route, shows the saved proxy properties, and downloads the matching key plus complete `onibridge.toml` for the Endstone container.
-
-Upload both downloads to:
-
-```text
-/home/container/plugins/onibridge/
-├── <backend>.key
-└── onibridge.toml
-```
-
-The generated configuration uses `active_secret_file`, so `active_secret_env` remains empty and no panel startup variable is required. The current Linux plugin changes the selected key file to owner-only (`0600`) before reading it. Start Endstone first, confirm its native hook is active, then restart OniLink.
-
-See [Adding another BDS backend](ADDING_BACKEND.md) for the complete field-by-field workflow and worked routing examples.
-
-## OniLink server files
-
-Place these in the OniLink container root:
-
-```text
-/home/container/
-├── OniLink.jar
-├── config.properties
-├── cache/
-├── dashboard/
-├── logs/
-└── resource-packs/        # optional
-```
-
-Manual startup command without automatic updates:
-
-```bash
-java -jar OniLink.jar config.properties
-```
-
-The egg starts through the released updater, which launches the equivalent memory-aware command after its release check:
-
-```bash
-bash ./start-onilink.sh
-```
-
-Relevant configuration:
+Open **Files → config.properties** in the OniLink server. A complete example for the addresses above:
 
 ```properties
 listener.host=0.0.0.0
-listener.port=19132
-publicAddress=play.example.com:19132
+listener.port=19130
+publicAddress=45.143.196.108:19130
 
 dashboard.enabled=true
 dashboard.host=0.0.0.0
-dashboard.port=19132
-dashboard.sessionMinutes=480
+dashboard.port=19135
 dashboard.dataDirectory=dashboard
 
 backend.name=survival
-backends=survival,java
+backend.host=45.143.196.160
+backend.port=25570
+backends=survival
 hubBackend=survival
+backend.survival.host=45.143.196.160
+backend.survival.port=25570
+backend.protocol=auto
 
-backend.survival.host=10.10.0.20
-backend.survival.port=19133
+forwarding.proxyId=edge-1
 backend.survival.forwarding.enabled=true
 backend.survival.forwarding.bridgeId=survival-main
 backend.survival.forwarding.activeKeyId=key-2026-01
-backend.survival.forwarding.activeSecretEnv=ONIBRIDGE_SURVIVAL_SECRET
-
-backend.java.host=10.10.0.30
-backend.java.port=19134
-backend.java.dropSubChunkRequests=true
-backend.java.forwarding.enabled=true
-backend.java.forwarding.bridgeId=java-main
-backend.java.forwarding.activeKeyId=key-2026-01
-backend.java.forwarding.activeSecretEnv=ONIBRIDGE_JAVA_SECRET
+backend.survival.forwarding.activeSecretEnv=ONIBRIDGE_FORWARDING_SECRET
+backend.survival.forwarding.tokenLifetimeMillis=5000
 ```
 
-Use the actual private addresses/routes reachable between Wings containers. A panel allocation address is not always the same address another container can reach.
+`activeSecretEnv` contains the variable's name. Keep the line exactly as shown and put the actual
+Base64 secret in the panel variable `ONIBRIDGE_FORWARDING_SECRET`.
 
-## Dashboard setup and persistence
+The egg may create an initial configuration from its variables. It never overwrites an existing
+configuration on reboot or reinstall. Compare your file with `onilink.properties.example` after an
+upgrade to discover new settings.
 
-The egg exposes **Enable operations dashboard** as `DASHBOARD_ENABLED`. It rewrites these properties on each start:
+## Configure the BDS/Endstone server
 
-```properties
-dashboard.enabled=true
-dashboard.host=0.0.0.0
-dashboard.port=PRIMARY_PORT
-```
-
-Use the egg variable to disable the dashboard; direct edits to these three fields are overwritten by Pterodactyl. Other dashboard settings remain operator-controlled.
-
-First-run owner setup:
-
-1. Start OniLink and wait for `OniLink dashboard listening on` in the console.
-2. Open `dashboard/FIRST_RUN_SETUP.txt` in the panel file manager.
-3. Copy only the value after `Setup code:`.
-4. Browse to the node/domain and primary port over TCP.
-5. Create the owner with a unique 12-character-or-longer password.
-6. Confirm `FIRST_RUN_SETUP.txt` disappears.
-7. Enroll TOTP under **Account** and create lower-privilege operator accounts for daily use.
-
-Persist and back up `dashboard/`. It contains password hashes, roles, TOTP secrets, and audit events. Do not publish it or include it in an egg export. If your provider does not publish TCP for the primary allocation, ask the panel administrator to expose it or disable the dashboard; Bedrock continuing to work proves only the UDP mapping.
-
-## Native BDS server files
-
-The relevant layout is:
+Place the release `.so` and matching profile JSON in the backend's Endstone `plugins/` directory.
+OniBridge's configuration is normally:
 
 ```text
-/home/container/
-├── bedrock_server
-├── plugins/
-│   ├── onibridge-0.2.0-beta.2-bds-1.26.44.3-linux-x86_64.so
-│   └── onibridge/
-│       ├── survival.key          # when using the dashboard/file method
-│       └── onibridge.toml
-└── worlds/
+/home/container/plugins/onibridge/onibridge.toml
 ```
 
-For the original environment-variable method, the panel startup process must inherit `ONIBRIDGE_SURVIVAL_SECRET`. The TOML contains the variable name, not the secret value:
+Use:
 
 ```toml
 bridge_id = "survival-main"
 backend_name = "survival"
-trusted_proxy_cidrs = ["10.10.0.10/32"]
+trusted_proxy_cidrs = ["45.143.196.108/32"]
+shutdown_on_hook_failure = true
+reject_direct_joins = true
 
 [forwarding]
+protocol = 2
 active_key_id = "key-2026-01"
-active_secret_env = "ONIBRIDGE_SURVIVAL_SECRET"
+active_secret_env = "ONIBRIDGE_FORWARDING_SECRET"
+active_secret_file = ""
+previous_key_id = ""
+previous_secret_env = ""
+previous_secret_file = ""
+maximum_token_size = 4096
+maximum_lifetime_ms = 10000
+allowed_clock_skew_ms = 2000
+replay_cache_max_entries = 10000
+
+[identity]
+uuid_mode = "preserve_backend"
+verify_post_login_xuid = true
+store_verified_identities = true
+
+[commands]
+register_native_commands = true
+command_namespace = "onibridge"
+interfere_with_backend_commands = false
 
 [compatibility]
 required_profile = "bds-1.26.44.3-linux-x86_64-06effdd00067f1ae"
 allow_unreviewed_profile = false
 allow_unknown_bds = false
 allow_unknown_endstone = false
+
+[legacy_verification]
+enabled = false
 ```
 
-Use the complete TOML from [`examples/single-bds/onibridge.toml`](../examples/single-bds/onibridge.toml), not only this excerpt.
+The BDS server must receive a protected `ONIBRIDGE_FORWARDING_SECRET` panel variable with exactly
+the same Base64 value as OniLink. If its egg does not expose a suitable protected variable, use the
+dashboard **Add Backend** setup ZIP and its restricted key file instead. The generated TOML points to
+that file, so the server owner does not need shell access to repair permissions manually.
 
-For the dashboard-generated file method, use the downloaded TOML unchanged:
+The proxy address seen from a container network may differ from the public IP. If OniBridge rejects
+the source, use the source address shown in its log and narrow `trusted_proxy_cidrs` to that address.
 
-```toml
-[forwarding]
-active_key_id = "key-1"
-active_secret_env = ""
-active_secret_file = "survival.key"
-```
+## Add more backends from the dashboard
 
-Configure exactly one source. A non-empty `active_secret_env` plus a non-empty `active_secret_file` is rejected.
+Open **Dashboard → Add Backend** as the owner or an administrator. The form asks in plain language:
 
-## Geyser server files
+1. the route name players/admins will recognize;
+2. the IP or hostname of the destination BDS server;
+3. the UDP port assigned to that BDS server;
+4. the proxy source address that destination will trust.
+
+The wizard generates the bridge ID, key ID, and a unique secret. It updates OniLink and gives you a
+setup ZIP with the matching `onibridge.toml`, restricted key file, profile/install notes, and route
+summary. Install that ZIP on the destination backend and restart it. You do not add another public
+allocation to OniLink for a normal backend route.
+
+## Dashboard access
+
+The initial owner setup code is written to:
 
 ```text
-/home/container/
-└── extensions/
-    ├── OniBridge-Geyser.jar
-    └── onibridge-geyser/
-        └── config.properties
+/home/container/dashboard/FIRST_RUN_SETUP.txt
 ```
 
-The Geyser server must inherit `ONIBRIDGE_JAVA_SECRET`. Bind the Geyser Bedrock listener to the private allocation and restrict it to OniLink.
+Use the dashboard allocation through a TLS reverse proxy or a network access layer. Do not publish
+plain HTTP to the open Internet. Enable TOTP for privileged accounts and protect `dashboard/` in
+backups because it contains password hashes, sessions, audit data, and tenant definitions.
 
-## Determining `trusted_proxy_cidrs`
+## Tenant hosting in the same panel
 
-Pterodactyl/Wings may present traffic from a Docker bridge, node address, NAT gateway, or proxy-container address. Determine what the backend actually observes. Start with the narrowest stable address:
+Tenant hosting does not create new Pterodactyl panels, eggs, or servers. The owner creates tenant
+accounts and scoped proxy listeners in **Dashboard → Tenant Hosting**. Tenants sign in at the same
+dashboard URL and see only **My Proxies** and their assigned backends.
 
-- One IPv4 source: `/32`
-- One IPv6 source: `/128`
-- Stable dedicated container subnet: the smallest exact subnet only when individual addresses cannot be stable
+Assign one additional UDP allocation to the existing OniLink Pterodactyl server for each tenant
+listener. Enter that allocation in the tenant proxy form. A tenant backend still uses its own private
+BDS allocation and unique OniBridge secret.
 
-Do not copy a public player CIDR or trust the whole provider/node network.
+## Allowlist
 
-## Startup order
+Add an authenticated XUID before enabling the list:
 
-1. Start the BDS or Geyser backend.
-2. Confirm the validator loads and its configuration succeeds.
-3. For native BDS, confirm the exact hook is active.
-4. Start OniLink.
-5. Test a client through the proxy allocation.
-6. Verify the backend allocation rejects/directly blocks an unproxied client.
+```text
+allowlist add 2533274790000001 ExamplePlayer
+allowlist list
+```
 
-A backend that shuts down on a profile failure must remain offline until the exact incompatibility is corrected.
+Then set `ALLOWLIST_ENABLED=true` or edit the matching configuration key and restart. An enabled
+empty list blocks everyone. Use **Dashboard → Allowlist** for connected-player selection and normal
+management.
 
-## Persistence and backups
+## Startup order and validation
 
-Persist OniLink configuration/cache/logs and all backend world/plugin data. Do not persist temporary BDS analysis caches into runtime release storage. Back up both configuration sides together so key IDs and bridge/backend names remain aligned.
+1. Start each backend and confirm OniBridge loads the exact production profile.
+2. Start OniLink and confirm the stable update check completes.
+3. Join the public OniLink UDP allocation.
+4. Verify join/leave/rejoin data, commands, transfers, direct-join rejection, and allowlist behavior.
+5. Check dashboard health and audit records.
 
-## EULA and profile status
-
-Do not put `MINECRAFT_EULA_ACCEPTED` in a public egg or repository. It is needed only in controlled BDS acquisition/profile tooling, not normal forwarding runtime.
-
-The current Linux `1.26.44.3` profile is production-approved and must use `allow_unreviewed_profile=false`. Windows and any newly generated profiles retain their own evidence gates and must not inherit this approval.
+Do not disable `shutdown_on_hook_failure`, direct-join rejection, profile approval, or firewall rules
+to make an error disappear. Diagnose the first critical message with [Troubleshooting](TROUBLESHOOTING.md).

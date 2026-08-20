@@ -20,21 +20,7 @@ Xbox-authenticated client
   -> OniBridge verifies the constructed player's XUID matches
 ```
 
-A new token is required for initial connection, switching, reconnect, failover, and return from another backend type. Tokens are never reused between backend sessions.
-
-For a Geyser-backed Java server, the flow branches after the forged backend login:
-
-```text
-OniLink forged login with OniForward
-  -> Geyser validates the self-signed login under its private-listener policy
-  -> OniBridge-Geyser receives SessionLoginEvent before the Java connection
-  -> compact client-data JWT payload and OniForward are decoded locally
-  -> trusted source, signature, name, XUID, bridge/backend, time, and replay state are verified
-  -> signed real IP/port replaces the proxy socket address
-  -> Geyser/Floodgate connects to the Java backend
-```
-
-The Geyser branch does not use the native BDS hook because no BDS player storage is involved. It uses the same per-backend OniForward token and fail-closed trust model.
+A new token is required for initial connection, switching, reconnect, and failover. Tokens are never reused between backend sessions.
 
 ## Identity fields
 
@@ -71,7 +57,7 @@ The modified Python reference succeeds only because a custom Endstone runtime ad
 
 ## Failure behavior
 
-Missing token, malformed token, unknown key, bad signature, wrong backend/bridge/name/XUID, untrusted socket source, expiry, future issue time, replay, invalid UUID/IP/port, profile mismatch, hook failure, post-login XUID mismatch, or Geyser address-adapter failure all fail closed. No remote verification request occurs in either backend login path.
+Missing token, malformed token, unknown key, bad signature, wrong backend/bridge/name/XUID, untrusted socket source, expiry, future issue time, replay, invalid UUID/IP/port, profile mismatch, hook failure, or post-login XUID mismatch all fail closed. No remote verification request occurs during backend login.
 
 ## Legacy data
 

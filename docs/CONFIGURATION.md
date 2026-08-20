@@ -1,24 +1,23 @@
 # Configuration
 
-OniLink uses Java properties, native OniBridge uses strict TOML, and OniBridge-Geyser uses Java properties. Unknown native OniBridge keys are rejected.
+OniLink uses Java properties and OniBridge uses strict TOML. Unknown native OniBridge keys are rejected.
 
 Reference templates:
 
 - `OniLink/onilink.example.properties`
 - `OniBridge/onibridge.example.toml`
-- `OniBridge-Geyser/config.example.properties`
 
 ## Values that must match
 
 Every backend is a separate trust domain. Align these values exactly:
 
-| Meaning | OniLink | Native OniBridge | OniBridge-Geyser |
-| --- | --- | --- | --- |
-| Backend name | backend list entry | `backend_name` | `backend_name` |
-| Bridge ID | `backend.<name>.forwarding.bridgeId` | `bridge_id` | `bridge_id` |
-| Active key ID | `backend.<name>.forwarding.activeKeyId` | `forwarding.active_key_id` | `active_key_id` |
-| Secret source | `activeSecretEnv` or `activeSecretFile` | `active_secret_env` or `active_secret_file` | `active_secret_env` or `active_secret_file` |
-| Trusted source | proxy egress address | `trusted_proxy_cidrs` | `trusted_proxy_cidrs` |
+| Meaning | OniLink | OniBridge |
+| --- | --- | --- |
+| Backend name | backend list entry | `backend_name` |
+| Bridge ID | `backend.<name>.forwarding.bridgeId` | `bridge_id` |
+| Active key ID | `backend.<name>.forwarding.activeKeyId` | `forwarding.active_key_id` |
+| Secret source | `activeSecretEnv` or `activeSecretFile` | `active_secret_env` or `active_secret_file` |
+| Trusted source | proxy egress address | `trusted_proxy_cidrs` |
 
 `forwarding.proxyId` identifies the OniLink instance and is included in replay identity. Use a stable unique value per proxy.
 
@@ -83,7 +82,6 @@ For the full OniLink option reference, use `OniLink/onilink.example.properties`.
 | Layout | Files |
 | --- | --- |
 | One BDS backend | [`examples/single-bds/`](../examples/single-bds/README.md) |
-| BDS plus Geyser/Java | [`examples/mixed-bds-geyser/`](../examples/mixed-bds-geyser/README.md) |
 
 The complete deployment sequence and operating-system examples are in [Installation](INSTALLATION.md).
 
@@ -99,13 +97,12 @@ To add a native BDS route automatically, use the dashboard's dedicated **Add Bac
 | `backend.name` | `survival` | Default backend name |
 | `backend.host` | `10.10.0.20` | Legacy/default backend address used while building the default entry |
 | `backend.port` | `19133` | Legacy/default backend UDP port |
-| `backends` | `survival,java` | Ordered comma-separated backend names |
+| `backends` | `survival,lobby` | Ordered comma-separated backend names |
 | `hubBackend` | `survival` | `/hub` and default failover destination |
 | `backend.protocol` | `auto` | Global backend protocol probe/pin policy |
 | `backend.<name>.host` | `10.10.0.20` | Named backend address |
 | `backend.<name>.port` | `19133` | Named backend UDP port |
 | `backend.<name>.protocol` | `1.26.44` | Optional per-backend protocol override |
-| `backend.<name>.dropSubChunkRequests` | `true` | Required for Geyser-like backends that do not implement BDS sub-chunk requests |
 
 Use `backend.protocol=auto` unless you have a deliberate, tested reason to pin. A stale version pin is harder to diagnose than a failed probe.
 
@@ -233,7 +230,7 @@ Raise a limit only after logs prove a legitimate client is hitting it. Do not di
 | Key | Example | Meaning |
 | --- | --- | --- |
 | `motd` | `OniLink Network` | First server-list line |
-| `subMotd` | `Survival and Java` | Second server-list line |
+| `subMotd` | `Survival Network` | Second server-list line |
 | `gameType` | `Survival` | Server-list display only |
 | `maxPlayers` | `40` | Advertised limit; not an enforcement control |
 | `resourcePacks.dir` | `resource-packs` | Operator-supplied pack directory beside configuration |
@@ -275,23 +272,3 @@ Raise a limit only after logs prove a legitimate client is hitting it. Do not di
 | `legacy_verification.enabled` | `false` | `true` is rejected |
 
 Unknown and duplicate TOML keys are rejected. Strings must be quoted, booleans must be `true`/`false`, and CIDRs must be an array of quoted strings.
-
-## Complete OniBridge-Geyser key reference
-
-| Key | Default/required | Notes |
-| --- | --- | --- |
-| `bridge_id` | required | Must match OniLink |
-| `backend_name` | required | Must match OniLink backend name |
-| `trusted_proxy_cidrs` | required CSV | Exact proxy sources |
-| `active_key_id` | required | Must match OniLink |
-| `active_secret_env` | one source | Recommended source |
-| `active_secret_file` | one source | Requires verifiable POSIX permissions |
-| `previous_key_id` | empty | Optional single previous key |
-| `previous_secret_env` | empty | Previous environment source |
-| `previous_secret_file` | empty | Previous file source |
-| `maximum_token_size` | `4096` | Allowed `256..65536` |
-| `maximum_lifetime_millis` | `10000` | Allowed `1..10000` |
-| `allowed_clock_skew_millis` | `2000` | Allowed `0..10000` |
-| `replay_cache_maximum_entries` | `10000` | Allowed `1..1000000` |
-
-Unknown keys are rejected. A missing/invalid extension state rejects every join.

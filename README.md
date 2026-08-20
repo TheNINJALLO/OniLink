@@ -10,6 +10,7 @@
 </p>
 
 <p align="center">
+  <img alt="Version 0.2.0" src="https://img.shields.io/badge/Release-v0.2.0-52b7a8?style=flat-square">
   <img alt="Endstone 0.11.9" src="https://img.shields.io/badge/Endstone-0.11.9-52b7a8?style=flat-square">
   <img alt="BDS 1.26.44.3" src="https://img.shields.io/badge/BDS-1.26.44.3-63b8ff?style=flat-square">
   <img alt="Java 21" src="https://img.shields.io/badge/Java-21-ED8B00?style=flat-square&amp;logo=openjdk&amp;logoColor=white">
@@ -17,12 +18,11 @@
 </p>
 
 <p align="center">
-  <strong>One authenticated Bedrock edge, secure identity forwarding, and native player-data continuity across BDS and Geyser-backed Java servers.</strong>
+  <strong>One authenticated Bedrock edge with secure identity forwarding and native player-data continuity across BDS servers.</strong>
 </p>
 
 <p align="center">
   <a href="#quick-start">Quick start</a> &bull;
-  <a href="#choose-a-backend-path">Backend paths</a> &bull;
   <a href="docs/README.md">Documentation</a> &bull;
   <a href="https://github.com/TheNINJALLO/OniLink/wiki">Wiki</a> &bull;
   <a href="https://github.com/TheNINJALLO/OniLink/releases">Releases</a> &bull;
@@ -31,28 +31,20 @@
 <!-- onilink-professional-header:end -->
 
 > [!IMPORTANT]
-> `v0.2.0-beta.2` is the current public beta. The active beta line adds detailed, token-redacted packet capture and evidence-driven cross-version codec matching without guessing packet semantics. Captures can include chat, XUIDs, endpoints, decoded fields, and incoming bytes, so restrict dashboard access and inspect exports before sharing them. The Linux BDS `1.26.44.3` + Endstone `0.11.9` native profile remains production-approved and fail closed; `v0.1.7` remains the stable application release while the monitor is validated.
+> `v0.2.0` is the current stable release. The Linux BDS `1.26.44.3` + Endstone `0.11.9` profile is production-approved and remains fail closed. Full packet captures can include chat, XUIDs, endpoints, decoded fields, and incoming bytes; restrict dashboard access and inspect exports before sharing them.
 
-## OniLink is its own system
+## The product family
 
-**OniLink is a standalone Bedrock edge system with its own runtime, control plane, configuration,
-release stream, and public identity.** It is not an edition, mode, or component of another proxy.
-The names below are the complete public OniLink product family; third-party projects named in legal
-or engineering provenance are references and dependencies, not OniLink products.
-
-See [System identity](docs/SYSTEM_IDENTITY.md) for the official names, ownership boundaries, and
-language to use in panels, packages, documentation, and releases.
-
-## What this repository provides
+OniLink is an independent Bedrock edge system with its own runtime, control plane, configuration,
+release stream, and public identity. Its supported product family has two runtime components:
 
 | Component | Role | Runtime |
 | --- | --- | --- |
-| **OniLink** | Authenticates the public Xbox client, routes sessions, creates `OniForward` claims, and serves the secured operations dashboard | Java 21 |
+| **OniLink** | Authenticates public Xbox clients, routes sessions, creates `OniForward` claims, and serves the secured dashboard | Java 21 |
 | **OniBridge** | Validates `OniForward` locally and restores the verified XUID before BDS chooses player storage | Native C++20 Endstone plugin |
-| **OniBridge-Geyser** | Applies the same fail-closed claim validation before Geyser connects to a Java backend | Geyser 2.11 extension, Java 21 |
-| **BDS tooling** | Locks official archives, generates exact per-platform candidates, validates profiles, and packages releasable files | Python 3.11+ |
 
-The forwarding check makes no HTTP request. Tokens are backend-bound, bridge-bound, short-lived, replay-protected, and accepted only from configured proxy CIDRs.
+Repository tooling locks official BDS metadata, creates exact native profiles, validates compatibility,
+and packages release files. BDS itself is never redistributed.
 
 ## How it works
 
@@ -61,105 +53,91 @@ Xbox-authenticated Bedrock client
                 |
                 v
        OniLink public listener
-        |                   |
-        | signed            | signed
-        | OniForward        | OniForward
-        v                   v
-  OniBridge + BDS     OniBridge-Geyser
-  pre-storage XUID       Java backend
-      restoration
+                |
+                | short-lived, backend-bound OniForward claim
+                v
+       OniBridge + Endstone + BDS
+                |
+                v
+    verified XUID selected before player storage
 ```
 
-OniLink preserves the authenticated name, XUID, UUID, and observed client address. Each backend receives a fresh signed claim. A missing, expired, replayed, incorrectly scoped, or incorrectly sourced claim is rejected.
+The forwarding check makes no HTTP request. Claims are backend-bound, bridge-bound, short-lived,
+replay-protected, and accepted only from configured proxy CIDRs. Missing, expired, replayed,
+incorrectly scoped, or incorrectly sourced claims fail closed.
 
 ## Quick start
 
-1. Read the [v0.2.0-beta.2 release notes](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.2.0-beta.2) and download only the files for your backend path.
-2. Verify the download directory against `SHA256SUMS`.
-3. Generate a unique 32-byte-or-stronger secret for each backend and expose it through an environment variable—not a committed configuration file.
-4. Configure matching backend name, bridge ID, key ID, and secret environment variable on both sides.
-5. Keep the backend listener private and restrict its trusted proxy CIDRs to OniLink.
-6. Choose a ready-to-copy [deployment example](examples/README.md), follow the [complete installation guide](docs/INSTALLATION.md), then complete the [acceptance checklist](docs/TESTING.md).
-
-After the first server works, open the dashboard's dedicated **Add Backend** page to generate every additional route, unique secret, proxy properties, and matching Endstone configuration. See [Adding another BDS backend](docs/ADDING_BACKEND.md) for the complete Pterodactyl and manual walkthrough.
-
-Download the current release with GitHub CLI:
+1. Download [`v0.2.0`](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.2.0) and verify every file with `SHA256SUMS`.
+2. Use the exact BDS `1.26.44.3` Linux executable and Endstone `0.11.9` for the production-approved native profile.
+3. Generate a unique secret for the backend: `openssl rand -base64 32`.
+4. Configure the same backend name, bridge ID, key ID, and secret source in OniLink and OniBridge.
+5. Keep BDS private and restrict `trusted_proxy_cidrs` to the address BDS actually sees for OniLink.
+6. Start the backend, start OniLink, and complete the [acceptance checklist](docs/TESTING.md).
 
 ```bash
-gh release download v0.2.0-beta.2 \
+gh release download v0.2.0 \
   --repo TheNINJALLO/OniLink \
   --dir onilink-release
 ```
 
-Pterodactyl administrators can import [`egg-onilink.json`](packaging/pterodactyl/egg-onilink.json) from the same release. The beta egg verifies its bootstrap files, preserves live configuration and dashboard data, and checksum-updates the JAR, updater, and reference configuration from its selected `stable`, `beta`, or `pinned` channel. Existing stable eggs continue to ignore prereleases. To move an existing stable install into beta, back it up, reimport the beta egg, and run **Reinstall Server** once so the channel-aware updater is bootstrapped; later reboots update normally.
+The copyable [`single-bds`](examples/single-bds/) deployment, [quick start](docs/QUICKSTART.md), and
+[complete installation guide](docs/INSTALLATION.md) include matching proxy and native configuration
+examples. After the first route works, use **Dashboard → Add Backend** to generate each additional
+route, unique secret, restricted key file, complete `onibridge.toml`, and setup ZIP.
 
 ## Operations dashboard
 
-`OniLink.jar` includes a responsive control plane for live players, authenticated XUID allowlisting, backend health, transfers, alerts, bounded traces, live packet compatibility monitoring, guided BDS backend setup, owner-managed tenant accounts and proxies, safe configuration editing, logs, audit records, accounts, TOTP, metrics, and redacted support bundles. It defaults to `127.0.0.1:8080`; first-run owner setup uses a one-time code written to `dashboard/FIRST_RUN_SETUP.txt`.
+`OniLink.jar` includes a responsive control plane for players, XUID allowlisting, backend health,
+transfers, alerts, bounded traces, packet compatibility monitoring, guided backend setup, tenant
+accounts and scoped proxy listeners, configuration editing, logs, audit records, accounts, TOTP,
+metrics, and redacted support bundles. It defaults to `127.0.0.1:8080`; first-run owner setup uses
+the one-time code in `dashboard/FIRST_RUN_SETUP.txt`.
 
-For remote use, put the dashboard behind HTTPS and restrict it to administrator networks. See the [complete dashboard guide](docs/DASHBOARD.md) for standalone, reverse-proxy, account, role, recovery, and Pterodactyl examples.
+For remote use, place the dashboard behind HTTPS and restrict it to administrator networks. See the
+[dashboard guide](docs/DASHBOARD.md). Hosting providers can create tenant logins and isolated proxy
+listeners inside the same container; see [tenant hosting](docs/TENANT_HOSTING.md).
 
-Hosting providers can use the owner-only **Tenant Hosting** page to create scoped customer logins and
-isolated proxy listeners inside the one existing OniLink container. Tenants use the same dashboard
-URL and see only **My Proxies**. Assign one additional UDP allocation to that same Pterodactyl
-server per logical proxy; no new server, egg, or Application API key is required. See
-[Single-container tenant hosting](docs/TENANT_HOSTING.md).
+## Compatibility
 
-## Choose a backend path
+| Target | Status |
+| --- | --- |
+| Linux x86-64, BDS `1.26.44.3`, Endstone `0.11.9` | Production-approved exact profile |
+| Windows x86-64, BDS `1.26.44.3`, Endstone `0.11.9` | Candidate; live client acceptance remains |
 
-### Native BDS + Endstone
-
-Use `onibridge-0.2.0-beta.2-bds-1.26.44.3-linux-x86_64.so` with the exact BDS `1.26.44.3` Linux executable and Endstone `0.11.9`. Install the matching profile JSON, start once to generate `onibridge.toml`, configure it, and keep `allow_unreviewed_profile=false` for this production-approved profile.
-
-[Native installation guide →](docs/INSTALLATION.md)
-
-### Geyser + Java backend
-
-Put `OniBridge-Geyser.jar` in Geyser's `extensions/` directory. Bind Geyser's Bedrock listener to the private proxy-facing interface, align the `OniForward` settings, and enable `backend.<name>.dropSubChunkRequests=true` in OniLink.
-
-[Geyser integration guide →](docs/GEYSER.md)
-
-## Compatibility status
-
-| Target | Build/test status | Production status |
-| --- | --- | --- |
-| Linux x86-64, BDS `1.26.44.3`, Endstone `0.11.9` | Native build, unit tests, synthetic hook harness, human review, and operator-approved live matrix pass | Production-approved exact profile |
-| Windows x86-64, BDS `1.26.44.3`, Endstone `0.11.9` | Native unit/harness and offline plugin lifecycle pass | Candidate; live client joins remain |
-| Geyser `2.11` | Java build plus protocol/security tests pass | Candidate; live Geyser/Floodgate joins remain |
-
-Exact executable hashes, profile IDs, and remaining gates are maintained in [Compatibility](docs/COMPATIBILITY.md).
+Use `onibridge-0.2.0-bds-1.26.44.3-linux-x86_64.so` only with the exact approved target. Unknown
+executables, layouts, hook bytes, profiles, and Endstone builds remain blocked. Exact hashes and
+remaining gates are in [Compatibility](docs/COMPATIBILITY.md).
 
 ## Documentation
 
 | Start here | Operator guides | Engineering reference |
 | --- | --- | --- |
 | [Documentation hub](docs/README.md) | [Configuration](docs/CONFIGURATION.md) | [Architecture](docs/ARCHITECTURE.md) |
-| [System identity](docs/SYSTEM_IDENTITY.md) | [Add a BDS backend](docs/ADDING_BACKEND.md) | [Identity flow](docs/IDENTITY_FLOW.md) |
-| [Quick start](docs/QUICKSTART.md) | [Installation](docs/INSTALLATION.md) | [OniForward protocol](docs/ONIFORWARD_PROTOCOL.md) |
-| [Deployment examples](examples/README.md) | [Windows status](docs/WINDOWS.md) | [Compatibility](docs/COMPATIBILITY.md) |
-| [Troubleshooting](docs/TROUBLESHOOTING.md) | [Dashboard](docs/DASHBOARD.md) | [Building](docs/BUILDING.md) |
-| [Packet monitor](docs/PACKET_MONITOR.md) | [Pterodactyl](docs/PTERODACTYL.md) | [Source audit](docs/SOURCE_AUDIT.md) |
-| [Migration](docs/MIGRATION.md) | [Tenant hosting](docs/TENANT_HOSTING.md) | [Contributing](CONTRIBUTING.md) |
-| [GitHub Wiki](https://github.com/TheNINJALLO/OniLink/wiki) | [Testing](docs/TESTING.md) | [Feature parity](docs/FEATURE_PARITY.md) |
+| [Quick start](docs/QUICKSTART.md) | [Installation](docs/INSTALLATION.md) | [Identity flow](docs/IDENTITY_FLOW.md) |
+| [Deployment example](examples/single-bds/) | [Add a backend](docs/ADDING_BACKEND.md) | [OniForward protocol](docs/ONIFORWARD_PROTOCOL.md) |
+| [Troubleshooting](docs/TROUBLESHOOTING.md) | [Dashboard](docs/DASHBOARD.md) | [Compatibility](docs/COMPATIBILITY.md) |
+| [Packet monitor](docs/PACKET_MONITOR.md) | [Pterodactyl](docs/PTERODACTYL.md) | [Building](docs/BUILDING.md) |
+| [Migration](docs/MIGRATION.md) | [Tenant hosting](docs/TENANT_HOSTING.md) | [Source audit](docs/SOURCE_AUDIT.md) |
 
 ## Build and test
 
-On Ubuntu 22.04 with Java 21, Python 3, CMake, Ninja, LLVM 18, libc++ 18, and libc++abi 18 installed:
+On Ubuntu 22.04 with Java 21, Python 3, CMake, Ninja, LLVM 18, libc++ 18, and libc++abi 18:
 
 ```bash
 scripts/build-linux.sh
 ```
 
-This builds and tests OniLink, OniBridge, and OniBridge-Geyser, rejects a native library requiring newer than glibc 2.35, then writes the release bundle to `dist/linux`. The same path runs in [Linux Release Artifacts](https://github.com/TheNINJALLO/OniLink/actions/workflows/linux-artifacts.yml).
+The build tests OniLink and OniBridge, rejects a native library requiring newer than glibc 2.35,
+and writes the release bundle to `dist/linux`. The same path runs in
+[Linux Release Artifacts](https://github.com/TheNINJALLO/OniLink/actions/workflows/linux-artifacts.yml).
 
 ## Security and distribution
 
 - BDS archives and executables are never committed or released.
-- Real forwarding secrets, production addresses, player identifiers, and complete tokens must stay out of issues and source control.
-- Keep the dashboard loopback-only or behind restricted HTTPS; protect `dashboard/` and its backups as credential material.
-- Unknown executable hashes, hook bytes, layouts, Endstone builds, token contexts, or proxy sources fail closed.
+- Secrets, complete tokens, production addresses, and player identifiers stay out of issues and source control.
+- Keep the dashboard loopback-only or behind restricted HTTPS; protect `dashboard/` and its backups.
 - Report vulnerabilities using the [security policy](SECURITY.md).
 
-## License
-
-Project-owned source is distributed under the terms in [LICENSE](LICENSE). Third-party notices and provenance are recorded in [NOTICE](NOTICE) and the [source audit](docs/SOURCE_AUDIT.md).
+Project-owned source is distributed under [LICENSE](LICENSE). Third-party notices and provenance are
+recorded in [NOTICE](NOTICE) and the [source audit](docs/SOURCE_AUDIT.md).

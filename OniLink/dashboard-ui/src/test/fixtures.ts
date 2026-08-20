@@ -2,7 +2,7 @@ import type { Backend, Player, RuntimeState } from "../types/dashboard";
 
 export const state: RuntimeState = {
   name: "OniLink",
-  version: "0.2.0-beta.2",
+  version: "0.2.0",
   timestamp: "2026-08-19T20:00:00Z",
   startedAt: "2026-08-19T19:00:00Z",
   uptimeMillis: 3_600_000,
@@ -45,7 +45,6 @@ export const backends: Backend[] = [
     default: true,
     hub: false,
     forwarding: true,
-    dropSubChunkRequests: false,
     health: { status: "online", latencyMillis: 12 },
   },
   {
@@ -57,7 +56,6 @@ export const backends: Backend[] = [
     default: false,
     hub: false,
     forwarding: true,
-    dropSubChunkRequests: true,
     health: { status: "degraded", latencyMillis: 150, message: "Slow response" },
   },
 ];

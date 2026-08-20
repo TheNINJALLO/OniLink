@@ -1,6 +1,6 @@
 # OniLink Pterodactyl egg
 
-`egg-onilink.json` is the importable PTDL v2 egg for the standalone OniLink Bedrock edge system. It does not redistribute BDS and it does not replace the separate BDS/Endstone or Geyser backend server.
+`egg-onilink.json` is the importable PTDL v2 egg for the standalone OniLink Bedrock edge system. It does not redistribute BDS and it does not replace the separate BDS/Endstone backend server.
 
 ## What the egg does
 
@@ -35,7 +35,8 @@ The initial `127.0.0.1` backend host works only when a backend is deliberately i
 
 ## Multiple backends
 
-The egg exposes optional `ONIBRIDGE_SURVIVAL_SECRET` and `ONIBRIDGE_JAVA_SECRET` variables for the repository's mixed example. Edit `config.properties` using the [mixed BDS/Geyser example](../../examples/mixed-bds-geyser/onilink.properties), then set both admin-only variables to different secret values.
+For additional backends, use the dashboard's **Add Backend** workflow. It creates a unique protected
+key file and the matching OniBridge configuration without adding more egg variables.
 
 Pterodactyl rewrites only these fields at startup:
 
@@ -66,7 +67,7 @@ See the [single-container tenant guide](../../docs/TENANT_HOSTING.md).
 Restart the container to check for an update. `start-onilink.sh` resolves **Automatic update channel**, downloads `OniLink.jar`, `start-onilink.sh`, `onilink.properties.example`, and `SHA256SUMS`, verifies all three runtime files, and only then installs changes.
 
 - `stable` uses GitHub's `/releases/latest` endpoint and ignores prereleases.
-- `beta` follows the newest published normal or prerelease build. The `v0.2.0-beta.2` egg defaults to this channel.
+- `beta` follows the newest published normal or prerelease build.
 - `pinned` stays on the exact public tag in `ONILINK_VERSION`.
 
 `ONILINK_VERSION` is the bootstrap version used during server creation or **Reinstall Server** and the runtime version only when the channel is `pinned`. Reinstall preserves `config.properties`; compare it with `onilink.properties.example` after a bootstrap upgrade.
@@ -75,10 +76,10 @@ After a successful change, the updater writes the release tag to `.onilink-versi
 
 The runtime updater cannot replace the egg definition stored by the Pterodactyl panel. Reimport a newer `egg-onilink.json` when you want newly added panel variables or install-script changes. Existing servers can still receive new runtime JARs without an egg reimport.
 
-An existing `v0.1.7` updater is stable-only and cannot discover a prerelease. Back up the server,
-reimport the beta egg, confirm the `beta` channel, and run **Reinstall Server** once to bootstrap the
-beta JAR and channel-aware updater. Reimporting without reinstalling does not change the existing
-`/home/container/start-onilink.sh`. After that one bootstrap, ordinary reboots follow newer betas.
+An older updater may not understand release channels. Back up the server, reimport the current egg,
+confirm the `stable` channel, and run **Reinstall Server** once to bootstrap the channel-aware
+updater. Reimporting without reinstalling does not change the existing
+`/home/container/start-onilink.sh`. After that one bootstrap, ordinary reboots follow stable releases.
 
 If the release lookup, download, or checksum validation fails, the updater logs a warning and starts the existing verified JAR. A brand-new server with no usable JAR stops instead of starting an unknown file.
 

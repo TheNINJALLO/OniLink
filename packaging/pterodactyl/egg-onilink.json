@@ -4,10 +4,10 @@
         "version": "PTDL_v2",
         "update_url": "https://raw.githubusercontent.com/TheNINJALLO/OniLink/main/packaging/pterodactyl/egg-onilink.json"
     },
-    "exported_at": "2026-08-19T22:05:00-04:00",
+    "exported_at": "2026-08-20T00:00:00-04:00",
     "name": "OniLink Bedrock Edge System",
     "author": "TheNINJALLO@users.noreply.github.com",
-    "description": "OniLink is a standalone Java 21 Bedrock edge system with fail-closed OniForward identity forwarding, an authenticated XUID allowlist, and an embedded operations dashboard. This beta egg verifies its bootstrap release and atomically installs checksum-verified runtime updates from the selected stable, beta, or pinned channel.",
+    "description": "OniLink is a standalone Java 21 Bedrock edge system with fail-closed OniForward identity forwarding, an authenticated XUID allowlist, and an embedded operations dashboard. This stable egg verifies its bootstrap release and atomically installs checksum-verified runtime updates from the selected stable, beta, or pinned channel.",
     "features": [
         "java_version",
         "pid_limit"
@@ -36,7 +36,7 @@
             "name": "OniLink bootstrap release tag",
             "description": "Exact public GitHub release used during create/reinstall and when the update channel is pinned.",
             "env_variable": "ONILINK_VERSION",
-            "default_value": "v0.2.0-beta.2",
+            "default_value": "v0.2.0",
             "user_viewable": true,
             "user_editable": true,
             "rules": "required|string|max:64|regex:/^[A-Za-z0-9][A-Za-z0-9._-]*$/",
@@ -46,7 +46,7 @@
             "name": "Automatic update channel",
             "description": "beta installs the newest published release including prereleases; stable ignores prereleases; pinned stays on the exact OniLink bootstrap release tag.",
             "env_variable": "ONILINK_UPDATE_CHANNEL",
-            "default_value": "beta",
+            "default_value": "stable",
             "user_viewable": true,
             "user_editable": true,
             "rules": "required|string|in:stable,beta,pinned",
@@ -114,7 +114,7 @@
         },
         {
             "name": "Default backend UDP port",
-            "description": "Private Bedrock UDP allocation of the default BDS or Geyser backend.",
+            "description": "Private Bedrock UDP allocation of the default BDS backend.",
             "env_variable": "BACKEND_PORT",
             "default_value": "19133",
             "user_viewable": true,
@@ -156,16 +156,6 @@
             "name": "Survival backend OniForward secret",
             "description": "ADMIN ONLY. Optional secret for configurations using ONIBRIDGE_SURVIVAL_SECRET. It must differ from every other backend secret.",
             "env_variable": "ONIBRIDGE_SURVIVAL_SECRET",
-            "default_value": "",
-            "user_viewable": false,
-            "user_editable": false,
-            "rules": "nullable|string|min:43|max:512|regex:/^[A-Za-z0-9+\\/]+={0,2}$/",
-            "field_type": "text"
-        },
-        {
-            "name": "Java backend OniForward secret",
-            "description": "ADMIN ONLY. Optional secret for configurations using ONIBRIDGE_JAVA_SECRET. It must differ from every other backend secret.",
-            "env_variable": "ONIBRIDGE_JAVA_SECRET",
             "default_value": "",
             "user_viewable": false,
             "user_editable": false,

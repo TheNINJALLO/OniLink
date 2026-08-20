@@ -6,8 +6,8 @@ handling all need tests when their behavior changes.
 
 ## Source boundaries
 
-Project-owned code lives in `OniLink/src`, `OniBridge/src`, `OniBridge/include`,
-`OniBridge-Geyser/src`, `tools`, and `scripts`. Do not hand-edit vendored Cloudburst code under
+Project-owned code lives in `OniLink/src`, `OniBridge/src`, `OniBridge/include`, `tools`, and
+`scripts`. Do not hand-edit vendored Cloudburst code under
 `OniLink/protocol` or `OniLink/network`. Files under `OniBridge/generated` come from the locked BDS
 profile pipeline and must be regenerated from their inputs.
 
@@ -41,7 +41,6 @@ Run the complete local suite before opening a pull request:
 
 ```bash
 ./OniLink/gradlew -p OniLink test standaloneJar --no-daemon
-./OniLink/gradlew -p OniBridge-Geyser test jar --no-daemon
 cmake -S OniBridge -B OniBridge/build/test \
   -DONIBRIDGE_BUILD_PLUGIN=OFF \
   -DONIBRIDGE_BUILD_TESTS=ON

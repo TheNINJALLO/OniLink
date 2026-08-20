@@ -1,70 +1,39 @@
 # Pterodactyl Setup
 
-Run OniLink and every backend as separate Pterodactyl servers.
-
-## Import the released egg
-
-Download [`egg-onilink.json`](https://github.com/TheNINJALLO/OniLink/releases/download/v0.2.0-beta.2/egg-onilink.json), then open **Admin Panel → Nests → Import Egg**.
-
-Create an **OniLink Bedrock Edge System** server with the Java 21 image and one public UDP allocation. Set the private backend host/port and enter a generated Base64 secret in the administrator-only `ONIBRIDGE_FORWARDING_SECRET` variable. Put the same value on the backend validator.
-
-The egg verifies its bootstrap downloads, creates `config.properties` only when missing, and preserves it on reinstall. Every container start checks the selected update channel, verifies the JAR, updater, and reference configuration, and atomically installs valid changes. `stable` ignores prereleases, `beta` follows the newest published release including betas, and `pinned` stays on `ONILINK_VERSION`. The beta egg defaults to `beta`. A failed update starts the existing JAR; a successful one keeps previous runtime files for rollback. It also maps the primary allocation number to Bedrock UDP and the authenticated dashboard over TCP. The BDS/Endstone and Geyser processes still use separate servers/eggs.
-
-The updater changes runtime files, not the egg definition stored in the panel. Existing eggs without
-the channel variable default to `stable`, and their old startup script cannot discover a prerelease.
-Back up the server, reimport the `v0.2.0-beta.2` egg, confirm the `beta` channel, then run
-**Reinstall Server** once to bootstrap the beta JAR and channel-aware updater. The installer preserves
-an existing `config.properties`. After that, ordinary reboots follow newer betas automatically.
-
-The BDS image must provide glibc 2.35 or newer for native OniBridge. The current amd64 `ghcr.io/parkervcp/yolks:python_3.14` image is Debian Bookworm-based and meets that floor. Recheck mutable image tags with `ldd --version` after updates, and never replace `libc.so.6` manually.
+Import `egg-onilink.json` from the stable
+[`v0.2.0` release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.2.0). Create one OniLink
+server and keep every BDS/Endstone backend in its own existing Pterodactyl server.
 
 ## Allocations
 
-| Server | Port | Exposure |
-| --- | --- | --- |
-| OniLink | `19132/udp` | Public |
-| Tenant proxy on the same OniLink server | `19135/udp` | Public, one additional allocation per proxy |
-| BDS backend | `19133/udp` | Private/firewalled to OniLink |
-| Geyser backend | `19134/udp` | Private/firewalled to OniLink |
+| Allocation | Purpose |
+| --- | --- |
+| One public UDP port | Player-facing OniLink listener |
+| One protected TCP port | Dashboard |
+| One extra UDP port per tenant | Tenant listener inside the same OniLink container |
 
-## Administrator-only variables
+Normal backend routes do not need extra OniLink allocations. The destination IP and UDP port belong
+to the separate BDS server.
 
-Add each secret to OniLink and only its matching backend:
+## Updates
 
-| Secret | OniLink | Backend |
-| --- | --- | --- |
-| `ONIBRIDGE_SURVIVAL_SECRET` | Yes | Survival BDS |
-| `ONIBRIDGE_JAVA_SECRET` | Yes | Geyser |
+Every reboot checks the configured channel and verifies the JAR, updater, reference configuration,
+and checksums before installing changes atomically.
 
-Use different values. Do not put a secret into a public egg default, startup command, or configuration file.
+| Channel | Behavior |
+| --- | --- |
+| `stable` | Latest non-prerelease; default |
+| `beta` | Latest release including prereleases |
+| `pinned` | Exact `ONILINK_VERSION` |
 
-The egg declares blank, non-user-viewable fields for the default, survival, and Java forwarding secrets. Panel administrators can access server variables, so protect administrator access and panel backups.
+The updater preserves `config.properties` and starts the existing JAR if an update fails. Reimport
+the current egg and run **Reinstall Server** once to bootstrap updates on an older installation.
 
-## Player allowlist
+Store the real forwarding secret in protected panel variables on both OniLink and BDS. The config
+field contains only the variable name. If the backend egg cannot expose a protected variable, use
+the **Add Backend** setup ZIP and its restricted key file.
 
-Leave **Enable authenticated XUID allowlist** off for the first connection. Add your connected account under **Dashboard → Allowlist** or run `allowlist add <gamertag>` in the Pterodactyl console. Confirm it with `allowlist list`, enable the panel switch, and restart.
-
-Entries persist in `/home/container/allowlist.properties`. Only the Xbox-authenticated XUID grants access; names are labels. Keep backend BDS `online-mode=false` and `allow-list=false`.
-
-For every additional native BDS server, the easier method requires no new egg variable: use the dedicated **Add Backend** page in the OniLink dashboard, download the generated key and `onibridge.toml`, and upload both to `/home/container/plugins/onibridge/` on that Endstone server. The generated TOML uses `active_secret_file`; the current Linux plugin automatically restricts the uploaded key to owner-only access. Follow [[Adding Backends]] for the complete steps.
-
-## OniLink startup
-
-```bash
-java -jar OniLink.jar config.properties
-```
-
-Persist `config.properties`, `cache/`, `dashboard/`, `logs/`, and resource packs. Open `dashboard/FIRST_RUN_SETUP.txt` after the first start to claim the owner account, then put remote dashboard access behind restricted HTTPS. See [[Operations Dashboard|Dashboard]].
-
-## Backend networking
-
-Wings/Docker may present traffic from a bridge, node, NAT gateway, or proxy-container address. Set `trusted_proxy_cidrs` to what the backend actually observes. Prefer one `/32` or `/128`; do not trust an entire provider network.
-
-## Startup order
-
-1. Backend
-2. Validator configuration/hook confirmation
-3. OniLink
-4. Test client
-
-Use the full [Pterodactyl guide](https://github.com/TheNINJALLO/OniLink/blob/main/docs/PTERODACTYL.md) for layouts and complete example configuration.
+The initial dashboard owner code is in `/home/container/dashboard/FIRST_RUN_SETUP.txt`. Publish the
+dashboard only through protected HTTPS. For exact variables, example addresses, complete TOML, and
+tenant instructions, use the canonical
+[Pterodactyl guide](https://github.com/TheNINJALLO/OniLink/blob/main/docs/PTERODACTYL.md).

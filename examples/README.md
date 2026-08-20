@@ -9,7 +9,6 @@ No example contains a forwarding secret. Generate a unique secret for each backe
 | Directory | Topology |
 | --- | --- |
 | [`single-bds`](single-bds/) | One OniLink proxy and one Linux BDS + Endstone backend |
-| [`mixed-bds-geyser`](mixed-bds-geyser/) | One OniLink proxy, one BDS backend, and one Geyser-backed Java server |
 
 ## Example address plan
 
@@ -17,7 +16,6 @@ No example contains a forwarding secret. Generate a unique secret for each backe
 | --- | --- | --- |
 | OniLink | `10.10.0.10:19132/udp` | Public/player-facing |
 | Survival BDS | `10.10.0.20:19133/udp` | Private; OniLink only |
-| Geyser Bedrock listener | `10.10.0.30:19134/udp` | Private; OniLink only |
 
 The `trusted_proxy_cidrs` value is the source address the backend actually sees. In these examples that is `10.10.0.10/32`. Container networks and NAT may present a different address; verify it instead of copying this value blindly.
 

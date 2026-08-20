@@ -178,8 +178,7 @@ public final class BackendConnector {
      * <p>A Bedrock client fixes its block-id scheme from the StartGame it logged in with and cannot
      * be told otherwise while it is playing, so a seamless handoff to a backend on the other scheme
      * delivers chunks the client cannot decode: the player stands in an empty or scrambled world.
-     * Backends that hash block ids (every Bedrock server) and ones that number them by palette order
-     * (a Geyser instance fronting a Java server) are the two schemes in practice.</p>
+     * Hashed block IDs and palette-indexed block IDs are the two schemes in practice.</p>
      *
      * <p>Answered false while either side is unknown. Guessing "reconnect" for an unvisited backend
      * would put a loading screen in front of the ordinary same-scheme switch that makes up almost
@@ -255,12 +254,6 @@ public final class BackendConnector {
 
     public ReconnectRoutes reconnectRoutes() {
         return reconnectRoutes;
-    }
-
-    /** False while the backend has never been seen, so the config key remains the way to say so. */
-    private boolean doesNotImplementSubChunks(BackendConfig backend) {
-        Boolean hashed = paletteStore == null ? null : paletteStore.blockIdsHashed(backend.name());
-        return hashed != null && !hashed;
     }
 
     /**
@@ -475,13 +468,6 @@ public final class BackendConnector {
                         createdSession.set(backend);
                         backend.setConnection(connection);
                         backend.setDisconnectClientOnClose(disconnectClientOnClose);
-                        // Inferred rather than configured wherever possible: a backend that numbers
-                        // block ids by palette order is not really a Bedrock server and does not
-                        // implement the sub-chunk system either. The config key stays as an override
-                        // for a backend nobody has visited yet, but an ordinary install never needs
-                        // to set it.
-                        backend.setDropSubChunkRequests(
-                                backendConfig.dropSubChunkRequests() || doesNotImplementSubChunks(backendConfig));
                         if (!disconnectClientOnClose) {
                             connection.setPendingBackend(backend);
                         }

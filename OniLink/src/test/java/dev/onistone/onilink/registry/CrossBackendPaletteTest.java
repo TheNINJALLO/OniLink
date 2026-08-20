@@ -278,17 +278,17 @@ final class CrossBackendPaletteTest {
         hub.getBlockProperties().add(new BlockPropertyData("hub:podium", NbtMap.EMPTY));
         palette.applyToStartGame("hub", hub);
 
-        StartGamePacket geyser = new StartGamePacket();
-        geyser.setBlockNetworkIdsHashed(false);
-        geyser.setBlockRegistryChecksum(1234L);
-        geyser.getBlockProperties().add(new BlockPropertyData("geyser_custom:test_block", NbtMap.EMPTY));
+        StartGamePacket paletteIndexed = new StartGamePacket();
+        paletteIndexed.setBlockNetworkIdsHashed(false);
+        paletteIndexed.setBlockRegistryChecksum(1234L);
+        paletteIndexed.getBlockProperties().add(new BlockPropertyData("palette_custom:test_block", NbtMap.EMPTY));
 
-        assertFalse(palette.applyToStartGame("javatest", geyser),
+        assertFalse(palette.applyToStartGame("palette-test", paletteIndexed),
                 "a palette-indexed backend's StartGame must not be rewritten");
-        assertEquals(1, geyser.getBlockProperties().size(),
+        assertEquals(1, paletteIndexed.getBlockProperties().size(),
                 "hub's block must not be appended - it would shift every index the client resolves");
-        assertEquals("geyser_custom:test_block", geyser.getBlockProperties().get(0).getName());
-        assertEquals(1234L, geyser.getBlockRegistryChecksum(),
+        assertEquals("palette_custom:test_block", paletteIndexed.getBlockProperties().get(0).getName());
+        assertEquals(1234L, paletteIndexed.getBlockRegistryChecksum(),
                 "the checksum is the client's own mismatch check and must survive");
     }
 
@@ -300,10 +300,10 @@ final class CrossBackendPaletteTest {
     void blocksFromAPaletteIndexedBackendAreNotSharedWithOthers(@TempDir Path dir) {
         CrossBackendPalette palette = new CrossBackendPalette(BackendPaletteStore.load(dir.resolve("p.nbt")));
 
-        StartGamePacket geyser = new StartGamePacket();
-        geyser.setBlockNetworkIdsHashed(false);
-        geyser.getBlockProperties().add(new BlockPropertyData("geyser_custom:test_block", NbtMap.EMPTY));
-        palette.applyToStartGame("javatest", geyser);
+        StartGamePacket paletteIndexed = new StartGamePacket();
+        paletteIndexed.setBlockNetworkIdsHashed(false);
+        paletteIndexed.getBlockProperties().add(new BlockPropertyData("palette_custom:test_block", NbtMap.EMPTY));
+        palette.applyToStartGame("palette-test", paletteIndexed);
 
         StartGamePacket hub = new StartGamePacket();
         hub.setBlockNetworkIdsHashed(true);

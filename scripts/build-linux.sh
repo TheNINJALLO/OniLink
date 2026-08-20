@@ -4,7 +4,7 @@ set -eu
 repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$repo_root"
 
-release_version=${ONILINK_RELEASE_VERSION:-0.2.0-beta.2}
+release_version=${ONILINK_RELEASE_VERSION:-0.2.0}
 native_compiler=${ONIBRIDGE_CXX_COMPILER:-clang++}
 bds_version=$(python3 -c 'import json; print(json.load(open("OniBridge/bds.lock.json", encoding="utf-8"))["platforms"]["linux-x86_64"]["version"])')
 adapter="OniBridge/generated/bds/$bds_version/linux-x86_64/adapter.cpp"
@@ -15,7 +15,6 @@ if [ ! -f "$adapter" ]; then
 fi
 
 ./OniLink/gradlew -p OniLink test standaloneJar --no-daemon --console=plain
-./OniLink/gradlew -p OniBridge-Geyser test jar --no-daemon --console=plain
 
 cmake -S OniBridge -B OniBridge/build/linux-release \
     -G Ninja \

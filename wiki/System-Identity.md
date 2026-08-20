@@ -9,10 +9,9 @@ component of another proxy.
 | **OniLink** | The complete system and its Java 21 public proxy/control-plane runtime |
 | **OniForward** | The signed identity-forwarding protocol |
 | **OniBridge** | The native BDS identity validator |
-| **OniBridge-Geyser** | The Geyser identity validator |
 | **OniLink BDS tooling** | Exact-version profile and release tooling |
 
-Endstone, BDS, Geyser, and other dependencies remain independent integrations. Third-party names in
+Endstone, BDS, and other dependencies remain independent integrations. Third-party names in
 legal notices and internal provenance records are attribution only; they are not OniLink products or
 co-branding.
 

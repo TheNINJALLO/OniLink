@@ -11,7 +11,6 @@ not present OniLink as an edition, mode, addon, continuation, or component of an
 | **OniLink** | The complete system and its Java 21 public proxy/control-plane runtime | `OniLink.jar` |
 | **OniForward** | OniLink's signed, backend-bound identity-forwarding protocol | Built into the proxy and validators |
 | **OniBridge** | The native BDS identity validator in the OniLink system | `onibridge.so` or `onibridge.dll` |
-| **OniBridge-Geyser** | The Geyser identity validator in the OniLink system | `OniBridge-Geyser.jar` |
 | **OniLink BDS tooling** | Exact-version acquisition, inspection, profile, and packaging tools | Repository build tools only |
 
 Use **OniLink** for the overall product and **OniLink system** when the distinction between the
@@ -20,7 +19,7 @@ instructions.
 
 ## Ownership boundaries
 
-- Endstone, BDS, Geyser, Cloudburst protocol code, and other dependencies keep their own names and
+- Endstone, BDS, Cloudburst protocol code, and other dependencies keep their own names and
   licenses. They are integrations or dependencies, not members of the OniLink product family.
 - A tenant proxy is an isolated OniLink listener managed by the same control plane. It is not a new
   product or a separately installed panel.

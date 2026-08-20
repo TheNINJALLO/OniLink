@@ -1,6 +1,6 @@
 # Packet monitor and cross-version matching
 
-OniLink `0.2.0-beta.2` adds a live packet monitor to the existing control plane. The active beta
+OniLink `0.2.0` includes a live packet monitor in the control plane. The stable release
 line observes the real relay path, retains detailed token-redacted packet evidence, shows how each
 decoded Bedrock packet maps between the client and backend codecs, and highlights gaps that need
 deliberate translator work.
@@ -123,7 +123,7 @@ only its assigned proxy runtimes; cross-tenant packet-monitor requests are rejec
 
 ## Beta boundary
 
-`0.2.0-beta.2` is intended to validate the monitor, packet catalog, reporting workflow, and existing
+`0.2.0` promotes the validated monitor, packet catalog, reporting workflow, and existing
 cross-version codecs under real traffic. It does not turn an unknown Bedrock protocol into a
 supported protocol by observation alone, infer changed field semantics, replay captured payloads,
 or bypass the normal compatibility and live acceptance gates.

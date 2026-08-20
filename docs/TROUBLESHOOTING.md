@@ -1,6 +1,6 @@
 # Troubleshooting
 
-OniLink and both validators fail closed. Diagnose the first error rather than enabling bypasses; later failures are often consequences of the first one.
+OniLink and OniBridge fail closed. Diagnose the first error rather than enabling bypasses; later failures are often consequences of the first one.
 
 ## Native backend shuts down during startup
 
@@ -53,10 +53,9 @@ A Java properties value with an inline `# comment` includes the comment text. Pu
 
 Treat this as a security failure:
 
-- Confirm native `reject_direct_joins=true` or that OniBridge-Geyser is active.
+- Confirm native `reject_direct_joins=true`.
 - Confirm the backend validator loaded successfully.
 - Firewall the backend UDP listener to OniLink.
-- Verify Geyser is not listening publicly on another interface/allocation.
 
 Direct-join rejection is defense in depth; the firewall remains mandatory.
 
@@ -76,20 +75,6 @@ Use the account's authenticated numeric XUID. A gamertag works for `add` only wh
 
 The verified XUID was not active before BDS selected storage. Stop the test and inspect the native hook/profile evidence. This is an identity failure, not a resource-pack or cache problem.
 
-## Geyser disconnects on `SubChunkRequestPacket`
-
-Set the affected OniLink backend explicitly:
-
-```properties
-backend.java.dropSubChunkRequests=true
-```
-
-This is required when switching a Bedrock client session to a Geyser backend that does not use BDS sub-chunk semantics.
-
-## OniBridge-Geyser rejects real-address access
-
-The installed Geyser build changed an internal access point used before the Java connection. The extension rejects the join rather than bypassing address restoration. Use the documented Geyser target or update, test, and review the compatibility adapter.
-
 ## Backend plugin command is missing
 
 Verify the backend's `AvailableCommandsPacket` reaches the client and that `/onilink` is the only injected proxy root. OniBridge must report command packets altered as false. Review [Command compatibility](COMMAND_COMPATIBILITY.md).
@@ -100,4 +85,4 @@ No archive is requested until the operator independently reviews the applicable 
 
 ## Collecting a useful report
 
-Include component versions, operating system, exact BDS executable hash, profile ID, Endstone/Geyser version, the first relevant error, and sanitized reproduction steps. Never include forwarding secrets, complete tokens, player identifiers, private addresses, BDS binaries, worlds, or dumps.
+Include component versions, operating system, exact BDS executable hash, profile ID, Endstone version, the first relevant error, and sanitized reproduction steps. Never include forwarding secrets, complete tokens, player identifiers, private addresses, BDS binaries, worlds, or dumps.

@@ -1,138 +1,47 @@
 # Installation Guide
 
-This page is the operator path from an empty host to the stable OniLink release. The repository's [complete installation manual](https://github.com/TheNINJALLO/OniLink/blob/main/docs/INSTALLATION.md) includes every command, setting table, systemd example, rotation procedure, and rollback step.
+Stable `v0.2.0` supports OniLink plus native OniBridge for BDS/Endstone. Use the exact Linux BDS
+`1.26.44.3` + Endstone `0.11.9` target for the production-approved profile.
 
-> [!IMPORTANT]
-> `v0.2.0-beta.2` is the current application beta. The exact BDS `1.26.44.3` Linux executable and Endstone `0.11.9` native profile remains production-approved. Keep the unreviewed-profile override disabled; mismatched native targets remain blocked.
+## Address plan
 
-## 1. Pick a topology
-
-```text
-Players
-  |
-  | public UDP 19132
-  v
-OniLink 10.10.0.10
-  |
-  +-- private UDP 19133 --> BDS + Endstone 10.10.0.20
-  |
-  +-- private UDP 19134 --> Geyser 10.10.0.30 --> Java
-```
-
-Use native OniBridge on BDS/Endstone. Use OniBridge-Geyser on Geyser/Java. Do not install both validators on one backend path.
-
-## 2. Choose the exact matching values
-
-| Value | BDS example | Geyser example |
+| Service | Example | Exposure |
 | --- | --- | --- |
-| Backend name | `survival` | `java` |
-| Bridge ID | `survival-main` | `java-main` |
-| Key ID | `key-2026-01` | `key-2026-01` |
-| Secret variable | `ONIBRIDGE_SURVIVAL_SECRET` | `ONIBRIDGE_JAVA_SECRET` |
-| Backend listener | `10.10.0.20:19133` | `10.10.0.30:19134` |
-| Trusted proxy | `10.10.0.10/32` | `10.10.0.10/32` |
+| OniLink | `10.10.0.10:19132/udp` | Public/player-facing |
+| Dashboard | `127.0.0.1:8080/tcp` | Protected HTTPS route only |
+| Survival BDS | `10.10.0.20:19133/udp` | Private; OniLink only |
 
-Backend name, bridge ID, key ID, and secret bytes must match on OniLink and the selected validator. Each backend needs different secret bytes.
+## Installation sequence
 
-## 3. Download and verify
+1. Download `v0.2.0` and verify `sha256sum -c SHA256SUMS`.
+2. Generate a unique secret with `openssl rand -base64 32`.
+3. Install `OniLink.jar` and copy `onilink.properties.example` to `config.properties`.
+4. Configure the listener and one backend route using [[Configuration]].
+5. Put the matching `.so` and profile JSON in the Endstone `plugins/` directory.
+6. Configure `plugins/onibridge/onibridge.toml` with matching backend, bridge, key, secret source,
+   and the actual proxy source CIDR.
+7. Keep all compatibility bypasses disabled and firewall BDS to OniLink.
+8. Start BDS first, confirm OniBridge installs the exact hook, then start OniLink.
+9. Join through OniLink and test leave/rejoin data, commands, direct-join rejection, and switching.
 
-```bash
-gh release download v0.2.0-beta.2 \
-  --repo TheNINJALLO/OniLink \
-  --dir onilink-release
-cd onilink-release
-sha256sum -c SHA256SUMS
+The environment-name setting is not the secret itself:
+
+```properties
+backend.survival.forwarding.activeSecretEnv=ONIBRIDGE_SURVIVAL_SECRET
 ```
 
-Every file must report `OK`.
-
-For native Linux BDS, also run:
-
-```bash
-sha256sum bedrock_server
+```toml
+[forwarding]
+active_secret_env = "ONIBRIDGE_SURVIVAL_SECRET"
+active_secret_file = ""
 ```
 
-Required hash:
+Both processes must receive the same real Base64 value in `ONIBRIDGE_SURVIVAL_SECRET`.
 
-```text
-06effdd00067f1ae0951ee7a732398dde721728e6b18ea149b138b8e2aececa7
-```
+For additional routes, use **Dashboard → Add Backend**. It creates matched proxy properties and a
+setup ZIP containing the native configuration and restricted key file, so shell permission changes
+are not required.
 
-Stop if it differs.
-
-## 4. Create one secret per backend
-
-```bash
-openssl rand -base64 32
-```
-
-Store the value in your panel, service environment, or secret manager. The survival value must exist on OniLink and Survival BDS. The Java value must exist on OniLink and Geyser. Never commit it.
-
-## 5. Install the files
-
-OniLink:
-
-```text
-/opt/onilink/
-├── OniLink.jar
-├── config.properties
-├── cache/
-└── logs/
-```
-
-Native BDS:
-
-```text
-<BDS root>/
-└── plugins/
-    ├── onibridge-0.2.0-beta.2-bds-1.26.44.3-linux-x86_64.so
-    └── onibridge/
-        └── onibridge.toml
-```
-
-Geyser:
-
-```text
-<Geyser root>/
-└── extensions/
-    ├── OniBridge-Geyser.jar
-    └── onibridge-geyser/
-        └── config.properties
-```
-
-Start each validator once to create its data directory, then stop and configure it.
-
-## 6. Copy a configuration set
-
-- [Single BDS files](https://github.com/TheNINJALLO/OniLink/tree/main/examples/single-bds)
-- [Mixed BDS + Geyser files](https://github.com/TheNINJALLO/OniLink/tree/main/examples/mixed-bds-geyser)
-
-Then read [[Native BDS Setup]] or [[Geyser Java Setup]] for the exact validator settings.
-
-Once the first server works, use the dedicated **Add Backend** page in the dashboard. It updates OniLink, creates a unique protected secret, shows the saved proxy properties, and produces the two files to upload to the new Endstone server. Follow [[Adding Backends]] for the exact panel paths, field examples, routing options, and manual fallback.
-
-## 7. Lock down networking
-
-Only OniLink's player listener is public. Example backend rule:
-
-```bash
-sudo ufw allow from 10.10.0.10 to any port 19133 proto udp
-sudo ufw deny 19133/udp
-```
-
-Use the actual proxy source observed by the backend. NAT/container networks can change it.
-
-## 8. Start in order
-
-1. Start BDS/Endstone or Geyser with its secret variable.
-2. Confirm validator configuration succeeds.
-3. Confirm native BDS reports the exact hook active.
-4. Start OniLink with the matching secret variables.
-5. Connect a test client to OniLink.
-6. Confirm direct backend access is blocked/rejected.
-
-## 9. Validate before promotion
-
-Test valid, direct, tampered, expired, replayed, and untrusted joins; concurrency; restart/rejoin storage; permissions; bans; allowlist; commands; real address; and backend switching.
-
-Continue with [[Compatibility and Testing]] and [[Troubleshooting]].
+The complete copyable procedure, including systemd, firewall, allowlist, upgrades, and production
+checklists, is in the repository's
+[installation guide](https://github.com/TheNINJALLO/OniLink/blob/main/docs/INSTALLATION.md).

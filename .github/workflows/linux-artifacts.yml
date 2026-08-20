@@ -6,13 +6,12 @@ on:
       version:
         description: Release version
         required: true
-        default: 0.2.0-beta.2
+        default: 0.2.0
   push:
     branches: [main]
     paths:
       - "OniLink/**"
       - "OniBridge/**"
-      - "OniBridge-Geyser/**"
       - "packaging/pterodactyl/**"
       - "scripts/build-linux.sh"
       - "scripts/install-llvm18-ubuntu.sh"
@@ -39,11 +38,11 @@ jobs:
         run: scripts/install-llvm18-ubuntu.sh
       - name: Build and package Linux release
         env:
-          ONILINK_RELEASE_VERSION: ${{ inputs.version || '0.2.0-beta.2' }}
+          ONILINK_RELEASE_VERSION: ${{ inputs.version || '0.2.0' }}
           ONIBRIDGE_CXX_COMPILER: clang++-18
         run: scripts/build-linux.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: onilink-linux-${{ inputs.version || '0.2.0-beta.2' }}
+          name: onilink-linux-${{ inputs.version || '0.2.0' }}
           path: dist/linux
           if-no-files-found: error

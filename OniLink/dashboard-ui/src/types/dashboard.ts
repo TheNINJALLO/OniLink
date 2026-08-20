@@ -180,7 +180,6 @@ export interface Backend {
   default: boolean;
   hub: boolean;
   forwarding: boolean;
-  dropSubChunkRequests: boolean;
   health: BackendHealth;
 }
 

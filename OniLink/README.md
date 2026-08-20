@@ -16,7 +16,7 @@ OniLink is the public Java 21 Bedrock edge for authentication, backend discovery
 
 - Validates the public Mojang/Xbox client identity chain.
 - Creates a fresh backend-bound and bridge-bound `OniForward` claim for every connection attempt.
-- Supports native BDS/Endstone and Geyser-backed Java targets.
+- Supports native BDS/Endstone backends through OniBridge.
 - Keeps `/onilink` as its collision-resistant proxy namespace while leaving unrelated backend commands authoritative.
 - Preserves failover, resource packs, custom registries, and per-backend protocol behavior.
 
@@ -24,7 +24,7 @@ OniLink is the public Java 21 Bedrock edge for authentication, backend discovery
 
 Copy `onilink.example.properties` to `config.properties`. Each protected backend needs a unique forwarding secret supplied through an environment variable or restricted file. Backend name, bridge ID, key ID, and secret must match its validator.
 
-See the [configuration guide](../docs/CONFIGURATION.md), [quick start](../docs/QUICKSTART.md), and [Geyser guide](../docs/GEYSER.md).
+See the [configuration guide](../docs/CONFIGURATION.md), [quick start](../docs/QUICKSTART.md), and [native installation guide](../docs/INSTALLATION.md).
 
 ## Run
 
@@ -40,4 +40,4 @@ Start protected backends first and expose only the OniLink listener to players.
 ./gradlew test standaloneJar
 ```
 
-The standalone artifact is written to `dist/OniLink.jar`. The repository-level Linux workflow builds and tests OniLink together with both backend validators.
+The standalone artifact is written to `dist/OniLink.jar`. The repository-level Linux workflow builds and tests OniLink together with OniBridge.

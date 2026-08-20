@@ -8,7 +8,7 @@ The full Linux release set can be built from the committed lock/profile without 
 scripts/build-linux.sh
 ```
 
-This produces OniLink, the exact-profile `onibridge.so`, OniBridge-Geyser, configuration examples, hashes, and a profile-status-aware manifest under `dist/linux`. The build fails if the ELF imports symbols newer than `GLIBC_2.35`. The same build is available as `.github/workflows/linux-artifacts.yml` and as an export-only Ubuntu 22.04 container target:
+This produces OniLink, the exact-profile `onibridge.so`, configuration examples, hashes, and a profile-status-aware manifest under `dist/linux`. The build fails if the ELF imports symbols newer than `GLIBC_2.35`. The same build is available as `.github/workflows/linux-artifacts.yml` and as an export-only Ubuntu 22.04 container target:
 
 ```bash
 docker build -f packaging/linux/Dockerfile --output type=local,dest=dist/linux-container .
@@ -27,8 +27,6 @@ $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 $env:ONILINK_BUILD_DIR = "$env:TEMP\onilink-build"
 .\gradlew.bat test standaloneJar --no-daemon --console=plain
 
-cd ..
-.\OniLink\gradlew.bat -p OniBridge-Geyser test jar --no-daemon --console=plain
 ```
 
 Profile-bearing native builds must set both the exact generated adapter and the audited Endstone source:

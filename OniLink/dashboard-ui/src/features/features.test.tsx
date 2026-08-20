@@ -150,7 +150,6 @@ describe("monitoring features", () => {
     expect(await screen.findByText("survival")).toBeInTheDocument();
     expect(screen.getByText("Slow response")).toBeInTheDocument();
     expect(screen.getByText("10.0.0.2:19132")).toBeInTheDocument();
-    expect(screen.getByText("Sub-chunks filtered")).toBeInTheDocument();
   });
 
   it("searches, sorts, transfers, traces, and disconnects players deliberately", async () => {

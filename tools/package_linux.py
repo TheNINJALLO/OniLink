@@ -32,15 +32,11 @@ def main() -> int:
 
     inputs = {
         "OniLink.jar": Path("OniLink/dist/OniLink.jar"),
-        "OniBridge-Geyser.jar": Path("OniBridge-Geyser/dist/OniBridge-Geyser.jar"),
         f"onibridge-{args.version}-bds-{args.bds_version}-linux-x86_64.so": Path(
             "OniBridge/build/linux-release/onibridge.so"
         ),
         "onilink.properties.example": Path("OniLink/onilink.example.properties"),
         "onibridge.toml.example": Path("OniBridge/onibridge.example.toml"),
-        "onibridge-geyser.properties.example": Path(
-            "OniBridge-Geyser/config.example.properties"
-        ),
         "egg-onilink.json": Path("packaging/pterodactyl/egg-onilink.json"),
         "start-onilink.sh": Path("packaging/pterodactyl/start-onilink.sh"),
         f"onibridge-profile-{args.bds_version}-linux-x86_64.json": profile_path,

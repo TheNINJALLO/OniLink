@@ -1,6 +1,6 @@
 # Packet Monitor
 
-OniLink `0.2.0-beta.2` includes a live packet monitor for cross-version testing. The active beta
+OniLink `0.2.0` includes a live packet monitor for cross-version testing. The stable release
 line captures decoded packet bodies, chat, XUIDs, player/backend endpoints, and exact uncompressed
 incoming bytes while always redacting authentication tokens. Open **Packet Monitor** in the normal
 dashboard, choose a proxy when applicable, then join and exercise the client feature you are

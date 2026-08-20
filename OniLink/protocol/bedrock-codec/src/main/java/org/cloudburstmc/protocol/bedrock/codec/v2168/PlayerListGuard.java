@@ -42,14 +42,14 @@ public final class PlayerListGuard {
     public static final int UUID_BYTES = 16;
     public static final int MAX_ENTRIES = 4096;
 
-    /** {@code BuildPlatform.UNKNOWN}, which is what Geyser uses for synthetic player entities. */
+    /** {@code BuildPlatform.UNKNOWN}, used when a synthetic player has no known client platform. */
     public static final byte[] UNKNOWN_BUILD_PLATFORM = {-1, -1, -1, -1};
 
     private static final byte[][] KNOWN_BUILD_PLATFORMS = knownBuildPlatforms();
 
-    // Mojang's wide/default Steve texture as Bedrock RGBA, and Geyser's humanoid geometry. Embedded
-    // compressed purely for source size. No online player's skin is read or copied - synthesising a
-    // fixed skin is what Geyser does for a player it cannot resolve.
+    // Mojang's wide/default Steve texture as Bedrock RGBA with standard humanoid geometry. Embedded
+    // compressed purely for source size. No online player's skin is read or copied; the fixed skin
+    // is used only when a synthetic player has no resolvable skin data.
     private static final String STEVE_RGBA_ZLIB_B64 =
             "eNrtmr1rFFEUxRdUkICggiCCVokEbZQYggGzmkJI7JQUaYJgE7SzUEwTxCaptNAqbWxsUljY"
             + "5E/I/zTmjnuGM2fum7efycz6HhzezNs7s/t7976P2TudTn25f+dKZlqYvZbxMc4/v3pcq07L"

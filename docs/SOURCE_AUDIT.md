@@ -76,15 +76,14 @@ Behavior retained for OniBridge:
 Behavior replaced:
 
 - Python monkey-patching, `PlayerLoginEvent`-only verification, the blocking HTTP request, patched Endstone wheels, and the Python pre-login event are not used by OniBridge.
-- The Geyser behavior becomes the separately branded OniBridge-Geyser integration and uses OniForward rather than the legacy HTTP protocol.
-- OniBridge-Geyser reads Geyser's preserved compact client-data JWT at `SessionLoginEvent`, decodes its canonical payload, verifies the embedded OniForward token locally, consumes replay state, and applies the verified address before the Java connection. Its small reflective adapter covers only `GeyserSession.getClientData()`, `BedrockClientData.getOriginalString()`, and `UpstreamSession` address access; a missing method cancels the login.
+- An earlier development line prototyped a separately branded Java-backend integration using
+  OniForward. Stable `v0.2.0` removes that integration and ships only OniLink plus native OniBridge.
 
 Security findings:
 
 - Stock Python changes only Python-visible `Player.xuid` and `Player.address`; it cannot alter BDS storage selection and therefore cannot restore inventory or Ender Chest identity.
 - The modified Python variant has the correct timing only because the Endstone runtime itself is patched.
 - The Geyser extension extracts a flat JSON response with regular expressions and performs a blocking verification request; it intentionally fails closed for identity but tolerates real-IP mutation failure.
-- OniBridge-Geyser removes response parsing and all login-time I/O. It requires real-IP mutation to succeed, so an incompatible Geyser build cannot silently collapse every player onto the proxy address.
 - The modified approval cache is keyed by case-folded name and expires after 15 seconds; OniForward instead binds and atomically consumes `bridge_id + session_id + nonce`.
 
 ## Endstone audit

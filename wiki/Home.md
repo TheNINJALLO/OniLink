@@ -9,44 +9,41 @@
 
 # OniLink Wiki
 
-OniLink is a standalone Bedrock edge system with its own runtime, control plane, configuration,
-release stream, and public identity. Its Java 21 proxy works with two fail-closed backend identity
-validators:
+OniLink is a standalone Bedrock edge system. The supported runtime family has two components:
 
-- **OniBridge** restores the verified Xbox XUID before BDS selects native player storage.
-- **OniBridge-Geyser** verifies the same signed claim before Geyser opens a Java connection.
+- **OniLink** authenticates public Xbox clients, routes sessions, and runs the control plane.
+- **OniBridge** restores the verified XUID before BDS selects native player storage.
 
 > [!IMPORTANT]
-> `v0.2.0-beta.2` is the current public beta. The active beta line adds detailed, token-redacted packet capture that verifies cross-version codec matches using real traffic and highlights definitions needing review. Full captures include sensitive player and network data. `v0.1.7` remains the stable application release, and the reviewed Linux BDS `1.26.44.3` + Endstone `0.11.9` profile remains fail closed.
+> `v0.2.0` is the current stable release. The exact Linux BDS `1.26.44.3` + Endstone `0.11.9`
+> profile is production-approved and remains fail closed.
 
 ## Start by goal
 
 | Goal | Page |
 | --- | --- |
-| Understand prerequisites and choose a backend | [[Getting Started]] |
-| Learn the official system and component names | [[System Identity]] |
-| Follow the complete install sequence | [[Installation Guide]] |
+| Install the first server | [[Getting Started]] |
+| Follow every installation step | [[Installation Guide]] |
+| Configure OniLink and OniBridge | [[Configuration]] |
 | Add another BDS server | [[Adding Backends]] |
-| Test Linux BDS + Endstone | [[Native BDS Setup]] |
-| Connect Geyser to a Java server | [[Geyser Java Setup]] |
+| Test the native backend | [[Native BDS Setup]] |
 | Deploy in Pterodactyl | [[Pterodactyl Setup]] |
-| Operate OniLink in the browser | [[Operations Dashboard|Dashboard]] |
-| Inspect cross-version packet mappings | [[Packet Monitor]] |
-| Align IDs, keys, secrets, and CIDRs | [[Configuration]] |
+| Operate the dashboard | [[Operations Dashboard|Dashboard]] |
+| Inspect cross-version packets | [[Packet Monitor]] |
 | Understand the trust model | [[Architecture and Security]] |
-| See exact versions and remaining gates | [[Compatibility and Testing]] |
-| Resolve startup or join failures | [[Troubleshooting]] |
-| Build or prepare another release | [[Building and Releasing]] |
+| Check compatibility gates | [[Compatibility and Testing]] |
+| Resolve failures | [[Troubleshooting]] |
+| Build a release | [[Building and Releasing]] |
 
 ## Current release
 
 | Item | Value |
 | --- | --- |
-| Application release | [`v0.2.0-beta.2`](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.2.0-beta.2) (public beta) |
+| Application | [`v0.2.0`](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.2.0) (stable) |
 | BDS | `1.26.44.3` |
 | Endstone | `0.11.9` |
-| Linux | x86-64, System V AMD64, libc++ |
-| Geyser target | `2.11` |
-| Linux native profile production-ready | Yes |
+| Linux profile | x86-64, production-approved |
+| Windows profile | x86-64, candidate |
 
-The repository [documentation hub](https://github.com/TheNINJALLO/OniLink/blob/main/docs/README.md) is canonical for engineering detail. This Wiki focuses on operator tasks.
+The repository [documentation hub](https://github.com/TheNINJALLO/OniLink/blob/main/docs/README.md)
+is canonical for engineering detail. This Wiki focuses on operator tasks.

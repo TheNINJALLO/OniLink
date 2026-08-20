@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 0.2.0 - 2026-08-20
+
+- Promoted the tested `0.2.0-beta.2` application, dashboard, packet monitor, tenant hosting, backend
+  wizard, allowlist, updater, and production-approved Linux native profile to a stable release.
+- Reduced the supported runtime family to OniLink and native OniBridge for BDS/Endstone.
+- Removed the Java-backend extension, its build and release jobs, compatibility switches, secret
+  variables, configuration examples, operator guides, Wiki routes, and packaged artifacts.
+- Changed the Pterodactyl egg defaults to `v0.2.0` on the `stable` update channel.
+- Rebuilt the installation, Pterodactyl, configuration, and Wiki guidance around the supported native
+  BDS path, including clearer port direction, matched secret setup, and multi-backend onboarding.
+
 ## 0.2.0-beta.2 - 2026-08-19
 
 - Established OniLink as a standalone Bedrock edge system across the banner, dashboard, panel egg,

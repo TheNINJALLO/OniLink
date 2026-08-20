@@ -33,12 +33,4 @@ Use the OniLink/Pterodactyl console to run `allowlist status`, then `allowlist a
 
 The verified XUID was not active before BDS selected storage. Stop testing and inspect hook/profile evidence; this is not a cache problem.
 
-## Geyser reports an unused SubChunk request
-
-Set `backend.<name>.dropSubChunkRequests=true` for the Geyser backend.
-
-## Geyser rejects address access
-
-The installed Geyser build changed an internal access point. The extension fails closed by design. Use the documented Geyser target or update and review the compatibility adapter.
-
 More cases are in [docs/TROUBLESHOOTING.md](https://github.com/TheNINJALLO/OniLink/blob/main/docs/TROUBLESHOOTING.md).

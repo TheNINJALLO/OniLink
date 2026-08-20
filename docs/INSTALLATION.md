@@ -1,224 +1,187 @@
-# Complete installation and deployment guide
+# Complete installation guide
 
-This is the full operator guide for installing OniLink and configuring either a native BDS + Endstone backend or a Geyser-backed Java server. If you only need the shortest path, use [Quick start](QUICKSTART.md). If you want ready-to-copy files, start in [`examples/`](../examples/README.md).
+This guide installs stable OniLink `v0.2.0` in front of one native BDS + Endstone backend, then
+shows how to add more BDS servers safely. For a shorter first pass, use [Quick start](QUICKSTART.md).
 
 > [!IMPORTANT]
-> `v0.2.0-beta.2` is a public beta of the OniLink application and packet monitor. Its exact Linux BDS `1.26.44.3` + Endstone `0.11.9` native profile remains production-approved and reports `production_ready=true`; keep `allow_unreviewed_profile=false` so unknown or unapproved profiles remain blocked.
+> The included Linux native profile is production-approved only for the exact BDS `1.26.44.3`
+> executable and Endstone `0.11.9`. Keep `allow_unreviewed_profile=false`. A nearby BDS or Endstone
+> version is a different binary target and must not reuse this plugin/profile pair.
 
-## Contents
+## 1. Plan the deployment
 
-1. [Choose a deployment path](#1-choose-a-deployment-path)
-2. [Plan addresses and names](#2-plan-addresses-and-names)
-3. [Download and verify the release](#3-download-and-verify-the-release)
-4. [Create and install secrets](#4-create-and-install-secrets)
-5. [Install a native BDS backend](#5-install-a-native-bds-backend)
-6. [Configure and run OniLink](#6-configure-and-run-onilink)
-7. [Install a Geyser backend](#7-install-a-geyser-backend)
-8. [Configure multiple backends](#8-configure-multiple-backends)
-9. [Run OniLink with systemd](#9-run-onilink-with-systemd)
-10. [Deploy with Pterodactyl](#10-deploy-with-pterodactyl)
-11. [Verify the installation](#11-verify-the-installation)
-12. [Rotate keys](#12-rotate-keys)
-13. [Roll back or uninstall](#13-roll-back-or-uninstall)
-
-## 1. Choose a deployment path
-
-| Target | Install on proxy | Install on backend | Do not install |
-| --- | --- | --- | --- |
-| BDS + Endstone | `OniLink.jar` | Profile-specific `onibridge.so` or `.dll` | `OniBridge-Geyser.jar` |
-| Geyser + Java | `OniLink.jar` | `OniBridge-Geyser.jar` in Geyser | Native `onibridge.so`/`.dll` |
-
-Both paths use the same `OniForward` trust model. OniLink authenticates the public Xbox client and signs a new short-lived claim for the selected backend. The backend validator accepts the claim only from the configured proxy source address.
-
-## 2. Plan addresses and names
-
-Do not start by copying configuration. First write down the values for your network.
-
-### Example topology
+OniLink needs one public UDP listener. Each BDS backend needs its own UDP listener that is private or
+firewalled so only OniLink can reach it. The dashboard uses TCP and should remain loopback-only or sit
+behind a protected HTTPS reverse proxy.
 
 ```text
-Players / Internet
-       |
-       | UDP 19132
-       v
-OniLink proxy
-10.10.0.10
-       |
-       +---- UDP 19133 ----> Survival BDS + Endstone
-       |                     10.10.0.20
-       |
-       +---- UDP 19134 ----> Private Geyser listener
-                             10.10.0.30 -> Java server
+Players
+  |
+  | UDP 19132 (public)
+  v
+OniLink 10.10.0.10
+  |
+  | UDP 19133 (private)
+  v
+Endstone + OniBridge + BDS 10.10.0.20
 ```
 
-Only OniLink's `19132/udp` listener is public. Backend ports are private or firewalled to the proxy.
+Example values used below:
 
-### Configuration worksheet
+| Purpose | Example | What to replace |
+| --- | --- | --- |
+| Public proxy address | `play.example.com:19132` | Your player-facing hostname and UDP port |
+| OniLink private address | `10.10.0.10` | Source address the backend actually sees |
+| Backend address | `10.10.0.20:19133` | Private BDS host and UDP port |
+| Backend name | `survival` | Short unique route name |
+| Bridge ID | `survival-main` | Unique validator instance ID |
+| Key ID | `key-2026-01` | Non-secret identifier for the active key |
+| Secret environment name | `ONIBRIDGE_SURVIVAL_SECRET` | Name only, never the secret itself |
 
-| Value | Survival example | Java/Geyser example | Rule |
-| --- | --- | --- | --- |
-| Backend name | `survival` | `java` | Must match validator `backend_name` |
-| Bridge ID | `survival-main` | `java-main` | Must match exactly on both sides |
-| Active key ID | `key-2026-01` | `key-2026-01` | Identifier only; secret bytes must also match |
-| Secret variable | `ONIBRIDGE_SURVIVAL_SECRET` | `ONIBRIDGE_JAVA_SECRET` | Use a different secret source per backend |
-| Backend listener | `10.10.0.20:19133` | `10.10.0.30:19134` | Must not be public |
-| Trusted proxy CIDR | `10.10.0.10/32` | `10.10.0.10/32` | Address the backend actually observes |
-| Proxy ID | `edge-1` | `edge-1` | Stable unique ID for this OniLink instance |
+The environment-name fields contain the name of a variable. For example,
+`activeSecretEnv=ONIBRIDGE_SURVIVAL_SECRET` is correct; do not replace that text with the Base64
+secret. The real Base64 value is assigned to that variable in the panel or service environment.
 
-Container NAT may change the source address observed by the backend. Do not assume it is the public IP or player IP. Check the backend-side address and configure the narrowest correct CIDR—normally one IPv4 `/32` or IPv6 `/128`.
+## 2. Download and verify the release
 
-## 3. Download and verify the release
-
-### GitHub CLI
+Download the stable release from GitHub:
 
 ```bash
-mkdir -p ~/onilink-download
-gh release download v0.2.0-beta.2 \
+mkdir -p onilink-release
+gh release download v0.2.0 \
   --repo TheNINJALLO/OniLink \
-  --dir ~/onilink-download
-cd ~/onilink-download
+  --dir onilink-release
+cd onilink-release
 sha256sum -c SHA256SUMS
 ```
 
-Every listed file must report `OK`. Stop if any file is missing or mismatched.
+At minimum, the Linux route uses:
 
-### Browser download
-
-Download every required file from the [v0.2.0-beta.2 release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.2.0-beta.2), including `SHA256SUMS`. On Linux:
-
-```bash
-cd /path/to/downloads
-sha256sum -c SHA256SUMS
+```text
+OniLink.jar
+onilink.properties.example
+onibridge-0.2.0-bds-1.26.44.3-linux-x86_64.so
+onibridge.example.toml
+onibridge-profile-1.26.44.3-linux-x86_64.json
+SHA256SUMS
 ```
 
-On PowerShell:
+Do not use an artifact if checksum verification fails. The release never includes BDS itself; obtain
+and operate BDS under its own terms.
 
-```powershell
-Set-Location C:\path\to\downloads
-Get-Content SHA256SUMS | ForEach-Object {
-    $expected, $name = $_ -split '  ', 2
-    $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $name).Hash.ToLowerInvariant()
-    if ($actual -ne $expected) { throw "Checksum mismatch: $name" }
-    Write-Host "OK  $name"
-}
-```
+## 3. Generate the forwarding secret
 
-### Verify the native BDS target
-
-The current Linux native plugin is only for:
-
-| Requirement | Exact value |
-| --- | --- |
-| BDS | `1.26.44.3` |
-| BDS executable SHA-256 | `06effdd00067f1ae0951ee7a732398dde721728e6b18ea149b138b8e2aececa7` |
-| Platform | Linux x86-64 / System V AMD64 |
-| Endstone | `0.11.9` |
-| Profile | `bds-1.26.44.3-linux-x86_64-06effdd00067f1ae` |
-
-Verify the executable from the BDS directory:
-
-```bash
-sha256sum bedrock_server
-```
-
-Do not install the plugin if the hash differs. A nearby patch version, a Windows executable, or a different Endstone build is not interchangeable.
-
-## 4. Create and install secrets
-
-Every backend requires a different standard-Base64 secret containing at least 32 random bytes.
-
-### Generate secrets
-
-Linux/macOS:
+Generate one secret per backend:
 
 ```bash
 openssl rand -base64 32
 ```
 
-PowerShell:
+Copy the result directly into your secret manager, systemd environment file, or protected panel
+variable. Never put it in `config.properties`, `onibridge.toml`, screenshots, logs, or source control.
 
-```powershell
-$bytes = New-Object byte[] 32
-[Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
-[Convert]::ToBase64String($bytes)
-```
-
-Save the output in a password manager or secret manager. Do not paste it into Git, screenshots, logs, issues, or this documentation.
-
-### Environment-variable method (recommended)
-
-For the survival example, the same value must be present in both the OniLink process and the BDS/Endstone process:
+For a Linux service, a root-owned environment file is one option:
 
 ```bash
-export ONIBRIDGE_SURVIVAL_SECRET='REPLACE_WITH_THE_GENERATED_BASE64_VALUE'
+sudo install -d -m 0750 /etc/onilink
+sudoedit /etc/onilink/survival.env
+sudo chmod 0600 /etc/onilink/survival.env
 ```
 
-For a second backend, generate a second secret:
+Its content is:
+
+```dotenv
+ONIBRIDGE_SURVIVAL_SECRET=REPLACE_WITH_THE_GENERATED_BASE64_VALUE
+```
+
+Use the same variable/value in both process environments. On Pterodactyl, let the panel inject a
+protected variable. The dashboard **Add Backend** wizard can instead generate a key file with safe
+permissions and package it into the backend setup ZIP; this avoids requiring a new egg variable.
+
+## 4. Install OniLink
+
+Create a dedicated directory and copy the runtime files:
 
 ```bash
-export ONIBRIDGE_JAVA_SECRET='REPLACE_WITH_A_DIFFERENT_BASE64_VALUE'
+sudo install -d -o onilink -g onilink -m 0750 /opt/onilink
+sudo install -o onilink -g onilink -m 0644 OniLink.jar /opt/onilink/OniLink.jar
+sudo install -o onilink -g onilink -m 0640 onilink.properties.example /opt/onilink/config.properties
 ```
 
-An environment variable set in one terminal is not automatically available to another service, container, or user. Configure it separately for both processes.
-
-### Restricted-file method
-
-Use this only on a POSIX filesystem where ownership and permissions can be verified:
-
-```bash
-sudo install -d -m 0700 /etc/onilink/secrets
-sudo sh -c 'printf "%s\n" "REPLACE_WITH_SECRET" > /etc/onilink/secrets/survival.key'
-sudo chmod 0600 /etc/onilink/secrets/survival.key
-```
-
-Then configure exactly one source on each side:
+Edit `/opt/onilink/config.properties`. A minimal, complete route is:
 
 ```properties
-backend.survival.forwarding.activeSecretEnv=
-backend.survival.forwarding.activeSecretFile=/etc/onilink/secrets/survival.key
+listener.host=0.0.0.0
+listener.port=19132
+publicAddress=play.example.com:19132
+
+dashboard.enabled=true
+dashboard.host=127.0.0.1
+dashboard.port=8080
+dashboard.dataDirectory=dashboard
+
+backend.name=survival
+backend.host=10.10.0.20
+backend.port=19133
+backends=survival
+hubBackend=survival
+backend.survival.host=10.10.0.20
+backend.survival.port=19133
+backend.protocol=auto
+
+forwarding.proxyId=edge-1
+backend.survival.forwarding.enabled=true
+backend.survival.forwarding.bridgeId=survival-main
+backend.survival.forwarding.activeKeyId=key-2026-01
+backend.survival.forwarding.activeSecretEnv=ONIBRIDGE_SURVIVAL_SECRET
+backend.survival.forwarding.tokenLifetimeMillis=5000
 ```
 
-```toml
-active_secret_env = ""
-active_secret_file = "/etc/onilink/secrets/survival.key"
+Java properties do not support trailing comments. This is wrong:
+
+```properties
+backend.port=19133 # private BDS port
 ```
 
-Do not configure both the environment and file fields. OniLink, native OniBridge, and OniBridge-Geyser reject ambiguous secret sources. On filesystems without verifiable POSIX permissions, use an environment variable.
+Put comments on their own line. The complete option reference is
+[`OniLink/onilink.example.properties`](../OniLink/onilink.example.properties).
 
-## 5. Install a native BDS backend
-
-### 5.1 Back up the backend
-
-Stop BDS and back up at least:
-
-- Worlds and player data
-- Endstone `plugins/` and plugin-data directories
-- Operators and allowlist
-- Permission/rank databases
-- Any plugin database indexed by XUID or UUID
-
-Keep a copy of the last known working server directory so rollback is a file restore, not a repair exercise.
-
-### 5.2 Install the native plugin
-
-From the BDS root:
+Run OniLink manually for a first check:
 
 ```bash
-cp /path/to/onibridge-0.2.0-beta.2-bds-1.26.44.3-linux-x86_64.so plugins/
-chmod 0644 plugins/onibridge-0.2.0-beta.2-bds-1.26.44.3-linux-x86_64.so
+cd /opt/onilink
+set -a
+. /etc/onilink/survival.env
+set +a
+java -jar OniLink.jar config.properties
 ```
 
-Start the server once using your normal Endstone launch command. OniBridge creates:
+On first start, the dashboard owner setup code is written to
+`dashboard/FIRST_RUN_SETUP.txt`. Use it once, then protect the dashboard directory as credential
+material.
+
+## 5. Install Endstone and OniBridge
+
+Install the exact supported BDS and Endstone versions. With BDS stopped, place both native files in
+the Endstone plugin directory:
+
+```bash
+install -m 0644 \
+  onibridge-0.2.0-bds-1.26.44.3-linux-x86_64.so \
+  /srv/bds/plugins/onibridge-0.2.0-bds-1.26.44.3-linux-x86_64.so
+install -m 0644 \
+  onibridge-profile-1.26.44.3-linux-x86_64.json \
+  /srv/bds/plugins/onibridge-profile-1.26.44.3-linux-x86_64.json
+```
+
+Start once if needed to create the OniBridge data directory, then stop BDS before editing. The
+configuration is normally located at:
 
 ```text
-plugins/onibridge/onibridge.toml
+<BDS root>/plugins/onibridge/onibridge.toml
 ```
 
-The first start intentionally shuts down because the generated bridge name, backend name, and profile are not ready. That shutdown is expected.
-
-### 5.3 Configure `onibridge.toml`
-
-For the example network, replace the generated file with:
+Use this matching configuration:
 
 ```toml
 bridge_id = "survival-main"
@@ -260,511 +223,118 @@ allow_unknown_endstone = false
 enabled = false
 ```
 
-Copyable version: [`examples/single-bds/onibridge.toml`](../examples/single-bds/onibridge.toml).
+If the release profile reports a different exact `profile_id`, use that value. Do not guess or copy
+an ID from another BDS build.
 
-Important rules:
+## 6. Configure network isolation
 
-- `backend_name` must equal the OniLink backend list name.
-- `bridge_id` and `active_key_id` must match OniLink exactly.
-- `trusted_proxy_cidrs` contains proxy source addresses, never player addresses.
-- `reject_direct_joins` must stay `true`.
-- `identity.uuid_mode` should stay `preserve_backend`.
-- `interfere_with_backend_commands`, `allow_unknown_bds`, `allow_unknown_endstone`, and legacy verification must stay `false`.
-- Keep `allow_unreviewed_profile=false`; the released exact profile is production-approved and does not require a bypass.
-
-Native TOML is strict. Unknown keys, duplicate keys, invalid types, and unsupported values stop startup.
-
-### 5.4 Make the backend private
-
-Example UFW rules on the BDS host:
+Only OniLink should be public. For example, with UFW on the backend host:
 
 ```bash
-sudo ufw allow from 10.10.0.10 to any port 19133 proto udp
+sudo ufw allow proto udp from 10.10.0.10 to any port 19133
 sudo ufw deny 19133/udp
-sudo ufw status numbered
 ```
 
-Adapt these rules to your firewall and management access. Confirm the specific allow rule appears before the broad deny rule. If proxy and backend share a host, bind BDS to loopback or a private interface when supported.
+Container networking may make BDS observe a bridge or NAT address instead of the physical OniLink
+host. Use the actual source shown in backend logs, then express one address as `/32` for IPv4 or
+`/128` for IPv6. Do not use `0.0.0.0/0` as a convenience value.
 
-### 5.5 Start and inspect OniBridge
+## 7. Start in the correct order
 
-Start the BDS/Endstone process with `ONIBRIDGE_SURVIVAL_SECRET` in its environment. The console must report that the exact native identity hook is active.
+1. Start BDS/Endstone with the backend secret available.
+2. Confirm OniBridge reports the exact profile and installs its hook without a critical error.
+3. Start OniLink with the same secret available.
+4. Confirm its UDP listener and dashboard bind successfully.
+5. Join through the OniLink public address, never the backend address.
 
-Stop immediately if you see:
-
-- Missing secret or invalid Base64
-- Wrong BDS hash or executable size
-- Wrong Endstone version
-- Missing or wrong profile ID
-- Expected-byte/call-target mismatch
-- Hook chain uncertainty
-- Automatic shutdown after a critical OniBridge message
-
-Do not enable compatibility bypasses to make the server remain online.
-
-## 6. Configure and run OniLink
-
-### 6.1 Prepare the proxy directory
-
-```bash
-sudo useradd --system --home /opt/onilink --shell /usr/sbin/nologin onilink 2>/dev/null || true
-sudo install -d -m 0750 -o onilink -g onilink /opt/onilink
-sudo install -m 0644 -o onilink -g onilink /path/to/OniLink.jar /opt/onilink/OniLink.jar
-sudo install -m 0640 -o onilink -g onilink /path/to/onilink.properties.example /opt/onilink/config.properties
-```
-
-For a personal test environment, a normal user-owned directory is also acceptable. Keep the jar, configuration, cache, logs, and resource-pack directories together.
-
-### 6.2 Configure a single BDS backend
-
-Edit `/opt/onilink/config.properties`:
-
-```properties
-# Public player listener.
-listener.host=0.0.0.0
-listener.port=19132
-publicAddress=play.example.com:19132
-
-# Default and only backend.
-backend.name=survival
-backend.host=10.10.0.20
-backend.port=19133
-backends=survival
-hubBackend=survival
-backend.protocol=auto
-
-# Explicit named backend address.
-backend.survival.host=10.10.0.20
-backend.survival.port=19133
-
-# Must match onibridge.toml.
-forwarding.proxyId=edge-1
-backend.survival.forwarding.enabled=true
-backend.survival.forwarding.bridgeId=survival-main
-backend.survival.forwarding.activeKeyId=key-2026-01
-backend.survival.forwarding.activeSecretEnv=ONIBRIDGE_SURVIVAL_SECRET
-backend.survival.forwarding.tokenLifetimeMillis=5000
-
-# One-backend behavior.
-join.try=survival
-join.attemptsPerBackend=2
-failover.enabled=false
-protocolFault.action=disconnect
-protocolFault.logFile=logs/protocol-errors.log
-
-# Start with no proxy administrators. Add trusted XUIDs later.
-permissions.admins=
-permissions.adminCommands=alert,allowlist,glist,perm,send
-
-# Add trusted XUIDs before changing this to true.
-allowlist.enabled=false
-allowlist.file=allowlist.properties
-allowlist.kickMessage=You are not allow-listed on this server.
-allowlist.disconnectOnRemoval=true
-
-# Public listener protection.
-security.rateLimit.enabled=true
-security.rateLimit.packetLimit=500
-security.rateLimit.globalPacketLimit=100000
-security.sendConnectionCookie=true
-security.maxConnectionsPerAddress=5
-security.maxConnectionAttempts=8
-security.connectionAttemptWindowMillis=10000
-security.requireXuid=true
-security.commandCooldownMillis=1000
-
-motd=OniLink Network
-subMotd=Survival
-gameType=Survival
-maxPlayers=20
-
-resourcePacks.dir=
-resourcePacks.cacheBackendPacks=true
-crossBackendPalette=true
-compression=zlib
-compressionThreshold=0
-```
-
-Copyable version: [`examples/single-bds/onilink.properties`](../examples/single-bds/onilink.properties).
-
-Java properties syntax matters:
-
-- Put comments on their own lines.
-- Do not write `listener.port=19132 # public`; the comment becomes part of the value.
-- Backend names are comma-separated in `backends` and must have matching `backend.<name>.*` blocks.
-- Prefer `backend.protocol=auto` unless you are deliberately pinning a tested protocol.
-
-### 6.3 Open the public listener
-
-Example UFW rule on the proxy host:
-
-```bash
-sudo ufw allow 19132/udp
-sudo ufw status numbered
-```
-
-Forward UDP `19132` from your router/provider only to the OniLink host. Do not forward backend ports.
-
-### 6.4 Start manually for the first test
-
-Start the backend first. On the OniLink host:
-
-```bash
-cd /opt/onilink
-export ONIBRIDGE_SURVIVAL_SECRET='REPLACE_WITH_THE_GENERATED_BASE64_VALUE'
-java -jar OniLink.jar config.properties
-```
-
-Keep this terminal private because shell history and process-management mistakes can expose secrets. Move to systemd, a panel secret, or a protected environment file after the first controlled test.
-
-OniLink also starts its embedded dashboard on `127.0.0.1:8080` by default. Open `dashboard/FIRST_RUN_SETUP.txt`, copy the one-time setup code, and create the owner from a browser on the proxy host. Do not publish the HTTP listener directly; use the [dashboard guide](DASHBOARD.md) for SSH tunnels, HTTPS reverse proxies, roles, TOTP, and recovery.
-
-### 6.5 Enable the proxy allowlist
-
-Leave the allowlist disabled for the first authenticated join. Then add that connected account from the OniLink console, using either its exact current gamertag or its XUID:
+Useful checks:
 
 ```text
-allowlist add ExamplePlayer
-allowlist list
+/onibridge status
+/onilink status
 ```
 
-For a player who is not connected, use the permanent numeric XUID and an optional label:
+The first join, leave, and rejoin must preserve the same XUID-backed BDS data. Test inventory,
+location, permissions, backend commands, proxy commands, and direct-join rejection.
+
+## 8. Add another BDS backend
+
+The easiest path is **Dashboard → Add Backend**:
+
+1. Enter a readable route name such as `creative`.
+2. Enter the private IP/hostname of the destination BDS server.
+3. Enter that BDS server's private UDP port.
+4. Confirm the proxy source CIDR the new backend will see.
+5. Let the wizard generate a unique secret and bridge ID.
+6. Download the setup ZIP and install its OniBridge configuration/key files on the backend.
+7. Restart the new backend, then restart or reload OniLink as instructed.
+
+The wizard saves the corresponding proxy properties. A manual second route looks like:
+
+```properties
+backends=survival,creative
+
+backend.creative.host=10.10.0.30
+backend.creative.port=19134
+backend.creative.protocol=auto
+backend.creative.forwarding.enabled=true
+backend.creative.forwarding.bridgeId=creative-main
+backend.creative.forwarding.activeKeyId=key-2026-01
+backend.creative.forwarding.activeSecretEnv=ONIBRIDGE_CREATIVE_SECRET
+backend.creative.forwarding.tokenLifetimeMillis=5000
+```
+
+The matching backend uses `backend_name="creative"`, `bridge_id="creative-main"`, the same key ID,
+and `active_secret_env="ONIBRIDGE_CREATIVE_SECRET"`. Give it a different secret from survival.
+
+## 9. Enable the OniLink allowlist
+
+BDS runs with its public online-mode check disabled behind the trusted proxy, so enforce admission at
+OniLink. Add at least one authenticated XUID before enabling the list:
 
 ```text
 allowlist add 2533274790000001 ExamplePlayer
+allowlist list
 ```
 
-Set `allowlist.enabled=true` in `config.properties` and restart OniLink. Enforcement happens after Xbox authentication but before backend selection, so BDS remains configured with `online-mode=false` and `allow-list=false`. Remove access with `allowlist remove <XUID-or-known-label>`; the default configuration disconnects a matching online session immediately.
-
-Do not rely on a gamertag as the credential: only the signed XUID is matched. Proxy administrators do not bypass this check. If you lock yourself out, the server console and authenticated dashboard remain available for recovery.
-
-## 7. Install a Geyser backend
-
-Use this path instead of native OniBridge for a Geyser-backed Java server.
-
-### 7.1 Install the extension
-
-```bash
-cp /path/to/OniBridge-Geyser.jar /path/to/geyser/extensions/
-```
-
-Start Geyser once, then stop it. The extension creates:
-
-```text
-extensions/onibridge-geyser/config.properties
-```
-
-### 7.2 Configure OniBridge-Geyser
+Then configure and restart:
 
 ```properties
-bridge_id=java-main
-backend_name=java
-trusted_proxy_cidrs=10.10.0.10/32
-
-active_key_id=key-2026-01
-active_secret_env=ONIBRIDGE_JAVA_SECRET
-active_secret_file=
-
-previous_key_id=
-previous_secret_env=
-previous_secret_file=
-
-maximum_token_size=4096
-maximum_lifetime_millis=10000
-allowed_clock_skew_millis=2000
-replay_cache_maximum_entries=10000
+allowlist.enabled=true
+allowlist.file=allowlist.properties
+allowlist.kickMessage=You are not allow-listed on this server.
+allowlist.disconnectOnRemoval=true
 ```
 
-Copyable version: [`examples/mixed-bds-geyser/onibridge-geyser.properties`](../examples/mixed-bds-geyser/onibridge-geyser.properties).
-
-OniBridge-Geyser also rejects unknown keys and requires exactly one active secret source.
-
-### 7.3 Configure Geyser's private listener
-
-Merge these settings into the matching sections of Geyser's `config.yml`:
-
-```yaml
-bedrock:
-  address: 10.10.0.30
-  port: 19134
-
-java:
-  auth-type: floodgate
-
-advanced:
-  bedrock:
-    validate-bedrock-login: false
-    use-waterdogpe-forwarding: false
-```
-
-`validate-bedrock-login: false` is safe only because OniLink performs public authentication and the private listener is guarded by OniBridge-Geyser. Never expose this listener directly.
-
-Firewall example on the Geyser host:
-
-```bash
-sudo ufw allow from 10.10.0.10 to any port 19134 proto udp
-sudo ufw deny 19134/udp
-```
-
-### 7.4 Add the Geyser backend to OniLink
-
-```properties
-backends=survival,java
-
-backend.java.host=10.10.0.30
-backend.java.port=19134
-backend.java.dropSubChunkRequests=true
-backend.java.forwarding.enabled=true
-backend.java.forwarding.bridgeId=java-main
-backend.java.forwarding.activeKeyId=key-2026-01
-backend.java.forwarding.activeSecretEnv=ONIBRIDGE_JAVA_SECRET
-backend.java.forwarding.tokenLifetimeMillis=5000
-```
-
-`backend.java.dropSubChunkRequests=true` is required for a Geyser backend after switching from BDS semantics.
-
-Start Geyser with `ONIBRIDGE_JAVA_SECRET` present in its environment. A missing or invalid extension configuration rejects every join instead of allowing an unverified connection.
-
-The focused guide is [Geyser integration](GEYSER.md).
-
-## 8. Configure multiple backends
-
-For another native BDS server, use **Add Backend** in the OniLink dashboard. The dedicated wizard:
-
-1. Preserves the existing backend list and appends the new route.
-2. Generates a different 32-byte secret for the new backend.
-3. Stores OniLink's copy as `secrets/<backend>.key` with owner-only permissions.
-4. Validates the complete candidate configuration and creates `config.properties.dashboard.bak`.
-5. Produces the matching `<backend>.key` and complete `onibridge.toml` to upload to Endstone.
-
-Follow [Adding another BDS backend](ADDING_BACKEND.md) for every field, the exact Pterodactyl paths, a worked example, success messages, routing choices, removal steps, and a manual fallback.
-
-The complete mixed BDS + Geyser example is [`examples/mixed-bds-geyser/`](../examples/mixed-bds-geyser/README.md). Add Geyser-backed Java servers manually because they use the extension configuration rather than native `onibridge.toml`.
-
-The rules are the same for either path:
-
-1. List every backend once in `backends`.
-2. Configure `backend.<name>.host` and `.port` for every named backend.
-3. Use a unique bridge ID and a unique secret source per backend.
-4. The OniLink backend name must match that validator's `backend_name`.
-5. Set hub, initial join order, and failover deliberately; adding a route does not change them automatically.
-6. Set `dropSubChunkRequests=true` only on Geyser-like backends.
-
-Example failover:
-
-```properties
-join.try=survival,java
-join.attemptsPerBackend=2
-failover.enabled=true
-failover.fallbacks=survival,java
-backend.survival.fallback=java
-backend.java.fallback=survival
-failover.onBackendKick=auto
-```
-
-Do not point a backend fallback at itself as the only choice; that creates retries without an alternate destination.
-
-## 9. Run OniLink with systemd
-
-### 9.1 Create a protected environment file
-
-```bash
-sudo sh -c 'printf "%s\n" "ONIBRIDGE_SURVIVAL_SECRET=REPLACE_WITH_SECRET" > /opt/onilink/onilink.env'
-sudo chown onilink:onilink /opt/onilink/onilink.env
-sudo chmod 0600 /opt/onilink/onilink.env
-```
-
-For multiple backends, add one line per unique environment variable.
-
-### 9.2 Create the service
-
-Create `/etc/systemd/system/onilink.service`:
-
-```ini
-[Unit]
-Description=OniLink Bedrock proxy
-Wants=network-online.target
-After=network-online.target
-
-[Service]
-Type=simple
-User=onilink
-Group=onilink
-WorkingDirectory=/opt/onilink
-EnvironmentFile=/opt/onilink/onilink.env
-ExecStart=/usr/bin/java -jar /opt/onilink/OniLink.jar /opt/onilink/config.properties
-Restart=on-failure
-RestartSec=5
-UMask=0077
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=/opt/onilink
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Enable it only after the backend starts cleanly:
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now onilink
-sudo systemctl status onilink --no-pager
-sudo journalctl -u onilink -f
-```
-
-### 9.3 Add the secret to an existing Endstone service
-
-If your backend service is named `endstone.service`, create a drop-in:
-
-```bash
-sudo systemctl edit endstone
-```
-
-```ini
-[Service]
-EnvironmentFile=/etc/onilink/survival.env
-```
-
-Create `/etc/onilink/survival.env` with mode `0600`, reload systemd, and restart the backend. Replace the service name and path with your actual launcher. The environment must be attached to the process that loads the native plugin.
-
-## 10. Deploy with Pterodactyl
-
-Use separate Pterodactyl servers for OniLink and each backend.
-
-Import the released [`egg-onilink.json`](../packaging/pterodactyl/egg-onilink.json) through **Admin Panel → Nests → Import Egg**, create an OniLink server using its Java 21 image, and give it one public allocation. The egg verifies its bootstrap JAR, updater, and template against `SHA256SUMS`, preserves existing configuration/dashboard data on reinstall, maps the primary number to Bedrock UDP and dashboard TCP, and checks GitHub's latest stable OniLink release on every start. A failed check falls back to the existing JAR.
-
-Set the egg's backend host/port to the private allocation reachable through Wings. Before first start, an administrator must fill the non-user-viewable `ONIBRIDGE_FORWARDING_SECRET` variable with standard Base64 for at least 32 random bytes and set the same value on the backend validator.
-
-### Allocations
-
-| Pterodactyl server | Allocation | Exposure |
-| --- | --- | --- |
-| OniLink | `19132/udp` + `19132/tcp` | Bedrock public; dashboard restricted/HTTPS |
-| Survival BDS | `19133/udp` | Private/firewalled to proxy |
-| Geyser | `19134/udp` | Private/firewalled to proxy |
-
-### Variables
-
-Add the same administrator-only secret variable to the two containers that need it:
-
-| Container | Variable |
-| --- | --- |
-| OniLink | `ONIBRIDGE_SURVIVAL_SECRET` |
-| Survival BDS | `ONIBRIDGE_SURVIVAL_SECRET` |
-| OniLink | `ONIBRIDGE_JAVA_SECRET` |
-| Geyser | `ONIBRIDGE_JAVA_SECRET` |
-
-Use different values for survival and Java. Do not put `MINECRAFT_EULA_ACCEPTED` into OniLink; that variable belongs only to controlled BDS acquisition/profile tooling and is unrelated to runtime forwarding.
-
-### Container networking
-
-The address seen by a backend may be the node, Docker bridge, Wings network, or proxy container address. Determine the actual source before setting `trusted_proxy_cidrs`. Prefer stable private networking and a narrow address. Do not trust the entire hosting-provider subnet unless there is no safer architecture.
-
-Startup order:
-
-1. BDS/Endstone or Geyser backend
-2. Confirm validator active
-3. OniLink
-4. Claim the owner with `dashboard/FIRST_RUN_SETUP.txt` from a trusted network
-5. Test client
-
-See [Pterodactyl](PTERODACTYL.md) for the security summary.
-
-## 11. Verify the installation
-
-### Process checks
-
-- OniLink is listening on the intended public UDP address and port.
-- Backend listeners are reachable from OniLink and unreachable from an untrusted host.
-- Every backend validator reports successful configuration.
-- Native OniBridge reports the exact hook active.
-- No process reports a missing secret, wrong key ID, clock problem, or profile mismatch.
-
-### Join checks
-
-Run these in a controlled test environment and record the result:
-
-1. Valid join through OniLink.
-2. Direct backend join blocked by firewall and rejected by validator.
-3. Wrong secret, bridge ID, backend name, and key ID rejected.
-4. Expired, future, tampered, and replayed claims rejected.
-5. Disconnect/reconnect preserves inventory and Ender Chest on BDS.
-6. Restart/rejoin preserves identity and storage.
-7. Two players can connect concurrently without identity crossover.
-8. Bans, allowlist, operators, permissions, commands, and real client address behave correctly.
-9. BDS-to-Geyser and Geyser-to-BDS switches work when configured.
-
-Use the full [Testing](TESTING.md) matrix. Do not change the profile status based on a single successful join.
-
-### Fast diagnosis
-
-| Symptom | First checks |
-| --- | --- |
-| OniBridge shuts BDS down | First critical log, secret, exact hash, Endstone, profile ID, expected bytes |
-| Every join rejected | Backend/bridge/key IDs, secret bytes, clocks, proxy source CIDR |
-| Direct join succeeds | Firewall, listener binding, validator loaded, `reject_direct_joins` |
-| Rejoin has empty inventory | Stop; native XUID was not active before storage selection |
-| Geyser kicks for sub-chunk packet | `backend.java.dropSubChunkRequests=true` |
-| One backend works, second does not | Unique secret source and correct per-backend name/bridge block |
-
-Continue with [Troubleshooting](TROUBLESHOOTING.md).
-
-## 12. Rotate keys
-
-The validators support one active and one previous key.
-
-Example transition from `key-2026-01` to `key-2026-02`:
-
-1. Generate a new secret.
-2. On the validator, move the old key ID/source into the previous fields and put the new key into the active fields.
-3. On OniLink, set the new active fields. Optionally retain previous fields for configuration symmetry; OniLink signs only with the active key.
-4. Restart the validator first, then OniLink.
-5. Test a join.
-6. Wait longer than maximum lifetime plus clock skew—normally more than 12 seconds.
-7. Remove the previous key from both configurations and restart/reload again.
-
-Native validator example during rotation:
-
-```toml
-active_key_id = "key-2026-02"
-active_secret_env = "ONIBRIDGE_SURVIVAL_SECRET_NEW"
-previous_key_id = "key-2026-01"
-previous_secret_env = "ONIBRIDGE_SURVIVAL_SECRET_OLD"
-```
-
-OniLink active signer:
-
-```properties
-backend.survival.forwarding.activeKeyId=key-2026-02
-backend.survival.forwarding.activeSecretEnv=ONIBRIDGE_SURVIVAL_SECRET_NEW
-backend.survival.forwarding.previousKeyId=key-2026-01
-backend.survival.forwarding.previousSecretEnv=ONIBRIDGE_SURVIVAL_SECRET_OLD
-```
-
-Never reuse one key ID for different bytes.
-
-## 13. Roll back or uninstall
-
-### Native BDS
-
-1. Stop OniLink and BDS.
-2. Remove the OniBridge `.so`/`.dll` from `plugins/`.
-3. Preserve or archive `plugins/onibridge/` with your test evidence.
-4. Restore the backed-up server/plugin data if the test changed it.
-5. Restore the previous network exposure only after confirming no backend now trusts forged/offline joins.
-
-### Geyser
-
-1. Stop OniLink and Geyser.
-2. Remove `OniBridge-Geyser.jar`.
-3. Restore Geyser's normal public-login validation before exposing its Bedrock listener.
-4. Remove the OniLink backend block or forwarding path.
-
-### Proxy
-
-Stop and disable `onilink.service`, archive its configuration/logs, remove public UDP forwarding, and delete secrets from the service/panel environment.
-
-Do not leave a private-listener authentication bypass exposed after removing its validator.
+An empty enabled allowlist denies everyone. Administrator permissions do not bypass it.
+
+## 10. Production checklist
+
+- `SHA256SUMS` verified before installation.
+- Exact BDS hash and Endstone version match the production profile.
+- `allow_unreviewed_profile`, `allow_unknown_bds`, and `allow_unknown_endstone` are `false`.
+- `shutdown_on_hook_failure` and `reject_direct_joins` are `true`.
+- Every backend has a different secret and narrow trusted CIDR.
+- Backend UDP ports are private/firewalled; only OniLink UDP is public.
+- Dashboard is loopback-only or behind restricted HTTPS with TOTP enabled.
+- Direct backend joins fail.
+- Join, leave, rejoin, switching, failover, commands, packs, and player data are tested.
+- Backups include proxy configuration, dashboard data, allowlist, native configuration, and key files.
+
+## Upgrades
+
+Read the target release notes, back up runtime data, verify new checksums, and compare the new
+`onilink.properties.example` with your live configuration. OniLink application updates do not bypass
+native profile approval: a BDS update requires a new exact OniBridge profile and possibly a new
+native binary. Never carry a profile forward based only on a similar version number.
+
+Pterodactyl installations on the `stable` channel check the latest non-prerelease on every reboot,
+verify downloads, install valid changes atomically, and retain the previous runtime files for
+rollback. See [Pterodactyl](PTERODACTYL.md).
+
+## Removal
+
+To remove the system, stop both processes, remove OniBridge and its configuration from the Endstone
+plugin directory, restore the BDS authentication/network posture appropriate for direct operation,
+and remove the OniLink listener only after preserving any dashboard and configuration backups you
+need. Never expose an offline-mode backend directly.

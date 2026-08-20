@@ -53,7 +53,7 @@ def main() -> int:
         and path.suffix.lower() not in EXCLUDED_SUFFIXES
     )
     lines = [
-        "OniLink/OniBridge/OniBridge-Geyser source-file inventory (SHA-256, relative path)",
+        "OniLink/OniBridge source-file inventory (SHA-256, relative path)",
         "This generated inventory file is itself part of the workspace and is intentionally not self-hashed.",
         f"files={len(files)}",
         "",

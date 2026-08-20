@@ -6,7 +6,6 @@
 | --- | --- | --- |
 | Linux BDS `1.26.44.3` + Endstone `0.11.9` | Native Ubuntu 22.04 build, maximum `GLIBC_2.35` import, C++ unit tests, synthetic hook harness, human review, operator-approved live matrix | Production-approved; no remaining profile gate |
 | Windows BDS `1.26.44.3` + Endstone `0.11.9` | Native tests and offline plugin/hook lifecycle | Live client/storage matrix |
-| Geyser `2.11` | Java protocol/security tests | Live Geyser/Floodgate matrix |
 
 ## Required live matrix
 

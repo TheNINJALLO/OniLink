@@ -103,7 +103,6 @@ final class ProxyDashboardControl implements DashboardControl {
             item.put("default", backend.name().equalsIgnoreCase(config.backend().name()));
             item.put("hub", backend.name().equalsIgnoreCase(config.hubBackendName()));
             item.put("forwarding", backend.forwarding().enabled());
-            item.put("dropSubChunkRequests", backend.dropSubChunkRequests());
             item.put("health", healthMonitor.health(backend.name()).asMap());
             backends.add(item);
         }

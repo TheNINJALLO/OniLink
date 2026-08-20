@@ -122,7 +122,6 @@ def main() -> int:
     validate_release_token("BDS version", args.bds_version)
     expected = {
         "OniLink.jar": Path("OniLink/dist/OniLink.jar"),
-        "OniBridge-Geyser.jar": Path("OniBridge-Geyser/dist/OniBridge-Geyser.jar"),
         "egg-onilink.json": Path("packaging/pterodactyl/egg-onilink.json"),
         "start-onilink.sh": Path("packaging/pterodactyl/start-onilink.sh"),
         f"onibridge-{args.version}-bds-{args.bds_version}-linux-x86_64.so": Path(
