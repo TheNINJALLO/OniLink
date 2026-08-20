@@ -11,7 +11,7 @@ The dashboard is built into `OniLink.jar`; there is no second service, database,
 | --- | --- |
 | Overview | Proxy version, uptime, player count, JVM use, listener, backend status, and RakNet probe latency |
 | Players | Authenticated identity summary, route, protocol, join state, transfer, disconnect, and bounded packet trace |
-| Packet Monitor | Live metadata-only packet flow, cross-version codec matches, review-required gaps, compiled packet catalog, and JSON reports |
+| Packet Monitor | Detailed token-redacted packet flow, cross-version codec matches, review-required gaps, compiled packet catalog, and JSON captures |
 | Backends | Population, routing flags, forwarding state, endpoint visibility by role, and live health |
 | Allowlist | Authenticated XUID membership, connected-player enrollment, manual enrollment, and immediate removal |
 | Configuration | Guided BDS backend setup, protected secret creation, redacted editor, optimistic revision check, parser validation, automatic backup, and rollback |
@@ -127,16 +127,20 @@ Select **Trace** for one player and choose 1,000–60,000 milliseconds. Tracing 
 
 ### Inspect cross-version packets
 
-Open **Packet Monitor** to watch the real relay's metadata, compare the client/backend codec pair,
-and isolate automatic matches, explicit translators, unknown packets, or definitions that require
-review. Owners and tenants can select a tenant proxy; server-side authorization rejects access to a
-runtime outside the signed-in account's scope.
+Open **Packet Monitor** to watch the real relay, compare the client/backend codec pair, and isolate
+automatic matches, explicit translators, unknown packets, or definitions that require review.
+Select a packet name to load its decoded source and translated target models, authenticated XUID,
+player/backend endpoints, and a hex preview of the exact uncompressed incoming packet bytes. Owners
+and tenants can select a tenant proxy; server-side authorization rejects access to a runtime outside
+the signed-in account's scope.
 
-The monitor does not retain packet payloads, chat, login material, forwarding tokens, XUIDs,
-addresses, or wire bytes. Its 5,000-record in-memory ring disappears on restart, and high-volume
-movement records are sampled. Exported reports and support bundles can still include player display
-names and backend labels. Read [Packet monitor and cross-version matching](PACKET_MONITOR.md) before
-sharing a report or using the results to implement another protocol.
+The monitor retains up to 5,000 sampled records within a 64 MiB in-memory capture budget; records
+disappear on restart. Authentication-bearing login and handshake bodies are never stored, and
+token-shaped values found elsewhere are redacted before the record enters the ring. **Export full
+capture** includes decoded content, chat, identities, addresses, and complete Base64 packet bytes,
+so treat it as sensitive operational data. Normal support bundles receive a separate metadata-only
+snapshot with packet contents and player identity removed. Read [Packet monitor and cross-version
+matching](PACKET_MONITOR.md) before sharing a capture or using it to implement another protocol.
 
 ### Manage player access
 

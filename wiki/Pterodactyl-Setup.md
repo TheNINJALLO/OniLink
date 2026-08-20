@@ -4,15 +4,15 @@ Run OniLink and every backend as separate Pterodactyl servers.
 
 ## Import the released egg
 
-Download [`egg-onilink.json`](https://github.com/TheNINJALLO/OniLink/releases/download/v0.2.0-beta.1/egg-onilink.json), then open **Admin Panel → Nests → Import Egg**.
+Download [`egg-onilink.json`](https://github.com/TheNINJALLO/OniLink/releases/download/v0.2.0-beta.2/egg-onilink.json), then open **Admin Panel → Nests → Import Egg**.
 
-Create an **OniLink Bedrock Proxy** server with the Java 21 image and one public UDP allocation. Set the private backend host/port and enter a generated Base64 secret in the administrator-only `ONIBRIDGE_FORWARDING_SECRET` variable. Put the same value on the backend validator.
+Create an **OniLink Bedrock Edge System** server with the Java 21 image and one public UDP allocation. Set the private backend host/port and enter a generated Base64 secret in the administrator-only `ONIBRIDGE_FORWARDING_SECRET` variable. Put the same value on the backend validator.
 
 The egg verifies its bootstrap downloads, creates `config.properties` only when missing, and preserves it on reinstall. Every container start checks the selected update channel, verifies the JAR, updater, and reference configuration, and atomically installs valid changes. `stable` ignores prereleases, `beta` follows the newest published release including betas, and `pinned` stays on `ONILINK_VERSION`. The beta egg defaults to `beta`. A failed update starts the existing JAR; a successful one keeps previous runtime files for rollback. It also maps the primary allocation number to Bedrock UDP and the authenticated dashboard over TCP. The BDS/Endstone and Geyser processes still use separate servers/eggs.
 
 The updater changes runtime files, not the egg definition stored in the panel. Existing eggs without
 the channel variable default to `stable`, and their old startup script cannot discover a prerelease.
-Back up the server, reimport the `v0.2.0-beta.1` egg, confirm the `beta` channel, then run
+Back up the server, reimport the `v0.2.0-beta.2` egg, confirm the `beta` channel, then run
 **Reinstall Server** once to bootstrap the beta JAR and channel-aware updater. The installer preserves
 an existing `config.properties`. After that, ordinary reboots follow newer betas automatically.
 

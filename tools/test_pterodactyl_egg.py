@@ -22,7 +22,7 @@ class PterodactylEggTests(unittest.TestCase):
 
     def test_is_importable_ptdl_v2_shape(self) -> None:
         self.assertEqual("PTDL_v2", self.egg["meta"]["version"])
-        self.assertEqual("OniLink Bedrock Proxy", self.egg["name"])
+        self.assertEqual("OniLink Bedrock Edge System", self.egg["name"])
         self.assertIn("java_21", " ".join(self.egg["docker_images"].values()))
         self.assertEqual("bash ./start-onilink.sh", self.egg["startup"])
         self.assertEqual("stop", self.egg["config"]["stop"])
@@ -276,7 +276,7 @@ printf '%s\\n' \"$*\" > \"$JAVA_LOG\"
         ):
             self.assertIn(required, variables)
 
-        self.assertEqual("v0.2.0-beta.1", variables["ONILINK_VERSION"]["default_value"])
+        self.assertEqual("v0.2.0-beta.2", variables["ONILINK_VERSION"]["default_value"])
         self.assertEqual("beta", variables["ONILINK_UPDATE_CHANNEL"]["default_value"])
         self.assertEqual("true", variables["DASHBOARD_ENABLED"]["default_value"])
         self.assertEqual("false", variables["ALLOWLIST_ENABLED"]["default_value"])

@@ -3,7 +3,7 @@
 This page is the operator path from an empty host to the stable OniLink release. The repository's [complete installation manual](https://github.com/TheNINJALLO/OniLink/blob/main/docs/INSTALLATION.md) includes every command, setting table, systemd example, rotation procedure, and rollback step.
 
 > [!IMPORTANT]
-> `v0.2.0-beta.1` is the current application beta. The exact BDS `1.26.44.3` Linux executable and Endstone `0.11.9` native profile remains production-approved. Keep the unreviewed-profile override disabled; mismatched native targets remain blocked.
+> `v0.2.0-beta.2` is the current application beta. The exact BDS `1.26.44.3` Linux executable and Endstone `0.11.9` native profile remains production-approved. Keep the unreviewed-profile override disabled; mismatched native targets remain blocked.
 
 ## 1. Pick a topology
 
@@ -37,7 +37,7 @@ Backend name, bridge ID, key ID, and secret bytes must match on OniLink and the 
 ## 3. Download and verify
 
 ```bash
-gh release download v0.2.0-beta.1 \
+gh release download v0.2.0-beta.2 \
   --repo TheNINJALLO/OniLink \
   --dir onilink-release
 cd onilink-release
@@ -85,7 +85,7 @@ Native BDS:
 ```text
 <BDS root>/
 └── plugins/
-    ├── onibridge-0.2.0-beta.1-bds-1.26.44.3-linux-x86_64.so
+    ├── onibridge-0.2.0-beta.2-bds-1.26.44.3-linux-x86_64.so
     └── onibridge/
         └── onibridge.toml
 ```

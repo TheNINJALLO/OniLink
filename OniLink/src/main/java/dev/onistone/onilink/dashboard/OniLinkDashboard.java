@@ -611,7 +611,10 @@ public final class OniLinkDashboard implements AutoCloseable {
             zip(zip, "state.json", DashboardJson.encode(control.state()));
             zip(zip, "players.json", DashboardJson.encode(control.players(false)));
             zip(zip, "backends.json", DashboardJson.encode(control.backends(false)));
-            zip(zip, "packet-monitor.json", DashboardJson.encode(control.packetMonitor(Map.of("limit", "500"))));
+            zip(zip, "packet-monitor.json", DashboardJson.encode(control.packetMonitor(Map.of(
+                    "limit", "500",
+                    "redactSensitive", "true"
+            ))));
             zip(zip, "allowlist.json", DashboardJson.encode(control.allowlist()));
             zip(zip, "config.properties.redacted", String.valueOf(configFile.read().get("content")));
             zip(zip, "latest.log.tail", String.join(System.lineSeparator(),

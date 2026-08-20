@@ -579,7 +579,8 @@ public final class ClientRelayPacketHandler implements BedrockPacketHandler {
                 PacketMonitor.Direction.SERVERBOUND,
                 packet,
                 translated,
-                translated == null ? PacketMonitor.Action.DROPPED : PacketMonitor.Action.FORWARDED
+                translated == null ? PacketMonitor.Action.DROPPED : PacketMonitor.Action.FORWARDED,
+                backend
         );
         if (translated == null) {
             if (traceSequence >= 0 || connection.isPacketTraceActive()) {

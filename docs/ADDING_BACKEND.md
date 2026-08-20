@@ -106,7 +106,7 @@ the layout is exactly:
 ```text
 /home/container/
 └── plugins/
-    ├── onibridge-0.2.0-beta.1-bds-1.26.44.3-linux-x86_64.so
+    ├── onibridge-0.2.0-beta.2-bds-1.26.44.3-linux-x86_64.so
     └── onibridge/
         ├── creative.key
         └── onibridge.toml

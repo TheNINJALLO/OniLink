@@ -2,11 +2,11 @@
 
 Statuses use the required vocabulary. This audit document is updated as implementation evidence is produced; `intentionally redesigned` describes a deliberate architecture change and is not a completion claim.
 
-## Proxy reference behavior to OniLink
+## OniLink proxy behavior
 
-| Reference classes/features | OniLink replacement | Status | Audit basis |
+| Capability area | OniLink implementation | Status | Audit basis |
 | --- | --- | --- | --- |
-| `Endlink`, `EndstoneProxy`, `BedrockProxyListener`, `ListenerSession`, `InitialClientPacketHandler` | `OniLink`, `OniLinkProxy`, listener/session/login components in `dev.onistone.onilink` | intentionally redesigned | Preserve startup/shutdown, public and trusted listeners, RakNet advertisement, Xbox login, encryption, connection accounting; remove legacy launcher and branding. |
+| Proxy lifecycle, listeners, sessions, and initial login handling | `OniLink`, `OniLinkProxy`, listener/session/login components in `dev.onistone.onilink` | intentionally redesigned | Provide startup/shutdown, public and trusted listeners, RakNet advertisement, Xbox login, encryption, and connection accounting as native OniLink behavior. |
 | `AuthData`, `ClientLogin`, `ClientLoginAuthenticator`, `OfflineLoginForge`, `BedrockCrypto` | auth records, Xbox validator, backend login forge, crypto utilities | intentionally redesigned | Preserve Mojang-chain and client-JWT verification; add OniForward to every backend login. |
 | `BackendConnector`, `BackendSession`, `BackendActivation`, `ProxyConnection` | backend connection coordinator and per-player connection state | intentionally redesigned | Preserve RakNet dial-out, encryption, lifecycle, bounded switch/join/failover state; bind a fresh token to each attempt. |
 | `BackendDirectory`, `BackendProtocolDetector`, `JoinCandidates`, `JoinFailover` | backend catalog, protocol probe, ordered join candidates | intentionally redesigned | Preserve configured-only routing, probe fallback, immediate login rejection handling, and join failover. |
@@ -26,7 +26,7 @@ Statuses use the required vocabulary. This audit document is updated as implemen
 | `ConnectionThrottle`, `PreAuthBatchLimiter`, `RateLimitReporter`, `SecurityConfig` | listener security controls | intentionally redesigned | Preserve per-IP sessions/attempts, RakNet limits/cookies, bounded batches, XUID requirement, and rate-limited reporting. |
 | `CodecDefinitionState`, `NetworkSettingsNegotiator`, `NetworkSettingsNegotiationResult`, `LoggingExceptionHandler` | codec/network initialization | intentionally redesigned | Preserve definition fallbacks, compression negotiation, and explicit failure diagnostics. |
 | `ProtocolFault`, `ProtocolFaultLog`, `PacketViolation`, `ProxyLogFile`, `RateLimitedSecurityLogger` | structured diagnostics/security logging | intentionally redesigned | Preserve bounded packet diagnostics without secrets/tokens. |
-| `PluginManager`, `EndlinkPlugin`, `PluginContext`, `TrustedListenerSpec` | OniLink SDK addon loader/API | intentionally redesigned | Preserve isolated JAR addons, lifecycle ordering, protocol contributions, and loopback-only trusted listeners with renamed descriptor/API. |
+| Addon manager, addon lifecycle, addon context, and trusted listeners | OniLink SDK addon loader/API | intentionally redesigned | Provide isolated JAR addons, lifecycle ordering, protocol contributions, and loopback-only trusted listeners through OniLink's descriptor and API. |
 | `BackendConfig`, `BackendKickAction`, `BackendSwitchConfig`, `CommandsConfig`, `ConfigValues`, `FailoverConfig`, `ForcedHostsConfig`, `JoinConfig`, `ProtocolFaultPolicy`, `ProxyConfig`, `ProxyPolicy` | typed OniLink properties configuration | intentionally redesigned | Preserve documented defaults/validation while adding backend-specific bridge/key/secret settings and removing legacy keys. |
 | Vendored RakNet/network modules | OniLink transport modules | intentionally redesigned | Preserve source and tests with required licenses; no protocol behavior is claimed from package presence alone. |
 | Vendored Bedrock protocol modules and 898/944/975/1001/2168 codecs | OniLink protocol modules | intentionally redesigned | Preserve packet models/serializers and tests; exact command round trips and supported-pair tests gate status. |

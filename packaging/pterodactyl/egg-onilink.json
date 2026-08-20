@@ -4,10 +4,10 @@
         "version": "PTDL_v2",
         "update_url": "https://raw.githubusercontent.com/TheNINJALLO/OniLink/main/packaging/pterodactyl/egg-onilink.json"
     },
-    "exported_at": "2026-08-19T23:30:00-04:00",
-    "name": "OniLink Bedrock Proxy",
+    "exported_at": "2026-08-19T22:05:00-04:00",
+    "name": "OniLink Bedrock Edge System",
     "author": "TheNINJALLO@users.noreply.github.com",
-    "description": "OniLink is a Java 21 Bedrock proxy with fail-closed OniForward identity forwarding, an authenticated XUID allowlist, and an operations dashboard. This beta egg verifies its bootstrap release and atomically installs checksum-verified runtime updates from the selected stable, beta, or pinned channel.",
+    "description": "OniLink is a standalone Java 21 Bedrock edge system with fail-closed OniForward identity forwarding, an authenticated XUID allowlist, and an embedded operations dashboard. This beta egg verifies its bootstrap release and atomically installs checksum-verified runtime updates from the selected stable, beta, or pinned channel.",
     "features": [
         "java_version",
         "pid_limit"
@@ -36,7 +36,7 @@
             "name": "OniLink bootstrap release tag",
             "description": "Exact public GitHub release used during create/reinstall and when the update channel is pinned.",
             "env_variable": "ONILINK_VERSION",
-            "default_value": "v0.2.0-beta.1",
+            "default_value": "v0.2.0-beta.2",
             "user_viewable": true,
             "user_editable": true,
             "rules": "required|string|max:64|regex:/^[A-Za-z0-9][A-Za-z0-9._-]*$/",

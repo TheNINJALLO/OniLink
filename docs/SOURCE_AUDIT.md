@@ -4,6 +4,11 @@ Inspection date: 2026-08-18 (America/New_York)
 
 This is an internal engineering record. The workspace contained no implementation files before this audit. Each repository below was cloned at its exact `main` HEAD, every tracked file was included in a SHA-256 inventory, and the behavior-bearing paths were inspected before product code was created.
 
+> [!NOTE]
+> OniLink is a standalone system with its own product identity. Names and URLs in this internal
+> record identify independent third-party source references solely for reproducibility, provenance,
+> and license compliance. They are not OniLink aliases, components, editions, or co-brands.
+
 ## Pinned references
 
 | Reference | Inspected commit | Files | Tree inventory SHA-256 | License |
@@ -21,7 +26,7 @@ The public [`TheNINJALLO/NinjOS-Proxie-Edge-Fabric`](https://github.com/TheNINJA
 
 That repository is AGPL-licensed. No dashboard source, generated asset, or styling was copied into OniLink. OniLink's dashboard is an original dependency-free Java implementation under this repository's license, designed around OniLink's own runtime objects and narrower proxy responsibilities. It intentionally omits NinjOS-only gateway, companion, and host-service features that OniLink cannot truthfully provide.
 
-## Proxy reference audit
+## Third-party proxy behavior audit
 
 Relevant paths:
 
@@ -54,7 +59,7 @@ Security findings:
 - Backend pack caching correctly caps memory and checks advertised hashes, but all cache and archive boundaries remain security-sensitive.
 - Self-signed trusted listeners are safe only while loopback-only and secret-bound.
 
-## Backend identity reference audit
+## Third-party backend identity behavior audit
 
 Every variant and support file was inspected:
 

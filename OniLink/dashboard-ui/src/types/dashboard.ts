@@ -93,8 +93,18 @@ export interface PacketObservation {
   status: PacketMatchStatus;
   action: string;
   player: string;
+  xuid: string;
+  clientAddress: string;
   backend: string;
+  backendAddress: string;
   suggestion: string;
+  decodedPayload?: string;
+  translatedPayload?: string;
+  wireBytesBase64?: string;
+  wireBytesLength: number;
+  wireHeaderLength: number;
+  tokenRedacted: boolean;
+  redactionReason: string;
 }
 
 export interface PacketMatch {
@@ -134,6 +144,9 @@ export interface PacketMonitorSummary {
   evictedRecords: number;
   capacity: number;
   movementSampleRate: number;
+  retainedCaptureBytes: number;
+  captureBudgetBytes: number;
+  tokenRedactions: number;
 }
 
 export interface PacketMonitorSnapshot {

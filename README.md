@@ -1,6 +1,6 @@
 <!-- onilink-professional-header:start -->
 <p align="center">
-  <img src="docs/assets/banner.svg" width="100%" alt="OniLink and OniBridge — fail-closed identity forwarding for Bedrock Dedicated Server and Geyser backends">
+  <img src="docs/assets/banner.svg" width="100%" alt="OniLink — standalone Bedrock edge system with secure backend identity forwarding">
 </p>
 
 <p align="center">
@@ -31,7 +31,17 @@
 <!-- onilink-professional-header:end -->
 
 > [!IMPORTANT]
-> `v0.2.0-beta.1` is the current public beta. It adds a live, metadata-only packet monitor and evidence-driven cross-version codec matching without guessing packet semantics. The Linux BDS `1.26.44.3` + Endstone `0.11.9` native profile remains production-approved and fail closed; `v0.1.7` remains the stable application release while the monitor is validated.
+> `v0.2.0-beta.2` is the current public beta. The active beta line adds detailed, token-redacted packet capture and evidence-driven cross-version codec matching without guessing packet semantics. Captures can include chat, XUIDs, endpoints, decoded fields, and incoming bytes, so restrict dashboard access and inspect exports before sharing them. The Linux BDS `1.26.44.3` + Endstone `0.11.9` native profile remains production-approved and fail closed; `v0.1.7` remains the stable application release while the monitor is validated.
+
+## OniLink is its own system
+
+**OniLink is a standalone Bedrock edge system with its own runtime, control plane, configuration,
+release stream, and public identity.** It is not an edition, mode, or component of another proxy.
+The names below are the complete public OniLink product family; third-party projects named in legal
+or engineering provenance are references and dependencies, not OniLink products.
+
+See [System identity](docs/SYSTEM_IDENTITY.md) for the official names, ownership boundaries, and
+language to use in panels, packages, documentation, and releases.
 
 ## What this repository provides
 
@@ -64,7 +74,7 @@ OniLink preserves the authenticated name, XUID, UUID, and observed client addres
 
 ## Quick start
 
-1. Read the [v0.2.0-beta.1 release notes](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.2.0-beta.1) and download only the files for your backend path.
+1. Read the [v0.2.0-beta.2 release notes](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.2.0-beta.2) and download only the files for your backend path.
 2. Verify the download directory against `SHA256SUMS`.
 3. Generate a unique 32-byte-or-stronger secret for each backend and expose it through an environment variable—not a committed configuration file.
 4. Configure matching backend name, bridge ID, key ID, and secret environment variable on both sides.
@@ -76,7 +86,7 @@ After the first server works, open the dashboard's dedicated **Add Backend** pag
 Download the current release with GitHub CLI:
 
 ```bash
-gh release download v0.2.0-beta.1 \
+gh release download v0.2.0-beta.2 \
   --repo TheNINJALLO/OniLink \
   --dir onilink-release
 ```
@@ -99,7 +109,7 @@ server per logical proxy; no new server, egg, or Application API key is required
 
 ### Native BDS + Endstone
 
-Use `onibridge-0.2.0-beta.1-bds-1.26.44.3-linux-x86_64.so` with the exact BDS `1.26.44.3` Linux executable and Endstone `0.11.9`. Install the matching profile JSON, start once to generate `onibridge.toml`, configure it, and keep `allow_unreviewed_profile=false` for this production-approved profile.
+Use `onibridge-0.2.0-beta.2-bds-1.26.44.3-linux-x86_64.so` with the exact BDS `1.26.44.3` Linux executable and Endstone `0.11.9`. Install the matching profile JSON, start once to generate `onibridge.toml`, configure it, and keep `allow_unreviewed_profile=false` for this production-approved profile.
 
 [Native installation guide →](docs/INSTALLATION.md)
 
@@ -124,13 +134,13 @@ Exact executable hashes, profile IDs, and remaining gates are maintained in [Com
 | Start here | Operator guides | Engineering reference |
 | --- | --- | --- |
 | [Documentation hub](docs/README.md) | [Configuration](docs/CONFIGURATION.md) | [Architecture](docs/ARCHITECTURE.md) |
-| [Quick start](docs/QUICKSTART.md) | [Add a BDS backend](docs/ADDING_BACKEND.md) | [Identity flow](docs/IDENTITY_FLOW.md) |
-| [Installation](docs/INSTALLATION.md) | [Geyser](docs/GEYSER.md) | [OniForward protocol](docs/ONIFORWARD_PROTOCOL.md) |
+| [System identity](docs/SYSTEM_IDENTITY.md) | [Add a BDS backend](docs/ADDING_BACKEND.md) | [Identity flow](docs/IDENTITY_FLOW.md) |
+| [Quick start](docs/QUICKSTART.md) | [Installation](docs/INSTALLATION.md) | [OniForward protocol](docs/ONIFORWARD_PROTOCOL.md) |
 | [Deployment examples](examples/README.md) | [Windows status](docs/WINDOWS.md) | [Compatibility](docs/COMPATIBILITY.md) |
 | [Troubleshooting](docs/TROUBLESHOOTING.md) | [Dashboard](docs/DASHBOARD.md) | [Building](docs/BUILDING.md) |
 | [Packet monitor](docs/PACKET_MONITOR.md) | [Pterodactyl](docs/PTERODACTYL.md) | [Source audit](docs/SOURCE_AUDIT.md) |
-| [GitHub Wiki](https://github.com/TheNINJALLO/OniLink/wiki) | [Tenant hosting](docs/TENANT_HOSTING.md) | [Contributing](CONTRIBUTING.md) |
-| [Migration](docs/MIGRATION.md) | [Testing](docs/TESTING.md) | [Feature parity](docs/FEATURE_PARITY.md) |
+| [Migration](docs/MIGRATION.md) | [Tenant hosting](docs/TENANT_HOSTING.md) | [Contributing](CONTRIBUTING.md) |
+| [GitHub Wiki](https://github.com/TheNINJALLO/OniLink/wiki) | [Testing](docs/TESTING.md) | [Feature parity](docs/FEATURE_PARITY.md) |
 
 ## Build and test
 

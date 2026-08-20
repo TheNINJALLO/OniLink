@@ -20,6 +20,7 @@ import dev.onistone.onilink.network.NetworkSettingsNegotiator;
 import dev.onistone.onilink.protocol.CanonicalProtocol;
 import dev.onistone.onilink.protocol.IdentityTranslator898;
 import dev.onistone.onilink.protocol.PacketMonitor;
+import dev.onistone.onilink.protocol.TranslationContext;
 import dev.onistone.onilink.registry.BackendPaletteStore;
 import dev.onistone.onilink.resourcepack.BackendPackCache;
 import dev.onistone.onilink.resourcepack.ProxyResourcePackRegistry;
@@ -162,6 +163,7 @@ public final class InitialClientPacketHandler implements BedrockPacketHandler {
             session.setClientCodec(accepted.clientCodec());
             session.setCodec(accepted.clientCodec());
             CodecDefinitionState.installFallbacks(session);
+            observePreLoginPacket(packet, accepted.clientCodec());
             session.sendPacketImmediately(accepted.networkSettings());
             session.setCompression(accepted.networkSettings().getCompressionAlgorithm());
             if (ProxyConnection.isPacketTracingConfigured()) {
@@ -231,6 +233,12 @@ public final class InitialClientPacketHandler implements BedrockPacketHandler {
                     backendPackCache,
                     packetMonitor
             );
+            connection.observePacket(
+                    PacketMonitor.Direction.SERVERBOUND,
+                    packet,
+                    packet,
+                    PacketMonitor.Action.HANDLED
+            );
 
             ConnectedPlayerRegistry.RegistrationResult registration = connectedPlayers.register(connection);
             if (registration == ConnectedPlayerRegistry.RegistrationResult.DUPLICATE_XUID) {
@@ -276,6 +284,12 @@ public final class InitialClientPacketHandler implements BedrockPacketHandler {
         }
 
         try {
+            connection.observePacket(
+                    PacketMonitor.Direction.SERVERBOUND,
+                    packet,
+                    packet,
+                    PacketMonitor.Action.HANDLED
+            );
             backendConnector.connect(connection);
         } catch (Exception exception) {
             // connect() reports failure through the activation before it throws, so by now the join
@@ -290,5 +304,43 @@ public final class InitialClientPacketHandler implements BedrockPacketHandler {
             throw new IllegalStateException("Unable to connect to backend server", exception);
         }
         return PacketSignal.HANDLED;
+    }
+
+    private void observePreLoginPacket(
+            org.cloudburstmc.protocol.bedrock.packet.BedrockPacket packet,
+            org.cloudburstmc.protocol.bedrock.codec.BedrockCodec codec
+    ) {
+        if (packetMonitor == null || packet == null || codec == null) {
+            return;
+        }
+        org.cloudburstmc.protocol.bedrock.netty.BedrockPacketWrapper wrapper =
+                session.currentInboundPacket();
+        byte[] wireBytes = null;
+        int headerLength = 0;
+        if (wrapper != null && wrapper.getPacketBuffer() != null) {
+            wireBytes = io.netty.buffer.ByteBufUtil.getBytes(
+                    wrapper.getPacketBuffer(),
+                    wrapper.getPacketBuffer().readerIndex(),
+                    wrapper.getPacketBuffer().readableBytes(),
+                    false
+            );
+            headerLength = wrapper.getHeaderLength();
+        }
+        packetMonitor.observe(
+                PacketMonitor.Direction.SERVERBOUND,
+                packet,
+                packet,
+                PacketMonitor.Action.HANDLED,
+                new TranslationContext(codec, codec, codec),
+                new PacketMonitor.CaptureContext(
+                        "",
+                        "",
+                        String.valueOf(session.getSocketAddress()),
+                        "",
+                        "",
+                        wireBytes,
+                        headerLength
+                )
+        );
     }
 }

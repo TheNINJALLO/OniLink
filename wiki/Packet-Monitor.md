@@ -1,8 +1,10 @@
 # Packet Monitor
 
-OniLink `0.2.0-beta.1` includes a live, metadata-only packet monitor for cross-version testing.
-Open **Packet Monitor** in the normal dashboard, choose a proxy when applicable, then join and
-exercise the client feature you are investigating.
+OniLink `0.2.0-beta.2` includes a live packet monitor for cross-version testing. The active beta
+line captures decoded packet bodies, chat, XUIDs, player/backend endpoints, and exact uncompressed
+incoming bytes while always redacting authentication tokens. Open **Packet Monitor** in the normal
+dashboard, choose a proxy when applicable, then join and exercise the client feature you are
+investigating.
 
 ## Reading the results
 
@@ -18,15 +20,19 @@ An **ID-only candidate** is only a clue for maintainers. OniLink never assumes t
 IDs have equal fields or meaning.
 
 Use the direction, result, and search filters to isolate a behavior. Use the protocol-pair selectors
-to compare every compiled packet definition, and **Export report** to save the filtered evidence.
-The comparison does not change live routing.
+to compare every compiled packet definition, select a packet name to inspect its full details, and
+use **Export full capture** to save the filtered evidence. The comparison does not change live
+routing.
 
 ## Privacy and limits
 
-- The newest 5,000 records are kept in memory per proxy and disappear on restart.
+- Up to 5,000 records and 64 MiB of content are kept in memory per proxy and disappear on restart.
 - Movement records are sampled one in 20; aggregate counts continue to update.
-- Payloads, chat, login chains, tokens, XUIDs, addresses, and raw bytes are never retained.
-- Reports can contain player display names and backend labels, so inspect them before sharing.
+- Normal records include payloads, chat, XUIDs, addresses, and raw uncompressed packet bytes.
+- Login/handshake authentication bodies are omitted. Token-shaped values found elsewhere are
+  redacted and that record's raw bytes are withheld so the token cannot be recovered.
+- Full exports contain sensitive player and network data. Support bundles use a separate
+  metadata-only snapshot with identity and packet contents removed.
 - Tenant logins can inspect only their assigned proxies.
 
 The monitor helps maintainers focus protocol work using packets seen in real scenarios. It does not

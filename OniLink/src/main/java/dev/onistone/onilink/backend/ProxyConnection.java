@@ -1,6 +1,7 @@
 package dev.onistone.onilink.backend;
 
 import io.netty.util.ReferenceCountUtil;
+import org.cloudburstmc.protocol.bedrock.netty.BedrockPacketWrapper;
 import org.cloudburstmc.protocol.bedrock.packet.BedrockPacket;
 import org.cloudburstmc.protocol.bedrock.packet.LoginPacket;
 import org.cloudburstmc.math.vector.Vector3f;
@@ -242,6 +243,16 @@ public final class ProxyConnection {
             BedrockPacket translated,
             PacketMonitor.Action action
     ) {
+        observePacket(direction, original, translated, action, null);
+    }
+
+    public void observePacket(
+            PacketMonitor.Direction direction,
+            BedrockPacket original,
+            BedrockPacket translated,
+            PacketMonitor.Action action,
+            BackendSession routeBackend
+    ) {
         ProxySessionProfile profile = sessionProfile;
         if (packetMonitor == null || profile == null) {
             return;
@@ -249,15 +260,62 @@ public final class ProxyConnection {
         String player = clientLogin == null || clientLogin.authData() == null
                 ? ""
                 : clientLogin.authData().displayName();
+        String xuid = clientLogin == null || clientLogin.authData() == null
+                ? ""
+                : clientLogin.authData().xuid();
+        BackendSession observedBackend = routeBackend != null ? routeBackend : inboundBackend();
+        BedrockPacketWrapper wrapper = direction == PacketMonitor.Direction.SERVERBOUND
+                ? client.currentInboundPacket()
+                : observedBackend == null ? null : observedBackend.currentInboundPacket();
+        byte[] wireBytes = null;
+        int wireHeaderLength = 0;
+        if (wrapper != null && wrapper.getPacketBuffer() != null) {
+            wireBytes = io.netty.buffer.ByteBufUtil.getBytes(
+                    wrapper.getPacketBuffer(),
+                    wrapper.getPacketBuffer().readerIndex(),
+                    wrapper.getPacketBuffer().readableBytes(),
+                    false
+            );
+            wireHeaderLength = wrapper.getHeaderLength();
+        }
         packetMonitor.observe(
                 direction,
                 original,
                 translated,
                 action,
                 profile.translationContext(),
-                player,
-                backendName
+                new PacketMonitor.CaptureContext(
+                        player,
+                        xuid,
+                        socketAddress(clientAddress()),
+                        backendName,
+                        observedBackend == null ? "" : socketAddress(observedBackend.getSocketAddress()),
+                        wireBytes,
+                        wireHeaderLength
+                )
         );
+    }
+
+    private synchronized BackendSession inboundBackend() {
+        if (backend != null && backend.currentInboundPacket() != null) {
+            return backend;
+        }
+        if (pendingBackend != null && pendingBackend.currentInboundPacket() != null) {
+            return pendingBackend;
+        }
+        return backend;
+    }
+
+    private static String socketAddress(java.net.SocketAddress address) {
+        if (address instanceof java.net.InetSocketAddress inet) {
+            String host = inet.getAddress() == null
+                    ? inet.getHostString()
+                    : inet.getAddress().getHostAddress();
+            return host.indexOf(':') >= 0
+                    ? "[" + host + "]:" + inet.getPort()
+                    : host + ":" + inet.getPort();
+        }
+        return address == null ? "" : String.valueOf(address);
     }
 
     /**

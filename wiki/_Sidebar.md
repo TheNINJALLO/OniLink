@@ -1,6 +1,7 @@
 ## OniLink Wiki
 
 - [[Home]]
+- [[System Identity]]
 - [[Getting Started]]
 - [[Installation Guide]]
 - [[Adding Backends]]

@@ -3,7 +3,7 @@
 This is the full operator guide for installing OniLink and configuring either a native BDS + Endstone backend or a Geyser-backed Java server. If you only need the shortest path, use [Quick start](QUICKSTART.md). If you want ready-to-copy files, start in [`examples/`](../examples/README.md).
 
 > [!IMPORTANT]
-> `v0.2.0-beta.1` is a public beta of the OniLink application and packet monitor. Its exact Linux BDS `1.26.44.3` + Endstone `0.11.9` native profile remains production-approved and reports `production_ready=true`; keep `allow_unreviewed_profile=false` so unknown or unapproved profiles remain blocked.
+> `v0.2.0-beta.2` is a public beta of the OniLink application and packet monitor. Its exact Linux BDS `1.26.44.3` + Endstone `0.11.9` native profile remains production-approved and reports `production_ready=true`; keep `allow_unreviewed_profile=false` so unknown or unapproved profiles remain blocked.
 
 ## Contents
 
@@ -73,7 +73,7 @@ Container NAT may change the source address observed by the backend. Do not assu
 
 ```bash
 mkdir -p ~/onilink-download
-gh release download v0.2.0-beta.1 \
+gh release download v0.2.0-beta.2 \
   --repo TheNINJALLO/OniLink \
   --dir ~/onilink-download
 cd ~/onilink-download
@@ -84,7 +84,7 @@ Every listed file must report `OK`. Stop if any file is missing or mismatched.
 
 ### Browser download
 
-Download every required file from the [v0.2.0-beta.1 release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.2.0-beta.1), including `SHA256SUMS`. On Linux:
+Download every required file from the [v0.2.0-beta.2 release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.2.0-beta.2), including `SHA256SUMS`. On Linux:
 
 ```bash
 cd /path/to/downloads
@@ -204,8 +204,8 @@ Keep a copy of the last known working server directory so rollback is a file res
 From the BDS root:
 
 ```bash
-cp /path/to/onibridge-0.2.0-beta.1-bds-1.26.44.3-linux-x86_64.so plugins/
-chmod 0644 plugins/onibridge-0.2.0-beta.1-bds-1.26.44.3-linux-x86_64.so
+cp /path/to/onibridge-0.2.0-beta.2-bds-1.26.44.3-linux-x86_64.so plugins/
+chmod 0644 plugins/onibridge-0.2.0-beta.2-bds-1.26.44.3-linux-x86_64.so
 ```
 
 Start the server once using your normal Endstone launch command. OniBridge creates:

@@ -131,7 +131,7 @@ export function AppShell({
           <BrandMark />
           <span>
             <strong>OniLink</strong>
-            <small>Control Plane</small>
+            <small>Bedrock Edge System</small>
           </span>
           <button
             ref={closeButton}

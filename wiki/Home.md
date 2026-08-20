@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/TheNINJALLO/OniLink/main/docs/assets/banner.svg" width="100%" alt="OniLink and OniBridge">
+  <img src="https://raw.githubusercontent.com/TheNINJALLO/OniLink/main/docs/assets/banner.svg" width="100%" alt="OniLink standalone Bedrock edge system">
 </p>
 
 <p align="center">
@@ -9,19 +9,22 @@
 
 # OniLink Wiki
 
-OniLink is a Java 21 Bedrock proxy with two fail-closed backend identity validators:
+OniLink is a standalone Bedrock edge system with its own runtime, control plane, configuration,
+release stream, and public identity. Its Java 21 proxy works with two fail-closed backend identity
+validators:
 
 - **OniBridge** restores the verified Xbox XUID before BDS selects native player storage.
 - **OniBridge-Geyser** verifies the same signed claim before Geyser opens a Java connection.
 
 > [!IMPORTANT]
-> `v0.2.0-beta.1` is the current public beta. It adds a live, privacy-safe packet monitor that verifies cross-version codec matches using real traffic and highlights definitions needing review. `v0.1.7` remains the stable application release, and the reviewed Linux BDS `1.26.44.3` + Endstone `0.11.9` profile remains fail closed.
+> `v0.2.0-beta.2` is the current public beta. The active beta line adds detailed, token-redacted packet capture that verifies cross-version codec matches using real traffic and highlights definitions needing review. Full captures include sensitive player and network data. `v0.1.7` remains the stable application release, and the reviewed Linux BDS `1.26.44.3` + Endstone `0.11.9` profile remains fail closed.
 
 ## Start by goal
 
 | Goal | Page |
 | --- | --- |
 | Understand prerequisites and choose a backend | [[Getting Started]] |
+| Learn the official system and component names | [[System Identity]] |
 | Follow the complete install sequence | [[Installation Guide]] |
 | Add another BDS server | [[Adding Backends]] |
 | Test Linux BDS + Endstone | [[Native BDS Setup]] |
@@ -39,7 +42,7 @@ OniLink is a Java 21 Bedrock proxy with two fail-closed backend identity validat
 
 | Item | Value |
 | --- | --- |
-| Application release | [`v0.2.0-beta.1`](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.2.0-beta.1) (public beta) |
+| Application release | [`v0.2.0-beta.2`](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.2.0-beta.2) (public beta) |
 | BDS | `1.26.44.3` |
 | Endstone | `0.11.9` |
 | Linux | x86-64, System V AMD64, libc++ |

@@ -90,7 +90,7 @@ export function AuthPage() {
     <main className="authPage">
       <section className="authBrand" aria-label="OniLink">
         <BrandMark />
-        <p className="eyebrow">OniLink</p>
+        <p className="eyebrow">OniLink system</p>
         <h1>Bedrock routing, under control.</h1>
         <p>
           Securely operate listeners, backends, connected players, and tenant proxies from one

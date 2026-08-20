@@ -23,7 +23,7 @@ Do not install both validators on the same backend path.
 ## Download
 
 ```bash
-gh release download v0.2.0-beta.1 \
+gh release download v0.2.0-beta.2 \
   --repo TheNINJALLO/OniLink \
   --dir onilink-release
 cd onilink-release

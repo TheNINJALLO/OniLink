@@ -2,7 +2,7 @@ import type { Backend, Player, RuntimeState } from "../types/dashboard";
 
 export const state: RuntimeState = {
   name: "OniLink",
-  version: "0.2.0-beta.1",
+  version: "0.2.0-beta.2",
   timestamp: "2026-08-19T20:00:00Z",
   startedAt: "2026-08-19T19:00:00Z",
   uptimeMillis: 3_600_000,

@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## 0.2.0-beta.2 - 2026-08-19
+
+- Established OniLink as a standalone Bedrock edge system across the banner, dashboard, panel egg,
+  README, documentation, and Wiki; isolated third-party names to required legal/provenance records.
+- Expanded the packet monitor from metadata-only observations to decoded source/translated packet
+  bodies, chat content, authenticated XUIDs, player/backend endpoints, and exact uncompressed
+  incoming packet bytes.
+- Added mandatory login/handshake token redaction, token-shape detection, detail-on-demand API
+  responses, full-capture JSON exports, a 64 MiB memory budget, and support-bundle-safe metadata
+  snapshots that continue to omit player identity and packet contents.
+- Bumped OniLink, OniBridge, OniBridge-Geyser, the beta egg, and Linux release automation to
+  `0.2.0-beta.2`.
+
 ## 0.2.0-beta.1 - 2026-08-19
 
 - Added a bounded, metadata-only packet monitor to every provider and tenant proxy runtime, with
@@ -118,7 +131,7 @@
 - Added EULA-gated, dual-platform official BDS acquisition and its security tests.
 - Added minimal ELF/PE inspection, ABI-header generation, and evidence-gated profile validation.
 - Defined OniForward v2 and added matching Java/C++ implementations and vectors.
-- Rebranded the proxy to Java 21 and moved its public proxy command surface below `/onilink`.
+- Established the standalone OniLink Java 21 runtime and moved its public proxy command surface below `/onilink`.
 - Added native identity, replay, CIDR, configuration, profile, diagnostics, and plugin foundations.
 - Updated the vendored protocol build to a Java 21-compatible Lombok plugin; 405 OniLink Java tests now pass and `OniLink.jar` builds.
 - Imported and verified the user-provided official BDS 1.26.44.3 archives, generated independent Linux/Windows authentication ABI evidence, and locked both executable hashes.

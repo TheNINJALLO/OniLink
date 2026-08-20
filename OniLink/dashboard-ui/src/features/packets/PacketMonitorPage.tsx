@@ -23,7 +23,7 @@ import type {
   PacketObservation,
 } from "../../types/dashboard";
 import { downloadText } from "../../api/client";
-import { messageOf, timestamp } from "../../utilities/format";
+import { bytes, messageOf, timestamp } from "../../utilities/format";
 
 interface MonitorScope {
   key: string;
@@ -57,8 +57,57 @@ function packetId(value: number): string {
   return value >= 0 ? `${value} (0x${value.toString(16).toUpperCase()})` : "Not available";
 }
 
-function PacketDetailDialog({ packet, close }: { packet: PacketObservation; close: () => void }) {
+function wireHexPreview(base64 = "", maximumBytes = 4_096): string {
+  if (!base64) return "";
+  try {
+    const encodedCharacters = Math.ceil(maximumBytes / 3) * 4;
+    const binary = window.atob(base64.slice(0, encodedCharacters)).slice(0, maximumBytes);
+    const lines: string[] = [];
+    for (let offset = 0; offset < binary.length; offset += 16) {
+      const chunk = binary.slice(offset, offset + 16);
+      const hex = Array.from(chunk, (character) =>
+        character.charCodeAt(0).toString(16).padStart(2, "0"),
+      )
+        .join(" ")
+        .padEnd(47, " ");
+      const ascii = Array.from(chunk, (character) => {
+        const code = character.charCodeAt(0);
+        return code >= 32 && code <= 126 ? character : ".";
+      }).join("");
+      lines.push(`${offset.toString(16).padStart(8, "0")}  ${hex}  |${ascii}|`);
+    }
+    return lines.join("\n");
+  } catch {
+    return "Unable to decode the stored packet bytes.";
+  }
+}
+
+function PacketDetailDialog({
+  packet,
+  scope,
+  close,
+}: {
+  packet: PacketObservation;
+  scope?: MonitorScope;
+  close: () => void;
+}) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const detailQuery = useQuery({
+    queryKey: ["packet-monitor-detail", scope?.key, packet.sequence],
+    queryFn: ({ signal }) =>
+      dashboardApi.packets(
+        {
+          tenant: scope?.tenant ?? "",
+          proxy: scope?.proxy ?? "",
+          sequence: packet.sequence,
+          includeDetails: 1,
+          limit: 1,
+        },
+        signal,
+      ),
+  });
+  const detail = detailQuery.data?.records[0] ?? packet;
+  const hex = wireHexPreview(detail.wireBytesBase64);
   useEffect(() => dialog.current?.showModal(), []);
   return (
     <dialog
@@ -73,61 +122,110 @@ function PacketDetailDialog({ packet, close }: { packet: PacketObservation; clos
     >
       <div className="sectionTitle">
         <div>
-          <p className="eyebrow">Safe packet metadata</p>
-          <h2 id="packet-detail-title">{packet.packetName}</h2>
+          <p className="eyebrow">Detailed packet capture</p>
+          <h2 id="packet-detail-title">{detail.packetName}</h2>
         </div>
         <button className="iconButton" aria-label="Close packet details" onClick={close}>
           <X aria-hidden="true" />
         </button>
       </div>
-      <Status state={statusState(packet.status)}>{statusLabel(packet.status)}</Status>
+      <Status state={statusState(detail.status)}>{statusLabel(detail.status)}</Status>
       <dl className="detailList packetDetails">
         <div>
           <dt>Observed</dt>
-          <dd>{timestamp(packet.timestamp)}</dd>
+          <dd>{timestamp(detail.timestamp)}</dd>
         </div>
         <div>
           <dt>Direction</dt>
-          <dd>{packet.directionLabel}</dd>
+          <dd>{detail.directionLabel}</dd>
         </div>
         <div>
           <dt>Source codec</dt>
           <dd>
-            Minecraft {packet.sourceVersion} · protocol {packet.sourceProtocol} · packet{" "}
-            {packetId(packet.sourcePacketId)}
+            Minecraft {detail.sourceVersion} · protocol {detail.sourceProtocol} · packet{" "}
+            {packetId(detail.sourcePacketId)}
           </dd>
         </div>
         <div>
           <dt>Target codec</dt>
           <dd>
-            Minecraft {packet.targetVersion} · protocol {packet.targetProtocol} · packet{" "}
-            {packetId(packet.targetPacketId)}
+            Minecraft {detail.targetVersion} · protocol {detail.targetProtocol} · packet{" "}
+            {packetId(detail.targetPacketId)}
           </dd>
         </div>
         <div>
           <dt>Proxy action</dt>
-          <dd>{packet.action}</dd>
+          <dd>{detail.action}</dd>
         </div>
         <div>
           <dt>Player and backend</dt>
           <dd>
-            {packet.player || "Unknown player"} → {packet.backend || "Connecting"}
+            {detail.player || "Unknown player"} → {detail.backend || "Connecting"}
+          </dd>
+        </div>
+        <div>
+          <dt>Authenticated XUID</dt>
+          <dd className="mono">{detail.xuid || "Not available"}</dd>
+        </div>
+        <div>
+          <dt>Player endpoint</dt>
+          <dd className="mono">{detail.clientAddress || "Not available"}</dd>
+        </div>
+        <div>
+          <dt>Backend endpoint</dt>
+          <dd className="mono">{detail.backendAddress || "Not available"}</dd>
+        </div>
+        <div>
+          <dt>Inbound packet bytes</dt>
+          <dd>
+            {bytes(detail.wireBytesLength)} total · {detail.wireHeaderLength} header bytes
           </dd>
         </div>
       </dl>
-      {packet.suggestion ? (
+      {detail.suggestion ? (
         <div className="warningBox">
           <strong>Translation research candidate</strong>
-          <span>{packet.suggestion}</span>
+          <span>{detail.suggestion}</span>
         </div>
       ) : (
         <div className="infoBox">
           The packet has a known target model. The target codec performs the wire-format conversion.
         </div>
       )}
+      {detailQuery.isLoading ? <Loading label="Loading packet body" /> : null}
+      {detailQuery.error ? <Notice message={messageOf(detailQuery.error)} error /> : null}
+      {detail.tokenRedacted ? (
+        <div className="warningBox">
+          <strong>Authentication material redacted</strong>
+          <span>{detail.redactionReason}</span>
+        </div>
+      ) : null}
+      {detail.decodedPayload ? (
+        <section className="packetPayloadSection">
+          <h3>Decoded source packet</h3>
+          <pre>{detail.decodedPayload}</pre>
+        </section>
+      ) : null}
+      {detail.translatedPayload ? (
+        <section className="packetPayloadSection">
+          <h3>Translated target packet</h3>
+          <pre>{detail.translatedPayload}</pre>
+        </section>
+      ) : null}
+      {hex ? (
+        <section className="packetPayloadSection">
+          <h3>Incoming bytes</h3>
+          <p className="fieldHint">
+            Exact uncompressed packet bytes, including the {detail.wireHeaderLength}-byte Bedrock
+            header. This preview shows the first {Math.min(detail.wireBytesLength, 4_096)} bytes;
+            the full Base64 value is included in a full capture export.
+          </p>
+          <pre>{hex}</pre>
+        </section>
+      ) : null}
       <p className="fieldHint">
-        Payloads, chat, login chains, tokens, XUIDs, addresses, and wire bytes are never retained by
-        this monitor.
+        Packet bodies, chat, XUIDs, endpoints, and incoming bytes live only in the bounded in-memory
+        capture. Authentication tokens are always removed.
       </p>
     </dialog>
   );
@@ -207,6 +305,8 @@ export function PacketMonitorPage() {
   const [clientProtocol, setClientProtocol] = useState("");
   const [backendProtocol, setBackendProtocol] = useState("");
   const [selected, setSelected] = useState<PacketObservation | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState("");
   const query = useQuery({
     queryKey: [
       "packet-monitor",
@@ -249,12 +349,37 @@ export function PacketMonitorPage() {
   );
   const effectiveClient = clientProtocol || String(data?.selectedPair.clientProtocol ?? "");
   const effectiveBackend = backendProtocol || String(data?.selectedPair.backendProtocol ?? "");
+  const exportCapture = async () => {
+    setExporting(true);
+    setExportError("");
+    try {
+      const capture = await dashboardApi.packets({
+        tenant: activeScope?.tenant ?? "",
+        proxy: activeScope?.proxy ?? "",
+        direction,
+        status,
+        q: search,
+        limit,
+        clientProtocol,
+        backendProtocol,
+        includeDetails: 1,
+      });
+      downloadText(
+        `onilink-packet-capture-${Date.now()}.json`,
+        `${JSON.stringify(capture, null, 2)}\n`,
+      );
+    } catch (error) {
+      setExportError(messageOf(error));
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <>
       <PageHeader
         title="Packet Monitor"
-        description="Watch safe packet metadata, verify live cross-version matches, and identify exactly which packet models need reviewed translation work."
+        description="Inspect decoded packet bodies, chat, player identity, endpoints, incoming bytes, and live cross-version matches without retaining authentication tokens."
         actions={
           <>
             <Button className="secondary" onClick={() => setPaused((value) => !value)}>
@@ -271,22 +396,16 @@ export function PacketMonitorPage() {
             </Button>
             <Button
               className="secondary"
-              disabled={!data}
-              onClick={() =>
-                data &&
-                downloadText(
-                  `onilink-packet-compatibility-${Date.now()}.json`,
-                  `${JSON.stringify(data, null, 2)}\n`,
-                )
-              }
+              disabled={!data || exporting}
+              onClick={() => void exportCapture()}
             >
               <Download aria-hidden="true" />
-              Export report
+              {exporting ? "Building capture…" : "Export full capture"}
             </Button>
           </>
         }
       />
-      <Notice message={query.error ? messageOf(query.error) : ""} error />
+      <Notice message={query.error ? messageOf(query.error) : exportError} error />
       {tenantVisible ? (
         <label className="proxySelector">
           Proxy to monitor
@@ -325,18 +444,22 @@ export function PacketMonitorPage() {
           </Card>
           <Card className="metric">
             <Database aria-hidden="true" />
-            <span>Bounded records</span>
+            <span>Capture memory</span>
             <strong>
-              {summary.storedRecords.toLocaleString()} / {summary.capacity.toLocaleString()}
+              {bytes(summary.retainedCaptureBytes)} / {bytes(summary.captureBudgetBytes)}
             </strong>
+            <small>{summary.storedRecords.toLocaleString()} packet records</small>
           </Card>
         </div>
       ) : null}
       <Card className="packetSafety">
         <ShieldCheck aria-hidden="true" />
         <div>
-          <strong>Private by design</strong>
-          <p>{data?.privacy ?? "Only safe metadata is retained locally in memory."}</p>
+          <strong>Detailed capture with token redaction</strong>
+          <p>
+            {data?.privacy ??
+              "Packet contents are retained only in a bounded local memory window; tokens are redacted."}
+          </p>
         </div>
         <span className={`liveIndicator ${paused ? "paused" : ""}`}>
           {paused ? "View paused" : "Live · 1.5s refresh"}
@@ -348,8 +471,8 @@ export function PacketMonitorPage() {
             <p className="eyebrow">Live traffic</p>
             <h2>Incoming packet flow</h2>
             <p>
-              OniLink matches each decoded packet model against the target protocol and records the
-              result produced by the real translator.
+              OniLink stores each sampled packet's decoded fields and exact incoming bytes, then
+              matches its model against the target protocol and records the real translator result.
             </p>
           </div>
         </div>
@@ -374,12 +497,12 @@ export function PacketMonitorPage() {
             </select>
           </label>
           <label>
-            Search packets, players, or backends
+            Search packets, payloads, players, XUIDs, addresses, or backends
             <span className="inputWithIcon">
               <Search aria-hidden="true" />
               <input
                 type="search"
-                placeholder="StartGame, survival, player name…"
+                placeholder="StartGame, chat text, XUID, IP, backend…"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
               />
@@ -567,7 +690,9 @@ export function PacketMonitorPage() {
         ) : null}
         <CatalogTable entries={catalog} />
       </Card>
-      {selected ? <PacketDetailDialog packet={selected} close={() => setSelected(null)} /> : null}
+      {selected ? (
+        <PacketDetailDialog packet={selected} scope={activeScope} close={() => setSelected(null)} />
+      ) : null}
     </>
   );
 }

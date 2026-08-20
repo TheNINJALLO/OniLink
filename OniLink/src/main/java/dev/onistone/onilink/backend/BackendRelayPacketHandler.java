@@ -522,7 +522,8 @@ public final class BackendRelayPacketHandler implements BedrockPacketHandler {
                     PacketMonitor.Direction.CLIENTBOUND,
                     packet,
                     null,
-                    PacketMonitor.Action.DROPPED
+                    PacketMonitor.Action.DROPPED,
+                    backend
             );
             return PacketSignal.HANDLED;
         }
@@ -590,7 +591,8 @@ public final class BackendRelayPacketHandler implements BedrockPacketHandler {
                         PacketMonitor.Direction.CLIENTBOUND,
                         packet,
                         null,
-                        PacketMonitor.Action.DROPPED
+                        PacketMonitor.Action.DROPPED,
+                        backend
                 );
                 return PacketSignal.HANDLED;
             }
@@ -691,7 +693,8 @@ public final class BackendRelayPacketHandler implements BedrockPacketHandler {
                 PacketMonitor.Direction.CLIENTBOUND,
                 packet,
                 translated,
-                translated == null ? PacketMonitor.Action.DROPPED : PacketMonitor.Action.FORWARDED
+                translated == null ? PacketMonitor.Action.DROPPED : PacketMonitor.Action.FORWARDED,
+                backend
         );
         if (translated == null) {
             System.out.printf(

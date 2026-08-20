@@ -4,12 +4,17 @@ import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
 import org.cloudburstmc.protocol.bedrock.codec.BedrockPacketDefinition;
 import org.cloudburstmc.protocol.bedrock.data.PacketRecipient;
 import org.cloudburstmc.protocol.bedrock.packet.BedrockPacket;
+import org.cloudburstmc.protocol.bedrock.packet.LoginPacket;
+import org.cloudburstmc.protocol.bedrock.packet.ServerToClientHandshakePacket;
+import org.cloudburstmc.protocol.bedrock.packet.SubClientLoginPacket;
 import org.cloudburstmc.protocol.bedrock.packet.UnknownPacket;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashMap;
@@ -22,21 +27,32 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.regex.Pattern;
 
 /**
- * Bounded, metadata-only packet observation and cross-version matching service.
+ * Bounded packet observation and cross-version matching service.
  *
- * <p>The monitor never stores packet payloads, XUIDs, addresses, login chains, chat text, tokens,
- * or wire bytes. It matches the shared packet model received from one codec to the definition in
- * the target codec and records the result of the real translator. A same-class match is safe to
- * hand to the target codec; an ID-only candidate is research evidence and is never applied.</p>
+ * <p>The monitor retains decoded packet details, authenticated identity, endpoints, and the exact
+ * uncompressed inbound packet bytes in a bounded in-memory window. Authentication packets and
+ * token-shaped values are redacted before storage. It matches the shared packet model received
+ * from one codec to the definition in the target codec and records the result of the real
+ * translator. A same-class match is safe to hand to the target codec; an ID-only candidate is
+ * research evidence and is never applied.</p>
  */
 public final class PacketMonitor {
     public static final int DEFAULT_CAPACITY = 5_000;
     public static final int DEFAULT_MOVEMENT_SAMPLE_RATE = 20;
+    public static final long DEFAULT_CAPTURE_BUDGET_BYTES = 64L * 1024L * 1024L;
+    private static final int MAX_DECODED_PAYLOAD_CHARS = 1_048_576;
     private static final int MAX_PACKET_ID = 0x3FF;
     private static final int MAX_AGGREGATES = 8_192;
     private static final int MAX_MATCH_RESULTS = 500;
+    private static final Pattern JWT_PATTERN = Pattern.compile(
+            "(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{8,}(?![A-Za-z0-9_-])");
+    private static final Pattern BEARER_PATTERN = Pattern.compile(
+            "(?i)(bearer\\s+)[A-Za-z0-9._~+/=-]{8,}");
+    private static final Pattern LABELED_TOKEN_PATTERN = Pattern.compile(
+            "(?i)((?:token|jwt|authorization)\\s*[:=]\\s*)[^,}\\]\\s]+(?:\\s+[^,}\\]]+)?");
     private static final Set<String> HIGH_VOLUME_PACKETS = Set.of(
             "PlayerAuthInputPacket",
             "MoveEntityDeltaPacket",
@@ -85,6 +101,7 @@ public final class PacketMonitor {
     private final ProtocolRegistry registry;
     private final int capacity;
     private final int movementSampleRate;
+    private final long captureBudgetBytes;
     private final Clock clock;
     private final Map<Integer, List<BedrockPacketDefinition<? extends BedrockPacket>>> definitionsByProtocol;
     private final Deque<Observation> observations = new ArrayDeque<>();
@@ -100,13 +117,27 @@ public final class PacketMonitor {
     private final LongAdder dropped = new LongAdder();
     private final LongAdder sampledOut = new LongAdder();
     private final LongAdder evicted = new LongAdder();
+    private final LongAdder tokenRedactions = new LongAdder();
+    private long retainedCaptureBytes;
     private volatile ProtocolPair lastPair;
 
     public PacketMonitor(ProtocolRegistry registry) {
-        this(registry, DEFAULT_CAPACITY, DEFAULT_MOVEMENT_SAMPLE_RATE, Clock.systemUTC());
+        this(registry, DEFAULT_CAPACITY, DEFAULT_MOVEMENT_SAMPLE_RATE,
+                Long.getLong("onilink.packetMonitor.maxStoredBytes", DEFAULT_CAPTURE_BUDGET_BYTES),
+                Clock.systemUTC());
     }
 
     PacketMonitor(ProtocolRegistry registry, int capacity, int movementSampleRate, Clock clock) {
+        this(registry, capacity, movementSampleRate, DEFAULT_CAPTURE_BUDGET_BYTES, clock);
+    }
+
+    PacketMonitor(
+            ProtocolRegistry registry,
+            int capacity,
+            int movementSampleRate,
+            long captureBudgetBytes,
+            Clock clock
+    ) {
         if (registry == null) {
             throw new IllegalArgumentException("registry cannot be null");
         }
@@ -116,6 +147,7 @@ public final class PacketMonitor {
         this.registry = registry;
         this.capacity = capacity;
         this.movementSampleRate = Math.max(1, movementSampleRate);
+        this.captureBudgetBytes = Math.max(1, captureBudgetBytes);
         this.clock = clock == null ? Clock.systemUTC() : clock;
         Map<Integer, List<BedrockPacketDefinition<? extends BedrockPacket>>> definitions = new HashMap<>();
         for (BedrockCodec codec : registry.supportedCodecs()) {
@@ -132,6 +164,18 @@ public final class PacketMonitor {
             TranslationContext context,
             String player,
             String backend
+    ) {
+        observe(direction, original, translated, action, context,
+                new CaptureContext(player, "", "", backend, "", null, 0));
+    }
+
+    public void observe(
+            Direction direction,
+            BedrockPacket original,
+            BedrockPacket translated,
+            Action action,
+            TranslationContext context,
+            CaptureContext capture
     ) {
         if (direction == null || original == null || action == null || context == null) {
             return;
@@ -180,6 +224,11 @@ public final class PacketMonitor {
             sampledOut.increment();
             return;
         }
+        CaptureContext safeCapture = capture == null ? CaptureContext.empty() : capture;
+        CapturedPayload capturedPayload = capturePayload(original, translated, safeCapture);
+        if (capturedPayload.tokenRedacted()) {
+            tokenRedactions.increment();
+        }
         Observation observation = new Observation(
                 nextSequence,
                 timestamp,
@@ -194,17 +243,32 @@ public final class PacketMonitor {
                 targetCodec.getMinecraftVersion(),
                 status,
                 action.value(),
-                clean(player),
-                clean(backend),
-                suggestion
+                clean(safeCapture.player()),
+                clean(safeCapture.xuid()),
+                clean(safeCapture.clientAddress()),
+                clean(safeCapture.backend()),
+                clean(safeCapture.backendAddress()),
+                suggestion,
+                capturedPayload.decodedPayload(),
+                capturedPayload.translatedPayload(),
+                capturedPayload.wireBytesBase64(),
+                capturedPayload.wireBytesLength(),
+                capturedPayload.wireHeaderLength(),
+                capturedPayload.tokenRedacted(),
+                capturedPayload.redactionReason(),
+                capturedPayload.retainedBytes()
         );
         observationLock.lock();
         try {
-            if (observations.size() >= capacity) {
-                observations.removeFirst();
+            while (!observations.isEmpty()
+                    && (observations.size() >= capacity
+                    || retainedCaptureBytes + observation.retainedBytes() > captureBudgetBytes)) {
+                Observation removed = observations.removeFirst();
+                retainedCaptureBytes -= removed.retainedBytes();
                 evicted.increment();
             }
             observations.addLast(observation);
+            retainedCaptureBytes += observation.retainedBytes();
         } finally {
             observationLock.unlock();
         }
@@ -216,6 +280,9 @@ public final class PacketMonitor {
         String direction = normalized(safeFilters.get("direction"));
         String status = normalized(safeFilters.get("status"));
         String query = normalized(safeFilters.get("q"));
+        boolean includeDetails = booleanValue(safeFilters.get("includeDetails"));
+        boolean redactSensitive = booleanValue(safeFilters.get("redactSensitive"));
+        long requestedSequence = boundedLong(safeFilters.get("sequence"), -1L);
         ProtocolPair selected = selectedPair(safeFilters);
 
         List<Map<String, Object>> records = new ArrayList<>();
@@ -224,8 +291,9 @@ public final class PacketMonitor {
             var iterator = observations.descendingIterator();
             while (iterator.hasNext() && records.size() < limit) {
                 Observation observation = iterator.next();
-                if (observation.matches(direction, status, query)) {
-                    records.add(observation.asMap());
+                if ((requestedSequence < 0 || observation.sequence() == requestedSequence)
+                        && observation.matches(direction, status, query)) {
+                    records.add(observation.asMap(includeDetails, redactSensitive));
                 }
             }
         } finally {
@@ -254,10 +322,15 @@ public final class PacketMonitor {
         summary.put("evictedRecords", evicted.sum());
         summary.put("capacity", capacity);
         summary.put("movementSampleRate", movementSampleRate);
+        summary.put("retainedCaptureBytes", retainedCaptureBytes());
+        summary.put("captureBudgetBytes", captureBudgetBytes);
+        summary.put("tokenRedactions", tokenRedactions.sum());
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("enabled", true);
-        result.put("privacy", "Metadata only; no payloads, chat, login tokens, XUIDs, addresses, or wire bytes are stored.");
+        result.put("privacy", redactSensitive
+                ? "Support-safe metadata view; packet contents and player identity are omitted."
+                : "Detailed in-memory capture; authentication tokens and token-bearing login material are always redacted.");
         result.put("summary", summary);
         result.put("protocols", protocols());
         result.put("selectedPair", selectedPairMap(selected));
@@ -274,6 +347,15 @@ public final class PacketMonitor {
         observationLock.lock();
         try {
             return observations.size();
+        } finally {
+            observationLock.unlock();
+        }
+    }
+
+    private long retainedCaptureBytes() {
+        observationLock.lock();
+        try {
+            return retainedCaptureBytes;
         } finally {
             observationLock.unlock();
         }
@@ -485,6 +567,98 @@ public final class PacketMonitor {
         return clean.length() <= 128 ? clean : clean.substring(0, 128);
     }
 
+    private static CapturedPayload capturePayload(
+            BedrockPacket original,
+            BedrockPacket translated,
+            CaptureContext capture
+    ) {
+        boolean authenticationPacket = containsAuthenticationToken(original)
+                || containsAuthenticationToken(translated);
+        String decoded = authenticationPacket
+                ? redactedPacketSummary(original)
+                : redactTokens(boundedPayload(String.valueOf(original)));
+        String translatedPayload = translated == null || translated == original
+                ? ""
+                : authenticationPacket
+                        ? redactedPacketSummary(translated)
+                        : redactTokens(boundedPayload(String.valueOf(translated)));
+        byte[] wireBytes = capture.wireBytes();
+        int wireLength = wireBytes == null ? 0 : wireBytes.length;
+        boolean detectedToken = !authenticationPacket && wireContainsToken(wireBytes);
+        boolean tokenRedacted = authenticationPacket || detectedToken;
+        String raw = tokenRedacted || wireLength == 0
+                ? ""
+                : Base64.getEncoder().encodeToString(wireBytes);
+        String reason = authenticationPacket
+                ? "Authentication packet body omitted because it contains login or handshake tokens."
+                : detectedToken
+                        ? "Raw packet body omitted because a token-shaped value was detected."
+                        : "";
+        long retainedBytes = decoded.getBytes(StandardCharsets.UTF_8).length
+                + translatedPayload.getBytes(StandardCharsets.UTF_8).length
+                + raw.length();
+        return new CapturedPayload(
+                decoded,
+                translatedPayload,
+                raw,
+                wireLength,
+                Math.max(0, capture.wireHeaderLength()),
+                tokenRedacted,
+                reason,
+                retainedBytes
+        );
+    }
+
+    private static boolean containsAuthenticationToken(BedrockPacket packet) {
+        return packet instanceof LoginPacket
+                || packet instanceof SubClientLoginPacket
+                || packet instanceof ServerToClientHandshakePacket;
+    }
+
+    private static String redactedPacketSummary(BedrockPacket packet) {
+        if (packet == null) {
+            return "";
+        }
+        if (packet instanceof LoginPacket login) {
+            return "LoginPacket{protocolVersion=" + login.getProtocolVersion()
+                    + ", authPayload=<redacted>, clientJwt=<redacted>}";
+        }
+        if (packet instanceof SubClientLoginPacket) {
+            return "SubClientLoginPacket{authPayload=<redacted>, clientJwt=<redacted>}";
+        }
+        if (packet instanceof ServerToClientHandshakePacket) {
+            return "ServerToClientHandshakePacket{jwt=<redacted>}";
+        }
+        return packet.getClass().getSimpleName() + "{authenticationMaterial=<redacted>}";
+    }
+
+    private static String boundedPayload(String value) {
+        if (value == null) {
+            return "";
+        }
+        if (value.length() <= MAX_DECODED_PAYLOAD_CHARS) {
+            return value;
+        }
+        return value.substring(0, MAX_DECODED_PAYLOAD_CHARS)
+                + "\n<decoded payload truncated after " + MAX_DECODED_PAYLOAD_CHARS + " characters>";
+    }
+
+    private static String redactTokens(String value) {
+        String redacted = JWT_PATTERN.matcher(value).replaceAll("<redacted-jwt>");
+        redacted = BEARER_PATTERN.matcher(redacted).replaceAll("$1<redacted-token>");
+        return LABELED_TOKEN_PATTERN.matcher(redacted).replaceAll("$1<redacted-token>");
+    }
+
+    private static boolean wireContainsToken(byte[] wireBytes) {
+        if (wireBytes == null || wireBytes.length == 0) {
+            return false;
+        }
+        String raw = new String(wireBytes, StandardCharsets.ISO_8859_1);
+        return JWT_PATTERN.matcher(raw).find()
+                || BEARER_PATTERN.matcher(raw).find()
+                || LABELED_TOKEN_PATTERN.matcher(raw).find();
+    }
+
     private static String normalized(String value) {
         return value == null ? "" : value.strip().toLowerCase(Locale.ROOT);
     }
@@ -498,6 +672,47 @@ public final class PacketMonitor {
         } catch (NumberFormatException ignored) {
             return fallback;
         }
+    }
+
+    private static long boundedLong(String value, long fallback) {
+        if (value == null || value.isBlank()) {
+            return fallback;
+        }
+        try {
+            return Long.parseLong(value.trim());
+        } catch (NumberFormatException ignored) {
+            return fallback;
+        }
+    }
+
+    private static boolean booleanValue(String value) {
+        return "true".equalsIgnoreCase(value) || "1".equals(value);
+    }
+
+    public record CaptureContext(
+            String player,
+            String xuid,
+            String clientAddress,
+            String backend,
+            String backendAddress,
+            byte[] wireBytes,
+            int wireHeaderLength
+    ) {
+        private static CaptureContext empty() {
+            return new CaptureContext("", "", "", "", "", null, 0);
+        }
+    }
+
+    private record CapturedPayload(
+            String decodedPayload,
+            String translatedPayload,
+            String wireBytesBase64,
+            int wireBytesLength,
+            int wireHeaderLength,
+            boolean tokenRedacted,
+            String redactionReason,
+            long retainedBytes
+    ) {
     }
 
     private record Definition(String name, int id, boolean present) {
@@ -532,8 +747,19 @@ public final class PacketMonitor {
             String status,
             String action,
             String player,
+            String xuid,
+            String clientAddress,
             String backend,
-            String suggestion
+            String backendAddress,
+            String suggestion,
+            String decodedPayload,
+            String translatedPayload,
+            String wireBytesBase64,
+            int wireBytesLength,
+            int wireHeaderLength,
+            boolean tokenRedacted,
+            String redactionReason,
+            long retainedBytes
     ) {
         private boolean matches(String directionFilter, String statusFilter, String query) {
             if (!directionFilter.isEmpty() && !direction.equals(directionFilter)) {
@@ -545,12 +771,13 @@ public final class PacketMonitor {
             if (query.isEmpty()) {
                 return true;
             }
-            String haystack = (packetName + ' ' + action + ' ' + player + ' ' + backend + ' '
-                    + suggestion).toLowerCase(Locale.ROOT);
+            String haystack = (packetName + ' ' + action + ' ' + player + ' ' + xuid + ' '
+                    + clientAddress + ' ' + backend + ' ' + backendAddress + ' ' + suggestion + ' '
+                    + decodedPayload + ' ' + translatedPayload).toLowerCase(Locale.ROOT);
             return haystack.contains(query);
         }
 
-        private Map<String, Object> asMap() {
+        private Map<String, Object> asMap(boolean includeDetails, boolean redactSensitive) {
             Map<String, Object> map = new LinkedHashMap<>();
             map.put("sequence", sequence);
             map.put("timestamp", Instant.ofEpochMilli(timestamp).toString());
@@ -565,9 +792,21 @@ public final class PacketMonitor {
             map.put("targetVersion", targetVersion);
             map.put("status", status);
             map.put("action", action);
-            map.put("player", player);
+            map.put("player", redactSensitive ? "" : player);
+            map.put("xuid", redactSensitive ? "" : xuid);
+            map.put("clientAddress", redactSensitive ? "" : clientAddress);
             map.put("backend", backend);
+            map.put("backendAddress", redactSensitive ? "" : backendAddress);
             map.put("suggestion", suggestion);
+            map.put("wireBytesLength", wireBytesLength);
+            map.put("wireHeaderLength", wireHeaderLength);
+            map.put("tokenRedacted", tokenRedacted);
+            map.put("redactionReason", redactionReason);
+            if (includeDetails && !redactSensitive) {
+                map.put("decodedPayload", decodedPayload);
+                map.put("translatedPayload", translatedPayload);
+                map.put("wireBytesBase64", wireBytesBase64);
+            }
             return map;
         }
     }

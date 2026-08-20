@@ -32,7 +32,8 @@ describe("monitoring features", () => {
   it("shows live packet matches and the cross-version codec catalog", async () => {
     const snapshot: PacketMonitorSnapshot = {
       enabled: true,
-      privacy: "Metadata only; no payloads or wire bytes are stored.",
+      privacy:
+        "Detailed in-memory capture; authentication tokens and token-bearing login material are always redacted.",
       summary: {
         observedPackets: 42,
         storedRecords: 10,
@@ -46,6 +47,9 @@ describe("monitoring features", () => {
         evictedRecords: 0,
         capacity: 5000,
         movementSampleRate: 20,
+        retainedCaptureBytes: 2048,
+        captureBudgetBytes: 67_108_864,
+        tokenRedactions: 2,
       },
       protocols: [
         { protocol: 898, minecraftVersion: "1.21.130", packetModels: 190 },
@@ -74,8 +78,18 @@ describe("monitoring features", () => {
           status: "automatic_codec_match",
           action: "forwarded",
           player: "TheN1NJ4LL0",
+          xuid: "2535438695543476",
+          clientAddress: "174.84.137.109:51120",
           backend: "survival",
+          backendAddress: "45.143.196.160:25570",
           suggestion: "",
+          decodedPayload: "StartGamePacket{levelName=Survival}",
+          translatedPayload: "",
+          wireBytesBase64: "AQIDBA==",
+          wireBytesLength: 4,
+          wireHeaderLength: 2,
+          tokenRedacted: false,
+          redactionReason: "",
         },
       ],
       matches: [
@@ -115,7 +129,9 @@ describe("monitoring features", () => {
     expect(screen.getAllByText("StartGamePacket").length).toBeGreaterThan(0);
     await user.click(screen.getByRole("button", { name: "StartGamePacket" }));
     expect(screen.getByRole("heading", { name: "StartGamePacket" })).toBeInTheDocument();
-    expect(screen.getByText(/no payloads or wire bytes/i)).toBeInTheDocument();
+    expect(await screen.findByText("2535438695543476")).toBeInTheDocument();
+    expect(screen.getByText("StartGamePacket{levelName=Survival}")).toBeInTheDocument();
+    expect(screen.getByText(/Authentication tokens are always removed/i)).toBeInTheDocument();
   });
 
   it("renders the runtime overview using real API values", async () => {

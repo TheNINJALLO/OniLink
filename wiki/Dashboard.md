@@ -50,14 +50,17 @@ one additional UDP allocation per logical proxy. Tenants sign in at this same UR
 
 ## Packet monitor
 
-Every signed-in role can open **Packet Monitor**. It shows safe live metadata from the real relay,
-the automatic shared-codec matches already handling cross-version traffic, reviewed translators,
-and packet definitions that still need investigation. Owners and tenants select a permitted proxy;
+Every signed-in role can open **Packet Monitor**. It shows detailed, token-redacted traffic from the
+real relay, the automatic shared-codec matches already handling cross-version traffic, reviewed
+translators, and packet definitions that still need investigation. Select a packet to inspect its
+decoded fields, XUID, endpoints, and incoming bytes. Owners and tenants select a permitted proxy;
 cross-tenant API access is denied on the server.
 
-The monitor keeps only a bounded in-memory history and never retains packet payloads, chat, login
-chains, tokens, XUIDs, addresses, or raw bytes. See [[Packet Monitor]] for status meanings, report
-handling, and the new-version testing workflow.
+The monitor keeps a bounded, memory-only history. Normal records include packet bodies, chat,
+XUIDs, addresses, and raw uncompressed packet bytes; authentication tokens and token-bearing login
+material are always removed. Full exports are sensitive, while support bundles receive a separate
+metadata-only snapshot. See [[Packet Monitor]] for limits, status meanings, capture handling, and
+the new-version testing workflow.
 
 ## Pterodactyl
 

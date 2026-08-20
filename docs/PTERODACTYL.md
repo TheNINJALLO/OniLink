@@ -14,12 +14,12 @@ servers or eggs and does not need an Application API key. Follow
 
 ## Import the OniLink egg
 
-Download `egg-onilink.json` from the [current beta](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.2.0-beta.1) or [`packaging/pterodactyl`](../packaging/pterodactyl/README.md).
+Download `egg-onilink.json` from the [current beta](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.2.0-beta.2) or [`packaging/pterodactyl`](../packaging/pterodactyl/README.md).
 
 1. Open **Admin Panel → Nests**.
 2. Select or create a nest and choose **Import Egg**.
 3. Upload `egg-onilink.json`.
-4. Create a server using **OniLink Bedrock Proxy** and the Java 21 image.
+4. Create a server using **OniLink Bedrock Edge System** and the Java 21 image.
 5. Assign one public allocation. The egg writes its primary port to the Bedrock UDP listener and dashboard TCP listener.
 6. Set **Default backend host** and **Default backend UDP port** to the private address reachable from the OniLink container.
 7. Leave **Enable authenticated XUID allowlist** off for the first join.
@@ -33,7 +33,7 @@ The installer downloads the exact `ONILINK_VERSION` bootstrap tag, verifies `Oni
 | Channel | Startup behavior |
 | --- | --- |
 | `stable` | Installs GitHub's latest normal release and ignores prereleases. |
-| `beta` | Installs the newest published release, including prereleases. The `v0.2.0-beta.1` egg defaults here. |
+| `beta` | Installs the newest published release, including prereleases. The `v0.2.0-beta.2` egg defaults here. |
 | `pinned` | Verifies and stays on the exact `ONILINK_VERSION` release tag. |
 
 If GitHub is unavailable or verification fails, startup keeps the currently installed JAR. A successful replacement retains the prior version as `OniLink.jar.previous`, preserves active `config.properties`, updates only `onilink.properties.example`, and records the active release tag in `.onilink-version`. A changed updater is saved as `start-onilink.sh.previous` and takes over on the next restart.
@@ -42,7 +42,7 @@ Existing updater-enabled containers without `ONILINK_UPDATE_CHANNEL` remain on `
 discover this beta. To cross that stable-to-beta boundary:
 
 1. Back up `config.properties`, `dashboard/`, `allowlist.properties`, and forwarding keys.
-2. Reimport the `v0.2.0-beta.1` egg and confirm `ONILINK_VERSION=v0.2.0-beta.1` and
+2. Reimport the `v0.2.0-beta.2` egg and confirm `ONILINK_VERSION=v0.2.0-beta.2` and
    `ONILINK_UPDATE_CHANNEL=beta`.
 3. Run **Reinstall Server** once so the verified beta installer replaces the old stable-only
    `start-onilink.sh`. The installer preserves an existing `config.properties`.
@@ -210,7 +210,7 @@ The relevant layout is:
 /home/container/
 ├── bedrock_server
 ├── plugins/
-│   ├── onibridge-0.2.0-beta.1-bds-1.26.44.3-linux-x86_64.so
+│   ├── onibridge-0.2.0-beta.2-bds-1.26.44.3-linux-x86_64.so
 │   └── onibridge/
 │       ├── survival.key          # when using the dashboard/file method
 │       └── onibridge.toml

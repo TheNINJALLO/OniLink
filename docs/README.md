@@ -7,17 +7,18 @@
 Use this page as the canonical map for operators, testers, and contributors. The [GitHub Wiki](https://github.com/TheNINJALLO/OniLink/wiki) provides a shorter task-oriented copy of the operator guidance.
 
 > [!IMPORTANT]
-> `v0.2.0-beta.1` is the current public beta. Its packet monitor observes safe relay metadata, verifies shared-codec mappings against real traffic, and flags gaps for reviewed translator work. The exact Linux BDS `1.26.44.3` + Endstone `0.11.9` profile remains production-approved; the monitor does not relax any compatibility gate.
+> `v0.2.0-beta.2` is the current public beta. The active beta line captures detailed token-redacted packet evidence, verifies shared-codec mappings against real traffic, and flags gaps for reviewed translator work. Full captures include sensitive player and network data. The exact Linux BDS `1.26.44.3` + Endstone `0.11.9` profile remains production-approved; the monitor does not relax any compatibility gate.
 
 ## Start here
 
 | Goal | Guide |
 | --- | --- |
 | Understand the system in five minutes | [Project README](../README.md) |
+| Use the official product and component names | [System identity](SYSTEM_IDENTITY.md) |
 | Install the current Linux release | [Quick start](QUICKSTART.md) |
 | Install and configure the complete network | [Installation](INSTALLATION.md) |
 | Add another BDS server automatically | [Adding a BDS backend](ADDING_BACKEND.md) |
-| Review the current changes and upgrade steps | [v0.2.0-beta.1 release notes](releases/v0.2.0-beta.1.md) |
+| Review the current changes and upgrade steps | [v0.2.0-beta.2 release notes](releases/v0.2.0-beta.2.md) |
 | Inspect live cross-version packet mappings | [Packet monitor](PACKET_MONITOR.md) |
 | Copy a complete working configuration | [Deployment examples](../examples/README.md) |
 | Import the OniLink Pterodactyl egg | [Pterodactyl](PTERODACTYL.md) |
@@ -35,7 +36,7 @@ Use this page as the canonical map for operators, testers, and contributors. The
 - [Pterodactyl](PTERODACTYL.md) — process separation, allocations, environment secrets, and startup order.
 - [Tenant hosting](TENANT_HOSTING.md) — one shared dashboard, scoped customer logins, isolated in-process proxies, handoffs, and lifecycle controls.
 - [Dashboard](DASHBOARD.md) — first-run ownership, roles, TOTP, HTTPS, operations, recovery, and panel setup.
-- [Packet monitor](PACKET_MONITOR.md) — live metadata, codec matching, reports, privacy, and adjacent-version workflow.
+- [Packet monitor](PACKET_MONITOR.md) — detailed token-redacted captures, codec matching, exports, privacy boundaries, and adjacent-version workflow.
 - [Migration](MIGRATION.md) — preserving identity and storage continuity when introducing OniLink.
 - [Testing](TESTING.md) — completed evidence and the live acceptance checklist.
 - [Command compatibility](COMMAND_COMPATIBILITY.md) — proxy/backend command ownership and fixture expectations.
@@ -62,7 +63,8 @@ Use this page as the canonical map for operators, testers, and contributors. The
 
 | Item | Current value |
 | --- | --- |
-| Application release | `v0.2.0-beta.1` (public beta; `v0.1.7` remains stable) |
+| Product identity | Standalone OniLink system |
+| Application release | `v0.2.0-beta.2` (public beta; `v0.1.7` remains stable) |
 | Locked BDS | `1.26.44.3` |
 | Endstone | `0.11.9` |
 | Public proxy runtime | Java 21 |

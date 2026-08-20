@@ -76,8 +76,8 @@ public final class ItemPaletteMapping {
             if (clientItem.getRuntimeId() != backendItem.getRuntimeId()) {
                 identity = false;
             }
-            ItemDefinition clientNumbered = rebrand(backendItem, clientItem.getRuntimeId());
-            ItemDefinition backendNumbered = rebrand(clientItem, backendItem.getRuntimeId());
+            ItemDefinition clientNumbered = withRuntimeId(backendItem, clientItem.getRuntimeId());
+            ItemDefinition backendNumbered = withRuntimeId(clientItem, backendItem.getRuntimeId());
             toClient.put(backendItem.getRuntimeId(), clientNumbered);
             toBackend.put(clientItem.getRuntimeId(), backendNumbered);
             // Recipes name their ingredients rather than numbering them
@@ -95,7 +95,7 @@ public final class ItemPaletteMapping {
         );
     }
 
-    private static ItemDefinition rebrand(ItemDefinition source, int runtimeId) {
+    private static ItemDefinition withRuntimeId(ItemDefinition source, int runtimeId) {
         if (source instanceof SimpleItemDefinition simple) {
             return new SimpleItemDefinition(
                     simple.getIdentifier(),

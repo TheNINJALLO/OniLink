@@ -1,6 +1,6 @@
 # OniLink Pterodactyl egg
 
-`egg-onilink.json` is the importable PTDL v2 egg for the OniLink proxy process. It does not redistribute BDS and it does not replace the separate BDS/Endstone or Geyser backend server.
+`egg-onilink.json` is the importable PTDL v2 egg for the standalone OniLink Bedrock edge system. It does not redistribute BDS and it does not replace the separate BDS/Endstone or Geyser backend server.
 
 ## What the egg does
 
@@ -66,7 +66,7 @@ See the [single-container tenant guide](../../docs/TENANT_HOSTING.md).
 Restart the container to check for an update. `start-onilink.sh` resolves **Automatic update channel**, downloads `OniLink.jar`, `start-onilink.sh`, `onilink.properties.example`, and `SHA256SUMS`, verifies all three runtime files, and only then installs changes.
 
 - `stable` uses GitHub's `/releases/latest` endpoint and ignores prereleases.
-- `beta` follows the newest published normal or prerelease build. The `v0.2.0-beta.1` egg defaults to this channel.
+- `beta` follows the newest published normal or prerelease build. The `v0.2.0-beta.2` egg defaults to this channel.
 - `pinned` stays on the exact public tag in `ONILINK_VERSION`.
 
 `ONILINK_VERSION` is the bootstrap version used during server creation or **Reinstall Server** and the runtime version only when the channel is `pinned`. Reinstall preserves `config.properties`; compare it with `onilink.properties.example` after a bootstrap upgrade.
