@@ -13,3 +13,27 @@ Profile IDs:
 - `bds-1.26.44.3-windows-x86_64-2d6518ddd25211aa`
 
 The Linux production artifact fails closed on every runtime mismatch and requires `allow_unreviewed_profile=false`. The Windows candidate remains restricted to controlled acceptance testing and is not promoted by the Linux approval.
+
+## OniControl capability evidence
+
+The authenticated `/api/control/capabilities` response is the live source of truth. It intersects
+the Java catalog with the target's negotiated codec, backend, signed OniBridge capability document,
+feature gates, and actor scope. A class existing in the source tree is never treated as support.
+
+| Capability | Evidence in this release | Status |
+| --- | --- | --- |
+| `PING`, `GET_CAPABILITIES` | Signed ONICTL/1 request/response fixtures, scope/replay/deadline tests | `SUPPORTED_WITH_LIMITS` pending a live control-channel run |
+| `GET_BACKEND_HEALTH` | Native lifecycle and exact-profile state are returned without a BDS mutation | `SUPPORTED_WITH_LIMITS` pending a live control-channel run |
+| `GET_PLAYER_STATE` | Authenticated XUID lookup through the pinned public Endstone API | `CANDIDATE` pending live player acceptance |
+| `PREPARE_DRAIN` | Proxy-controlled drain readiness response; it does not claim BDS process control | `SUPPORTED_WITH_LIMITS` |
+| `GET_ONLINE_PLAYERS`, `CLOSE_PLAYER_CONTAINERS`, `SAVE_WORLD` | Required public calls are absent from the pinned Endstone SDK | `UNSUPPORTED` |
+| Any unrestricted command or arbitrary state mutation | Not advertised and rejected before native dispatch | `UNSUPPORTED` |
+| Semantic client actions | Active-codec dry encoding and typed payload validation | `CANDIDATE`; action capability response provides the exact per-player result |
+| OniPacket rules | Unit fixtures plus wiring in both real relay directions | `CANDIDATE` pending live relay acceptance |
+| OniVirtual | Per-player bounded state and codec checks | `CANDIDATE` pending physical-client acceptance |
+| Protocol Lab | Owner-only timed sessions, XUID/backend/model allowlists, rate limit, dry encoding, audit, and monitor origin | `CANDIDATE`; disabled by default and clientbound reviewed models only |
+| Native TLS listener | No native TLS implementation in this release | `UNSUPPORTED`; use loopback or a private encrypted tunnel |
+
+OniForge generates `compatibility-matrix.json` and `compatibility-matrix.md` from compiled codecs,
+registered translator paths, tests, native profile metadata, and recorded live evidence. CI uploads
+both as the `oniforge-compatibility` artifact. Packet ID equality is never semantic evidence.

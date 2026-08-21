@@ -91,6 +91,9 @@ public final class ListenerSession extends BedrockServerSession {
         }
         super.onClose();
         if (proxyConnection != null) {
+            if (proxyConnection.oniControlRuntime() != null) {
+                proxyConnection.oniControlRuntime().onConnectionClosed(proxyConnection);
+            }
             proxyConnection.closeBackend(getDisconnectReason());
         }
         closeListener.accept(this);

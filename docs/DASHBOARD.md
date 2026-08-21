@@ -182,6 +182,12 @@ players, backends, allowlists, handoffs, and lifecycle controls. Tenant configur
 stored beneath `dashboard/tenancy/`; treat the complete `dashboard/` directory as credential
 material. The field-by-field guide is [Single-container tenant hosting](TENANT_HOSTING.md).
 
+The provider owner or a signed-in tenant can use **Choose the primary server** on **My Proxies** to
+select which named backend receives new players. OniLink validates the selected route against that
+proxy's backend list, saves it with an optimistic revision check, and restarts only the selected
+proxy. Connected players on that listener must reconnect. This changes the initial join destination;
+it does not change the separately configured `/hub` destination or another tenant's proxy.
+
 ### Edit configuration safely
 
 Open **Configuration** as an admin or owner. The browser receives a redacted view; keys recognized as passwords, tokens, webhooks, private keys, or secrets cannot be changed or removed there.
@@ -321,3 +327,23 @@ java -jar OniLink.jar config.properties
 ```
 
 Do not perform recovery while OniLink is running.
+
+## 9. OniControl workspace
+
+The **OniControl** route shows bridge health, negotiated capabilities, virtual-session totals,
+scoped action history, typed packet rules, and an action/plan editor. Select an authenticated target
+before loading capabilities; the server resolves the target to one XUID and connection and the UI
+shows the exact backend and execution plane before confirmation. Destructive actions require the
+returned single-use token and an explicit confirmation checkbox.
+
+Rules require Admin. Commands and transport changes require Owner. A tenant receives no actions by
+default: the provider owner opens **Tenant Hosting -> Tenant OniControl grants** and grants only the
+reviewed Operator subset. Server-side checks apply even if a caller bypasses the UI. Tenants with a
+single proxy are scoped automatically; API callers for tenants with several proxies must select a
+proxy explicitly.
+
+Protocol Lab remains disabled by default and is visible only to the provider Owner. After explicit
+XUID/backend allowlists are configured, the Owner can start a timed session, schema-edit a reviewed
+semantic clientbound model, dry-run its negotiated-codec encoding, and send it under a bounded rate
+limit. It never accepts raw bytes or numeric packet IDs. Ordinary actions, plans, and Protocol Lab
+all reject authentication material, tokens, stack IDs, memory fields, and shell commands.

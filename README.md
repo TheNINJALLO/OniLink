@@ -11,6 +11,7 @@
 
 <p align="center">
   <img alt="Version 0.2.0" src="https://img.shields.io/badge/Release-v0.2.0-52b7a8?style=flat-square">
+  <img alt="Beta 0.3.0 beta 1" src="https://img.shields.io/badge/Beta-v0.3.0--beta.1-ffb347?style=flat-square">
   <img alt="Endstone 0.11.9" src="https://img.shields.io/badge/Endstone-0.11.9-52b7a8?style=flat-square">
   <img alt="BDS 1.26.44.3" src="https://img.shields.io/badge/BDS-1.26.44.3-63b8ff?style=flat-square">
   <img alt="Java 21" src="https://img.shields.io/badge/Java-21-ED8B00?style=flat-square&amp;logo=openjdk&amp;logoColor=white">
@@ -32,6 +33,10 @@
 
 > [!IMPORTANT]
 > `v0.2.0` is the current stable release. The Linux BDS `1.26.44.3` + Endstone `0.11.9` profile is production-approved and remains fail closed. Full packet captures can include chat, XUIDs, endpoints, decoded fields, and incoming bytes; restrict dashboard access and inspect exports before sharing them.
+
+> `v0.3.0-beta.1` is the current operations beta. It adds the approved control, workflow,
+> continuity, quarantine, tracing, fleet, presence, roles, support, pack-scanning, PWA, and push
+> modules. Use the Pterodactyl `beta` channel for this prerelease; operational modules stay opt-in.
 
 ## The product family
 
@@ -98,6 +103,21 @@ For remote use, place the dashboard behind HTTPS and restrict it to administrato
 [dashboard guide](docs/DASHBOARD.md). Hosting providers can create tenant logins and isolated proxy
 listeners inside the same container; see [tenant hosting](docs/TENANT_HOSTING.md).
 
+## Optional OniControl system
+
+OniControl adds three disabled-by-default execution paths without changing OniForward: OniPacket
+sends codec-validated presentation packets and evaluates bounded relay rules; OniVirtual owns
+per-player menus, private entities, and fake blocks; and the signed `ONICTL/1` channel asks
+OniBridge to perform real state changes on the BDS primary thread. It uses a separate secret for
+every backend and refuses unsupported capabilities instead of treating a client packet as proof of
+an authoritative change.
+
+The embedded dashboard provides target resolution, preview and single-use confirmation, typed
+plans, action history, rule management, and owner-managed tenant grants. Start with the
+[OniControl guide](docs/ONICONTROL.md), review the [capability matrix](docs/COMPATIBILITY.md), and
+keep all new gates disabled until the private TCP control route and exact backend profile are
+verified.
+
 ## Compatibility
 
 | Target | Status |
@@ -118,6 +138,8 @@ remaining gates are in [Compatibility](docs/COMPATIBILITY.md).
 | [Deployment example](examples/single-bds/) | [Add a backend](docs/ADDING_BACKEND.md) | [OniForward protocol](docs/ONIFORWARD_PROTOCOL.md) |
 | [Troubleshooting](docs/TROUBLESHOOTING.md) | [Dashboard](docs/DASHBOARD.md) | [Compatibility](docs/COMPATIBILITY.md) |
 | [Packet monitor](docs/PACKET_MONITOR.md) | [Pterodactyl](docs/PTERODACTYL.md) | [Building](docs/BUILDING.md) |
+| [OniControl](docs/ONICONTROL.md) | [OniControl on Pterodactyl](docs/ONICONTROL_PTERODACTYL.md) | [OniControl security](docs/ONICONTROL_SECURITY.md) |
+| [0.3 operations modules](docs/EXPANSION_MODULES.md) | [Protocol Lab](docs/PROTOCOL_LAB.md) | [Compatibility evidence](docs/COMPATIBILITY.md) |
 | [Migration](docs/MIGRATION.md) | [Tenant hosting](docs/TENANT_HOSTING.md) | [Source audit](docs/SOURCE_AUDIT.md) |
 
 ## Build and test

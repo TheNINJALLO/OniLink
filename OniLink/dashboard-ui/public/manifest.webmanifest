@@ -1,0 +1,32 @@
+{
+  "id": "/",
+  "name": "OniLink Operations",
+  "short_name": "OniLink",
+  "description": "Self-hosted Bedrock edge operations control plane",
+  "start_url": "/#/overview",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#07111d",
+  "theme_color": "#091522",
+  "icons": [
+    {
+      "src": "/icons/onilink-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/onilink-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/onilink.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

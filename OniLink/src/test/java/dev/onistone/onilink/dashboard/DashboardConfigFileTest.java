@@ -11,12 +11,14 @@ import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.Base64;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -119,6 +121,47 @@ class DashboardConfigFileTest {
     }
 
     @Test
+    void changesPrimaryBackendWithoutChangingTheHubRoute(@TempDir Path directory) throws Exception {
+        Path path = directory.resolve("config.properties");
+        ProxyConfig.loadOrCreate(path);
+        DashboardConfigFile editor = new DashboardConfigFile(path);
+        Map<String, Object> added = editor.addBackend(
+                String.valueOf(editor.read().get("revision")),
+                Map.of(
+                        "name", "creative",
+                        "address", "198.51.100.20:25571",
+                        "proxyPublicIp", "198.51.100.10"));
+
+        Map<String, Object> changed = editor.setPrimaryBackend(
+                String.valueOf(added.get("revision")), "creative");
+
+        assertEquals(true, changed.get("changed"));
+        assertEquals("creative", changed.get("primaryBackend"));
+        assertEquals("198.51.100.20:25571", changed.get("primaryBackendAddress"));
+        ProxyConfig config = ProxyConfig.loadOrCreate(path);
+        assertEquals("creative", config.backend().name());
+        assertEquals("198.51.100.20", config.backend().address().getHostString());
+        assertEquals(25571, config.backend().address().getPort());
+        assertEquals("default", config.hubBackendName());
+
+        Properties properties = new Properties();
+        try (var input = Files.newInputStream(path)) {
+            properties.load(input);
+        }
+        assertEquals("creative", properties.getProperty("backend.name"));
+        assertEquals("198.51.100.20", properties.getProperty("backend.host"));
+        assertEquals("25571", properties.getProperty("backend.port"));
+        assertEquals("default", properties.getProperty("hubBackend"));
+
+        Map<String, Object> routing = editor.routing();
+        assertEquals("creative", routing.get("primaryBackend"));
+        assertTrue(String.valueOf(routing.get("configuredBackends")).contains("default"));
+        assertTrue(String.valueOf(routing.get("configuredBackends")).contains("creative"));
+        assertThrows(IllegalArgumentException.class, () -> editor.setPrimaryBackend(
+                String.valueOf(changed.get("revision")), "missing"));
+    }
+
+    @Test
     void guidedBackendSetupRejectsPropertyInjection(@TempDir Path directory) throws Exception {
         Path path = directory.resolve("config.properties");
         ProxyConfig.loadOrCreate(path);
@@ -134,6 +177,50 @@ class DashboardConfigFileTest {
                         "name", "shortip", "address", "127.0.0.1:19135",
                         "proxyPublicIp", "1")));
         assertEquals(1, ProxyConfig.loadOrCreate(path).backends().size());
+    }
+
+    @Test
+    void guidedBackendSetupGeneratesIndependentControlKeyAndPrivateRoute(@TempDir Path directory)
+            throws Exception {
+        Path path = directory.resolve("config.properties");
+        ProxyConfig.loadOrCreate(path);
+        DashboardConfigFile editor = new DashboardConfigFile(path);
+
+        Map<String, Object> result = editor.addBackend(String.valueOf(editor.read().get("revision")), Map.of(
+                "name", "controltest",
+                "address", "10.20.0.30:19133",
+                "proxyPublicIp", "10.20.0.10",
+                "controlEnabled", "true",
+                "controlHost", "10.20.0.30",
+                "controlPort", "19134",
+                "controlMode", "enforce"));
+
+        String forwarding = String.valueOf(result.get("secret"));
+        String control = String.valueOf(result.get("controlSecret"));
+        assertNotEquals(forwarding, control);
+        assertEquals(32, Base64.getDecoder().decode(control).length);
+        assertEquals(control, Files.readString(directory.resolve("secrets/controltest.control.key")).trim());
+        String saved = Files.readString(path);
+        assertTrue(saved.contains("backend.controltest.control.enabled=true"));
+        assertTrue(saved.contains("backend.controltest.control.mode=enforce"));
+        assertTrue(saved.contains("backend.controltest.control.connectHost=10.20.0.30"));
+        assertTrue(saved.contains("backend.controltest.control.secretFile=secrets/controltest.control.key"));
+        assertTrue(!saved.contains(control));
+
+        String toml = String.valueOf(result.get("onibridgeToml"));
+        assertTrue(toml.contains("[control]"));
+        assertTrue(toml.contains("enabled = true"));
+        assertTrue(toml.contains("listen_port = 19134"));
+        assertTrue(toml.contains("secret_file = \"controltest.control.key\""));
+        Map<String, String> bundle = unzip(Base64.getDecoder().decode(
+                String.valueOf(result.get("setupBundleBase64"))));
+        assertEquals(control, bundle.get("controltest.control.key").trim());
+
+        assertThrows(IllegalArgumentException.class,
+                () -> editor.addBackend(String.valueOf(result.get("revision")), Map.of(
+                        "name", "publiccontrol", "address", "10.20.0.31:19133",
+                        "proxyPublicIp", "10.20.0.10", "controlEnabled", "true",
+                        "controlHost", "198.51.100.31", "controlPort", "19134")));
     }
 
     private static Map<String, String> unzip(byte[] archive) throws Exception {

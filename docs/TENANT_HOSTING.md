@@ -140,6 +140,7 @@ lands on **My Proxies** and can see only proxies assigned to its tenant. From th
 - broadcast an alert to one proxy;
 - maintain that proxy's authenticated XUID allowlist;
 - add another BDS backend and download its generated setup ZIP;
+- choose which named backend is the primary destination for new joins;
 - download the private backend handoff.
 
 The provider's main proxy, configuration, logs, audit log, support bundle, normal account list, and
@@ -154,6 +155,12 @@ A backend route does not need another OniLink allocation. Open the proxy in **My
 the destination server IP and UDP port separately, confirm the visual connection path, and select
 **Generate server setup package**. OniLink creates a different forwarding key, updates only that
 proxy, restarts only that listener, and downloads the matched Endstone ZIP.
+
+After the backend is installed, use **Choose the primary server** on the same page to make it the
+initial destination. The provider owner and tenant account can both use this control. Saving the
+choice restarts only that logical proxy, so players connected to that listener must reconnect; the
+other tenant proxies remain online. The backend name is validated against the selected proxy and
+the `/hub` route remains unchanged.
 
 ## Suspension and lifecycle
 

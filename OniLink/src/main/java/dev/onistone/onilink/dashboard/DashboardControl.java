@@ -30,6 +30,88 @@ interface DashboardControl extends AutoCloseable {
         return Map.of("enabled", false, "count", 0, "entries", List.of());
     }
 
+    default Map<String, Object> oniControlStatus() {
+        return Map.of("controlEnabled", false, "available", false,
+                "message", "OniControl is unavailable for this runtime");
+    }
+
+    default Map<String, Object> oniControlCapabilities(Map<String, String> values) {
+        return Map.of("target", Map.of(), "actions", List.of());
+    }
+
+    default Map<String, Object> protocolLabStatus(String actor) {
+        return Map.of("enabled", false, "sessionActive", false, "models", List.of());
+    }
+
+    default Map<String, Object> protocolLabSession(String actor, boolean start) {
+        throw new IllegalStateException("Protocol Lab is unavailable for this runtime");
+    }
+
+    default Map<String, Object> protocolLab(String actor, Map<String, String> values, boolean send) {
+        throw new IllegalStateException("Protocol Lab is unavailable for this runtime");
+    }
+
+    default Map<String, Object> oniControlPreview(
+            String actor, String role, Map<String, String> values) {
+        throw new IllegalStateException("OniControl is unavailable for this runtime");
+    }
+
+    default Map<String, Object> oniControlExecute(
+            String actor, String role, String token, boolean confirmed) {
+        throw new IllegalStateException("OniControl is unavailable for this runtime");
+    }
+
+    default Map<String, Object> oniControlPlanValidate(
+            String actor, String role, Map<String, String> values) {
+        throw new IllegalStateException("OniControl plans are unavailable for this runtime");
+    }
+
+    default Map<String, Object> oniControlPlanPreview(
+            String actor, String role, Map<String, String> values) {
+        throw new IllegalStateException("OniControl plans are unavailable for this runtime");
+    }
+
+    default Map<String, Object> oniControlPlanExecute(
+            String actor, String role, String token, boolean confirmed) {
+        throw new IllegalStateException("OniControl plans are unavailable for this runtime");
+    }
+
+    default Map<String, Object> oniControlHistory() {
+        return Map.of("history", List.of());
+    }
+
+    default Map<String, Object> oniPacketRules() {
+        return Map.of("version", 1, "rules", List.of());
+    }
+
+    default ActionResult replaceOniPacketRules(String json) {
+        return new ActionResult(false, "OniPacket rules are unavailable for this runtime");
+    }
+
+    default Map<String, Object> backendRegistry() {
+        return Map.of("revision", 0, "backends", backends(false));
+    }
+
+    default Map<String, Object> registerBackend(Map<String, String> values) {
+        throw new IllegalStateException("Dynamic backend registration is unavailable for this runtime");
+    }
+
+    default Map<String, Object> updateBackend(Map<String, String> values) {
+        throw new IllegalStateException("Dynamic backend updates are unavailable for this runtime");
+    }
+
+    default Map<String, Object> removeBackend(Map<String, String> values) {
+        throw new IllegalStateException("Dynamic backend removal is unavailable for this runtime");
+    }
+
+    default Map<String, Object> setBackendDraining(String backend, boolean draining, long revision) {
+        throw new IllegalStateException("Backend draining is unavailable for this runtime");
+    }
+
+    default Map<String, Object> setBackendEnabled(String backend, boolean enabled, long revision) {
+        throw new IllegalStateException("Backend availability changes are unavailable for this runtime");
+    }
+
     default ActionResult allowlistAdd(String xuid, String name) {
         return new ActionResult(false, "Allowlist management is unavailable");
     }
@@ -39,6 +121,14 @@ interface DashboardControl extends AutoCloseable {
     }
 
     ActionResult transfer(String player, String backend);
+
+    default ActionResult messagePlayer(String xuid, String message) {
+        return new ActionResult(false, "Player messaging is unavailable");
+    }
+
+    default ActionResult traceXuid(String xuid, long milliseconds) {
+        return new ActionResult(false, "Journey trace control is unavailable");
+    }
 
     ActionResult disconnect(String player, String reason);
 

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="OniLink">
+  <rect width="512" height="512" rx="112" fill="#07111d"/>
+  <path d="M102 256c0-85 69-154 154-154s154 69 154 154-69 154-154 154S102 341 102 256Z" fill="none" stroke="#43c5e8" stroke-width="34"/>
+  <path d="M178 319V193l156 126V193" fill="none" stroke="#52b7a8" stroke-linecap="round" stroke-linejoin="round" stroke-width="38"/>
+</svg>

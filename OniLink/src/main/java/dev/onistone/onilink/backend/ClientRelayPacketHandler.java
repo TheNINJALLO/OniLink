@@ -53,6 +53,11 @@ import org.cloudburstmc.protocol.common.PacketSignal;
 import dev.onistone.onilink.command.CommandInterception;
 import dev.onistone.onilink.command.ProxyCommandInterceptor;
 import dev.onistone.onilink.protocol.PacketMonitor;
+import dev.onistone.onilink.control.OniControlRuntime;
+import dev.onistone.onilink.control.PacketOrigin;
+import dev.onistone.onilink.packet.PacketRuleDirection;
+import dev.onistone.onilink.packet.PacketRuleResult;
+import dev.onistone.onilink.packet.PacketRuleStage;
 
 public final class ClientRelayPacketHandler implements BedrockPacketHandler {
     private static final int INITIAL_CROSS_PROTOCOL_BACKEND_CHUNK_RADIUS = 8;
@@ -90,6 +95,13 @@ public final class ClientRelayPacketHandler implements BedrockPacketHandler {
         }
         if (connection.isPacketTraceActive()) {
             logMovementStateChange(packet);
+        }
+
+        OniControlRuntime virtualControl = connection.oniControlRuntime();
+        if (virtualControl != null && virtualControl.interceptVirtualClientPacket(connection, packet)) {
+            connection.observePacket(PacketMonitor.Direction.SERVERBOUND, packet, null,
+                    PacketMonitor.Action.ONIVIRTUAL_CONSUMED);
+            return PacketSignal.HANDLED;
         }
 
         if (connection.backend() == null || !connection.backend().isConnected()) {
@@ -552,14 +564,39 @@ public final class ClientRelayPacketHandler implements BedrockPacketHandler {
     private void sendToBackend(BackendSession backend, BedrockPacket packet, long traceSequence) {
         normalizePlayerRuntimeId(packet);
         normalizeChatIdentity(packet);
+        OniControlRuntime control = connection.oniControlRuntime();
+        PacketRuleResult preRules = control == null
+                ? PacketRuleResult.pass(packet)
+                : control.packetRules().evaluate(
+                        control.context(connection, PacketRuleDirection.SERVERBOUND, PacketOrigin.CLIENT),
+                        PacketRuleStage.PRE_TRANSLATION, packet,
+                        connection.sessionProfile().clientCodec(), connection.sessionProfile().clientCodec(),
+                        connection.saneJoinPosition(), 0, 1);
+        if (!preRules.forwards()) {
+            connection.observePacket(PacketMonitor.Direction.SERVERBOUND, packet, null,
+                    preRules.decision() == dev.onistone.onilink.packet.PacketDecisionType.CONSUME
+                            ? PacketMonitor.Action.ONIPACKET_CONSUMED : PacketMonitor.Action.DROPPED,
+                    backend);
+            return;
+        }
         BedrockPacket translated = connection.sessionProfile()
                 .translator()
-                .translateServerbound(packet, connection.sessionProfile().translationContext());
+                .translateServerbound(preRules.packet(), connection.sessionProfile().translationContext());
+        PacketRuleResult postRules = translated == null || control == null
+                ? PacketRuleResult.pass(translated)
+                : control.packetRules().evaluate(
+                        control.context(connection, PacketRuleDirection.SERVERBOUND, PacketOrigin.CLIENT),
+                        PacketRuleStage.POST_TRANSLATION, translated,
+                        connection.sessionProfile().backendCodec(), connection.sessionProfile().clientCodec(),
+                        connection.saneJoinPosition(), 0, 1);
+        translated = postRules.packet();
         connection.observePacket(
                 PacketMonitor.Direction.SERVERBOUND,
                 packet,
                 translated,
-                translated == null ? PacketMonitor.Action.DROPPED : PacketMonitor.Action.FORWARDED,
+                translated == null ? PacketMonitor.Action.DROPPED
+                        : postRules.decision() == dev.onistone.onilink.packet.PacketDecisionType.REPLACE
+                        ? PacketMonitor.Action.ONIPACKET_REPLACED : PacketMonitor.Action.FORWARDED,
                 backend
         );
         if (translated == null) {

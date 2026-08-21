@@ -17,14 +17,28 @@ const port = z
   .regex(/^\d+$/, "Enter the UDP port assigned to the game server")
   .refine((value) => Number(value) >= 1 && Number(value) <= 65535, "Port must be 1-65535");
 
-const schema = z.object({
-  name: z.string().regex(/^[a-z][a-z0-9_-]{0,31}$/, "Use 1–32 lowercase route characters"),
-  backendHost: z.string().trim().min(3, "Destination server IP or domain is required").max(253),
-  backendPort: port,
-  proxyPublicIp: z.string().trim().min(3, "Proxy public IP is required").max(64),
-  bridgeId: z.string().trim().max(64),
-  activeKeyId: z.string().trim().min(1, "Key label is required").max(64),
-});
+const schema = z
+  .object({
+    name: z.string().regex(/^[a-z][a-z0-9_-]{0,31}$/, "Use 1–32 lowercase route characters"),
+    backendHost: z.string().trim().min(3, "Destination server IP or domain is required").max(253),
+    backendPort: port,
+    proxyPublicIp: z.string().trim().min(3, "Proxy public IP is required").max(64),
+    bridgeId: z.string().trim().max(64),
+    activeKeyId: z.string().trim().min(1, "Key label is required").max(64),
+    controlEnabled: z.boolean(),
+    controlHost: z.string().trim().max(64),
+    controlPort: port,
+    controlMode: z.enum(["advisor", "enforce"]),
+  })
+  .superRefine((value, context) => {
+    if (value.controlEnabled && !value.controlHost) {
+      context.addIssue({
+        code: "custom",
+        path: ["controlHost"],
+        message: "A private OniControl IP is required",
+      });
+    }
+  });
 type Values = z.infer<typeof schema>;
 
 export function AddBackendPage() {
@@ -47,6 +61,10 @@ export function AddBackendPage() {
       proxyPublicIp: "",
       bridgeId: "",
       activeKeyId: "key-1",
+      controlEnabled: false,
+      controlHost: "",
+      controlPort: "19132",
+      controlMode: "advisor",
     },
   });
   const mutation = useMutation({
@@ -58,6 +76,14 @@ export function AddBackendPage() {
         bridgeId: values.bridgeId,
         activeKeyId: values.activeKeyId,
         revision: config.data?.revision ?? "",
+        ...(values.controlEnabled
+          ? {
+              controlEnabled: "true",
+              controlHost: values.controlHost,
+              controlPort: values.controlPort,
+              controlMode: values.controlMode,
+            }
+          : {}),
       }),
     onSuccess: (data) => {
       setResult(data);
@@ -70,7 +96,7 @@ export function AddBackendPage() {
     const fields: Array<Array<keyof Values>> = [
       ["name", "backendHost", "backendPort"],
       ["proxyPublicIp"],
-      ["bridgeId", "activeKeyId"],
+      ["bridgeId", "activeKeyId", "controlEnabled", "controlHost", "controlPort", "controlMode"],
     ];
     if (step < 3 && (await form.trigger(fields[step]))) setStep(step + 1);
   }
@@ -124,6 +150,12 @@ export function AddBackendPage() {
             One-time forwarding secret
             <textarea className="mono" readOnly rows={2} value={result.secret} />
           </label>
+          {result.controlEnabled ? (
+            <label>
+              One-time OniControl secret (separate key)
+              <textarea className="mono" readOnly rows={2} value={result.controlSecret} />
+            </label>
+          ) : null}
           <label>
             Saved OniLink properties
             <textarea className="mono" readOnly rows={6} value={result.onilinkProperties} />
@@ -152,6 +184,20 @@ export function AddBackendPage() {
               <KeyRound aria-hidden="true" />
               Download key
             </Button>
+            {result.controlEnabled && result.controlSecretFileName ? (
+              <Button
+                className="secondary"
+                onClick={() =>
+                  downloadText(
+                    result.controlSecretFileName ?? "control.key",
+                    `${result.controlSecret ?? ""}\n`,
+                  )
+                }
+              >
+                <KeyRound aria-hidden="true" />
+                Download control key
+              </Button>
+            ) : null}
             <Button
               className="secondary"
               onClick={() => downloadText("onibridge.toml", result.onibridgeToml)}
@@ -294,6 +340,61 @@ export function AddBackendPage() {
                 <FieldError id="key-id-error">
                   {form.formState.errors.activeKeyId?.message}
                 </FieldError>
+                <label className="checkboxLabel">
+                  <input type="checkbox" {...form.register("controlEnabled")} />
+                  <span>
+                    Generate the optional OniControl connection
+                    <small>
+                      Enables typed backend actions over a separate authenticated TCP port. Leave
+                      off unless the backend has a private network address or tunnel.
+                    </small>
+                  </span>
+                </label>
+                {values.controlEnabled ? (
+                  <div className="connectionSection">
+                    <h3>Private OniControl connection</h3>
+                    <p>
+                      This must be a private numeric IP reachable from OniLink. Public cleartext
+                      control addresses are rejected.
+                    </p>
+                    <div className="formGrid">
+                      <label>
+                        Private backend control IP
+                        <span className="fieldHelp">Example: 10.0.0.20</span>
+                        <input
+                          placeholder="10.0.0.20"
+                          autoComplete="off"
+                          {...form.register("controlHost")}
+                          aria-describedby="control-host-error"
+                        />
+                      </label>
+                      <label>
+                        Dedicated TCP control port
+                        <span className="fieldHelp">Example: 19132</span>
+                        <input
+                          type="number"
+                          min="1"
+                          max="65535"
+                          {...form.register("controlPort")}
+                          aria-describedby="control-port-error"
+                        />
+                      </label>
+                    </div>
+                    <FieldError id="control-host-error">
+                      {form.formState.errors.controlHost?.message}
+                    </FieldError>
+                    <FieldError id="control-port-error">
+                      {form.formState.errors.controlPort?.message}
+                    </FieldError>
+                    <label>
+                      Initial safety mode
+                      <select {...form.register("controlMode")}>
+                        <option value="advisor">Advisor — preview and confirm actions</option>
+                        <option value="enforce">Enforce — execute approved actions</option>
+                      </select>
+                    </label>
+                  </div>
+                ) : null}
               </fieldset>
             ) : null}
             {step === 3 ? (
@@ -325,6 +426,14 @@ export function AddBackendPage() {
                     <dd>{values.activeKeyId}</dd>
                   </div>
                   <div>
+                    <dt>OniControl</dt>
+                    <dd>
+                      {values.controlEnabled
+                        ? `${values.controlHost}:${values.controlPort} (${values.controlMode})`
+                        : "Disabled"}
+                    </dd>
+                  </div>
+                  <div>
                     <dt>Configuration revision</dt>
                     <dd className="mono">{config.data?.revision ?? "Unavailable"}</dd>
                   </div>
@@ -333,7 +442,7 @@ export function AddBackendPage() {
                   <strong>One-time secret</strong>
                   <span>
                     Creating the route updates and backs up configuration, creates an owner-only key
-                    file, and returns the secret only once.
+                    file, and returns each generated secret only once.
                   </span>
                 </div>
               </fieldset>

@@ -1,0 +1,20 @@
+body {
+  display: grid;
+  min-height: 100vh;
+  margin: 0;
+  place-items: center;
+  background: #07111d;
+  color: #dceaf5;
+  font:
+    16px system-ui,
+    sans-serif;
+}
+main {
+  max-width: 32rem;
+  padding: 2rem;
+  text-align: center;
+}
+p {
+  color: #91a5ba;
+  line-height: 1.6;
+}

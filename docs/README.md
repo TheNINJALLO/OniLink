@@ -9,6 +9,10 @@ Use this page as the canonical map for operators, testers, and contributors. The
 > [!IMPORTANT]
 > `v0.2.0` is the current stable release. It includes detailed token-redacted packet evidence, verified shared-codec mappings from real traffic, and review flags for translator gaps. Full captures include sensitive player and network data. The exact Linux BDS `1.26.44.3` + Endstone `0.11.9` profile remains production-approved; monitoring does not relax any compatibility gate.
 
+> `v0.3.0-beta.1` is the current operations beta. Start with the
+> [Expansion Modules guide](EXPANSION_MODULES.md); new mutation-capable modules are disabled by
+> default.
+
 ## Start here
 
 | Goal | Guide |
@@ -18,8 +22,11 @@ Use this page as the canonical map for operators, testers, and contributors. The
 | Install the current Linux release | [Quick start](QUICKSTART.md) |
 | Install and configure the complete network | [Installation](INSTALLATION.md) |
 | Add another BDS server automatically | [Adding a BDS backend](ADDING_BACKEND.md) |
-| Review the current changes and upgrade steps | [v0.2.0 release notes](releases/v0.2.0.md) |
+| Review the current beta and upgrade steps | [v0.3.0-beta.1 release notes](releases/v0.3.0-beta.1.md) |
 | Inspect live cross-version packet mappings | [Packet monitor](PACKET_MONITOR.md) |
+| Configure typed per-player and BDS actions | [OniControl](ONICONTROL.md) |
+| Configure packet rules | [OniPacket](ONIPACKET.md) |
+| Operate the 0.3 modules | [Expansion modules](EXPANSION_MODULES.md) |
 | Copy a complete working configuration | [Deployment examples](../examples/README.md) |
 | Import the OniLink Pterodactyl egg | [Pterodactyl](PTERODACTYL.md) |
 | Provision isolated paid customer instances | [Tenant hosting](TENANT_HOSTING.md) |
@@ -42,6 +49,13 @@ Use this page as the canonical map for operators, testers, and contributors. The
 
 ## Security and architecture
 
+- [OniControl](ONICONTROL.md) — execution planes, setup, permissions, confirmation, and plans.
+- [OniPacket](ONIPACKET.md) — deterministic two-direction rules and codec-aware construction.
+- [Virtual inventories](VIRTUAL_INVENTORIES.md), [private entities](PRIVATE_ENTITIES.md), and
+  [fake blocks](FAKE_BLOCKS.md) — implemented per-player state and safety boundaries.
+- [OniControl security](ONICONTROL_SECURITY.md) and [API](ONICONTROL_API.md) — ONICTL/1,
+  transport boundaries, authenticated endpoints, and redaction.
+
 - [Architecture](ARCHITECTURE.md) — public edge, backend verification, and compatibility plane.
 - [Identity flow](IDENTITY_FLOW.md) — exact authentication and pre-storage identity timeline.
 - [OniForward protocol](ONIFORWARD_PROTOCOL.md) — claim schema, HMAC validation, context binding, and replay rules.
@@ -63,7 +77,7 @@ Use this page as the canonical map for operators, testers, and contributors. The
 | Item | Current value |
 | --- | --- |
 | Product identity | Standalone OniLink system |
-| Application release | `v0.2.0` (stable) |
+| Application release | `v0.2.0` stable; `v0.3.0-beta.1` operations beta |
 | Locked BDS | `1.26.44.3` |
 | Endstone | `0.11.9` |
 | Public proxy runtime | Java 21 |

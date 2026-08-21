@@ -283,7 +283,7 @@ public final class BackendInitialPacketHandler implements BedrockPacketHandler {
     private java.util.List<String> visibleBackendNames() {
         String xuid = connection.clientLogin().authData().xuid();
         String displayName = connection.clientLogin().authData().displayName();
-        return backendDirectory.backendNames().stream()
+        return backendDirectory.routableBackendNames().stream()
                 .filter(name -> permissions.mayJoinBackend(xuid, displayName, name))
                 .toList();
     }

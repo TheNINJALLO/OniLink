@@ -1,6 +1,34 @@
 # Changelog
 
-## Unreleased
+## 0.3.0-beta.1 - 2026-08-21
+
+- Added the shared tenant-scoped platform, typed bounded event bus/action registry, SQLite
+  migrations, module lifecycle/health, optimistic revisions, audit boundaries, and failure
+  isolation used by all 0.3 operations modules.
+- Added OniFlow, limbo/drain/return reservations, quarantine-first routing, journey traces,
+  evidence-generated protocol diffs/matrices, dynamic backend revisions/rollback, sticky canaries,
+  and gated blue-green promotion/rollback.
+- Added expiring privacy-aware presence, hierarchical global roles, in-game support tickets, the
+  non-activating pack conflict scanner, an installable iOS operations PWA, and redacted VAPID Web
+  Push subscriptions.
+- Added Owner-only Protocol Lab timed sessions with XUID/backend/model allowlists, semantic field
+  validation, negotiated-codec dry encoding, rate limits, auditing, and packet-monitor attribution.
+- Added the full [0.3 operations guide](docs/EXPANSION_MODULES.md), module configuration, API/UI
+  controls, malicious archive and isolation fixtures, and OniForge CI artifacts.
+
+- Added the disabled-by-default OniControl subsystem: typed client, authoritative, and virtualized
+  actions; signed framed `ONICTL/1` Java-to-native control; per-backend capabilities; replay,
+  deadline, queue, source-CIDR, and role enforcement; and primary-thread native dispatch.
+- Added OniPacket rules to both live relay directions, codec-checked typed packet construction,
+  tenant/proxy-scoped atomic rule storage, aggregate metrics, and packet-monitor attribution.
+- Added OniVirtual inventory sessions, private entities/NPCs/holograms, and observed-state fake
+  blocks with per-player isolation and disconnect/transfer/dimension cleanup.
+- Added dashboard action preview/confirmation/history, typed multi-step plans, rule management,
+  tenant action grants, backend-wizard control provisioning, support-bundle summaries, and safe
+  Pterodactyl variables.
+- Added OniControl security, API, virtualization, packet, compatibility, and deployment guidance.
+  Experimental and upstream-blocked operations remain explicitly `UNSUPPORTED`; Protocol Lab
+  accepts only its reviewed semantic model allowlist and never raw packet bytes.
 
 ## 0.2.0 - 2026-08-20
 

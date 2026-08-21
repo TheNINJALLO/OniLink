@@ -13,6 +13,7 @@ import java.util.Properties;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ProxyConfigTest {
@@ -211,5 +212,17 @@ class ProxyConfigTest {
         assertEquals(5, config.maxPlayers());
         assertEquals(PacketCompressionAlgorithm.NONE, config.compressionAlgorithm());
         assertEquals(128, config.compressionThreshold());
+    }
+
+    @Test
+    void controlCannotReuseTheForwardingSecretSource() {
+        Properties properties = new Properties();
+        properties.setProperty("control.enabled", "true");
+        properties.setProperty("control.secretEnvironment", "ONIBRIDGE_FORWARDING_SECRET");
+
+        IllegalArgumentException error = assertThrows(
+                IllegalArgumentException.class, () -> ProxyConfig.from(properties));
+
+        assertTrue(error.getMessage().contains("separate secret source"));
     }
 }

@@ -7,6 +7,8 @@ import dev.onistone.onilink.backend.ProxyConnection;
 import dev.onistone.onilink.config.BackendConfig;
 import dev.onistone.onilink.permissions.ProxyPermissions;
 import dev.onistone.onilink.session.ConnectedPlayerRegistry;
+import dev.onistone.onilink.modules.connect.SupportCommandGateway;
+import dev.onistone.onilink.platform.persistence.PlatformDatabase;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -32,6 +34,7 @@ public final class NetworkCommands {
     private final ProxyAllowlist allowlist;
     private final ProxyCommandRegistry commandRegistry;
     private final Runnable onPermissionsChanged;
+    private volatile PlatformDatabase.Scope scope = PlatformDatabase.Scope.of("provider", "main");
 
     public NetworkCommands(
             ConnectedPlayerRegistry connectedPlayers,
@@ -43,6 +46,19 @@ public final class NetworkCommands {
     ) {
         this(connectedPlayers, backendDirectory, switcher, permissions, ProxyAllowlist.disabled(),
                 commandRegistry, onPermissionsChanged);
+    }
+
+    public void setScope(String tenantId, String proxyId) {
+        scope = PlatformDatabase.Scope.of(tenantId, proxyId);
+    }
+
+    public void support(CommandSender sender, List<String> arguments) {
+        if (sender.isConsole() || sender.connection() == null || sender.xuid().isBlank()) {
+            sender.sendMessage("The in-game support command requires an authenticated player.");
+            return;
+        }
+        String backend = String.valueOf(sender.connection().backendName());
+        SupportCommandGateway.submit(scope, sender.xuid(), sender.name(), backend, arguments, sender::sendMessage);
     }
 
     public NetworkCommands(

@@ -252,6 +252,11 @@ public final class CrossBackendPalette {
         return clientEntityIdentifiers;
     }
 
+    /** Captures the ordinary backend registry for OniVirtual when cross-backend palette merging is off. */
+    public void rememberClientEntityIdentifiers(NbtMap identifiers) {
+        if (clientEntityIdentifiers == null && identifiers != null) clientEntityIdentifiers = identifiers;
+    }
+
     /** Remembers an entity property list already sent to the client; returns false if it is a repeat. */
     public boolean markEntityPropertySent(NbtMap property) {
         return sentEntityPropertyTypes.add(EntityPalettes.entityPropertyType(property));

@@ -46,6 +46,8 @@ export function TenantHostingPage({ navigate }: { navigate: (route: string) => v
     bdsProfile: "",
   });
   const [suspend, setSuspend] = useState<Tenant | null>(null);
+  const [grantTenant, setGrantTenant] = useState("");
+  const [grantActions, setGrantActions] = useState("SEND_MESSAGE,SEND_TITLE,PLAY_SOUND");
   const refresh = async () => client.invalidateQueries({ queryKey: ["tenancy"] });
   const createTenant = useMutation({
     mutationFn: () => dashboardApi.createTenant(tenantForm),
@@ -107,13 +109,33 @@ export function TenantHostingPage({ navigate }: { navigate: (route: string) => v
       await refresh();
     },
   });
+  const saveGrants = useMutation({
+    mutationFn: () =>
+      dashboardApi.saveTenantControlGrants(
+        grantTenant,
+        grantActions
+          .split(/[\s,]+/)
+          .map((action) => action.trim().toUpperCase())
+          .filter(Boolean),
+      ),
+    onSuccess: (result) => {
+      setMessage(`Saved ${result.actions.length} OniControl grant(s) for ${result.tenant}.`);
+      setGrantActions(result.actions.join(","));
+    },
+  });
+  const loadGrants = useMutation({
+    mutationFn: (tenant: string) => dashboardApi.tenantControlGrants(tenant),
+    onSuccess: (result) => setGrantActions(result.actions.join(",")),
+  });
   const activeError =
     query.error ??
     createTenant.error ??
     createUser.error ??
     createProxy.error ??
     tenantAction.error ??
-    proxyAction.error;
+    proxyAction.error ??
+    saveGrants.error ??
+    loadGrants.error;
   const tenants = query.data?.tenants ?? [];
   return (
     <>
@@ -497,6 +519,53 @@ export function TenantHostingPage({ navigate }: { navigate: (route: string) => v
             detail="Create a tenant to establish the first isolated customer boundary."
           />
         )}
+      </Card>
+      <Card>
+        <div className="sectionTitle">
+          <div>
+            <p className="eyebrow">Owner policy</p>
+            <h2>Tenant OniControl grants</h2>
+          </div>
+          <ServerCog aria-hidden="true" />
+        </div>
+        <p className="fieldHint">
+          Tenant accounts start with no OniControl actions. Grant only operator-level actions that
+          this customer should use; administrator, command, transport, key, and Protocol Lab access
+          can never be granted here.
+        </p>
+        <div className="controlFormGrid">
+          <label>
+            Tenant
+            <select
+              value={grantTenant}
+              onChange={(event) => {
+                setGrantTenant(event.target.value);
+                if (event.target.value) loadGrants.mutate(event.target.value);
+                else setGrantActions("");
+              }}
+            >
+              <option value="">Select a tenant</option>
+              {tenants.map((tenant) => (
+                <option key={tenant.id} value={tenant.id}>
+                  {tenant.label} · {tenant.id}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Allowed typed actions
+            <textarea
+              className="mono"
+              rows={4}
+              value={grantActions}
+              onChange={(event) => setGrantActions(event.target.value)}
+              placeholder="SEND_MESSAGE,SEND_TITLE,PLAY_SOUND"
+            />
+          </label>
+        </div>
+        <Button onClick={() => saveGrants.mutate()} disabled={!grantTenant || saveGrants.isPending}>
+          {saveGrants.isPending ? "Validating…" : "Save tenant action grants"}
+        </Button>
       </Card>
       <Card>
         <h2>Proxy instances</h2>

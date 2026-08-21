@@ -30,6 +30,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setPrincipal(null);
     setRestoring(false);
     queryClient.clear();
+    navigator.serviceWorker?.controller?.postMessage({ type: "CLEAR_PRIVATE_CACHES" });
   }, [queryClient]);
 
   useEffect(() => {

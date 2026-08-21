@@ -94,7 +94,7 @@ To add a native BDS route automatically, use the dashboard's dedicated **Add Bac
 | `listener.host` | `0.0.0.0` | Local interface for the public Bedrock listener |
 | `listener.port` | `19132` | Public UDP port players connect to |
 | `publicAddress` | `play.example.com:19132` | Address advertised when a reconnect-style transfer is required |
-| `backend.name` | `survival` | Default backend name |
+| `backend.name` | `survival` | Primary backend used for new joins without a forced-host route |
 | `backend.host` | `10.10.0.20` | Legacy/default backend address used while building the default entry |
 | `backend.port` | `19133` | Legacy/default backend UDP port |
 | `backends` | `survival,lobby` | Ordered comma-separated backend names |
@@ -105,6 +105,10 @@ To add a native BDS route automatically, use the dashboard's dedicated **Add Bac
 | `backend.<name>.protocol` | `1.26.44` | Optional per-backend protocol override |
 
 Use `backend.protocol=auto` unless you have a deliberate, tested reason to pin. A stale version pin is harder to diagnose than a failed probe.
+
+For a tenant proxy, the provider owner or tenant can change `backend.name` through **My Proxies →
+Choose the primary server**. The control plane also synchronizes the compatibility `backend.host`
+and `backend.port` values and restarts only that proxy. `hubBackend` remains independent.
 
 ## Dashboard keys
 
@@ -272,3 +276,44 @@ Raise a limit only after logs prove a legitimate client is hitting it. Do not di
 | `legacy_verification.enabled` | `false` | `true` is rejected |
 
 Unknown and duplicate TOML keys are rejected. Strings must be quoted, booleans must be `true`/`false`, and CIDRs must be an array of quoted strings.
+
+## OniControl, OniPacket, and OniVirtual
+
+Every new subsystem is disabled by default. The complete Java-side template is in
+[`onilink.example.properties`](../OniLink/onilink.example.properties); the matching native block is
+in [`onibridge.example.toml`](../OniBridge/onibridge.example.toml).
+
+```properties
+control.enabled=false
+control.mode=advisor
+control.connectHost=127.0.0.1
+control.connectPort=19132
+control.bridgeId=default-bridge
+control.backendName=default
+control.keyId=control-key-1
+control.secretEnvironment=ONILINK_CONTROL_SECRET
+control.secretFile=
+control.allowInsecurePrivateNetwork=false
+control.allowPublicAddress=false
+control.tls.enabled=false
+
+packetRules.enabled=false
+packetRules.maxRules=500
+packetRules.maxInjectedPacketsPerDecision=16
+
+virtualization.enabled=false
+protocolLab.enabled=false
+```
+
+Multi-backend settings use `backend.<name>.control.*`; global `control.*` keys are compatibility
+aliases for the default backend. Configure exactly one control secret source and do not reuse an
+OniForward source. A cleartext connection is accepted automatically only on loopback. A literal
+private address additionally requires `allowInsecurePrivateNetwork=true`; a public address also
+requires the separate dangerous override. See [OniControl security](ONICONTROL_SECURITY.md) before
+enabling either override.
+
+The native `[control]` section contains the same bridge/backend/key identifiers, a different
+environment variable or owner-only file, a private `listen_host`, and the exact OniLink source in
+`trusted_proxy_cidrs`. Native TLS transport is intentionally unavailable in this version; cross-node
+deployments needing confidentiality must use a private encrypted tunnel. The Java TLS client does
+validate the server name and configured CA or SHA-256 certificate pin.

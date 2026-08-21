@@ -13,6 +13,8 @@ import { OperationsPage } from "../features/operations/OperationsPage";
 import { OverviewPage } from "../features/overview/OverviewPage";
 import { PlayersPage } from "../features/players/PlayersPage";
 import { PacketMonitorPage } from "../features/packets/PacketMonitorPage";
+import { OniControlPage } from "../features/control/OniControlPage";
+import { PlatformPage } from "../features/platform/PlatformPage";
 import { useHashRoute } from "../hooks/useHashRoute";
 import { AppShell, ForbiddenPage, visibleNav } from "../layouts/AppShell";
 
@@ -44,6 +46,12 @@ export function App() {
         break;
       case "packet-monitor":
         page = <PacketMonitorPage />;
+        break;
+      case "onicontrol":
+        page = <OniControlPage />;
+        break;
+      case "platform":
+        page = <PlatformPage />;
         break;
       case "backends":
         page = <BackendsPage navigate={navigate} />;

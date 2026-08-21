@@ -213,6 +213,11 @@ export interface BackendSetup extends Configuration {
   onilinkSecretFile: string;
   onilinkProperties: string;
   onibridgeToml: string;
+  controlEnabled?: boolean;
+  controlSecret?: string;
+  controlSecretFileName?: string;
+  onilinkControlSecretFile?: string;
+  controlEndpoint?: string;
   backendEndpoint: string;
   trustedProxyCidr: string;
   setupBundleFileName: string;
@@ -224,6 +229,159 @@ export interface BackendSetup extends Configuration {
 export interface ActionResult {
   success: boolean;
   message: string;
+}
+
+export interface OniControlBridgeStatus {
+  enabled: boolean;
+  connected: boolean;
+  tls: boolean;
+  backend: string;
+  bridgeId: string;
+  capabilityRevision: number;
+  latencyMillis: number;
+  queueSize: number;
+  supportedActionCount: number;
+  lastError: string;
+  updatedAt: string;
+}
+
+export interface OniControlActionCapability {
+  action: string;
+  executionPlane: "CLIENT_ONLY" | "BACKEND_AUTHORITATIVE" | "VIRTUALIZED";
+  minimumRole: string;
+  destructive: boolean;
+  supported: boolean;
+  reason: string;
+  payloadVersion: number;
+}
+
+export interface OniControlStatus {
+  started: boolean;
+  available: boolean;
+  controlEnabled: boolean;
+  packetRulesEnabled: boolean;
+  virtualizationEnabled: boolean;
+  protocolLabEnabled: boolean;
+  tenantId: string;
+  proxyId: string;
+  ruleCount: number;
+  historyCount: number;
+  bridges: OniControlBridgeStatus[];
+  capabilities: Array<Record<string, unknown>>;
+  packetRuleMetrics: Record<string, number>;
+  packetFactoryMetrics: Record<string, number>;
+  virtualInventorySessions: Array<Record<string, unknown>>;
+  privateEntities: Array<Record<string, unknown>>;
+  fakeBlocks: Array<Record<string, unknown>>;
+}
+
+export interface ProtocolLabStatus {
+  enabled: boolean;
+  backendBoundEnabled: boolean;
+  sessionActive: boolean;
+  sessionExpiresAt: string;
+  maximumPacketsPerMinute: number;
+  models: Array<{
+    model: string;
+    direction: "CLIENTBOUND";
+    fields: Record<string, string>;
+  }>;
+}
+
+export interface ProtocolLabResult {
+  valid: boolean;
+  sent: boolean;
+  model: string;
+  direction: string;
+  packetCount: number;
+  encodedBytes: number;
+  clientProtocol: number;
+  sessionExpiresAt: string;
+}
+
+export interface OniControlTarget {
+  xuid: string;
+  connectionId: string;
+  displayName: string;
+  tenantId: string;
+  proxyId: string;
+  backend: string;
+  clientProtocol: number;
+  backendProtocol: number;
+  joinedWorld: boolean;
+  transferInProgress: boolean;
+}
+
+export interface OniControlPreview {
+  confirmationToken: string;
+  revision: string;
+  expiresAt: string;
+  action: string;
+  executionPlane: OniControlActionCapability["executionPlane"];
+  destructive: boolean;
+  target: OniControlTarget;
+  payloadSummary: { version: number; fields: string[] };
+  reason: string;
+}
+
+export interface OniControlResult {
+  requestId: string;
+  status: string;
+  success: boolean;
+  reason: string;
+  result: Record<string, unknown>;
+  startedAt: string;
+  completedAt: string;
+  durationMillis: number;
+  auditReference: string;
+}
+
+export interface OniControlPlanPreview {
+  valid: boolean;
+  planId: string;
+  revision: number;
+  failurePolicy: string;
+  requiredRole: string;
+  confirmationRequired: boolean;
+  stepCount: number;
+  steps: Array<Record<string, unknown>>;
+  reason: string;
+  expectedResult: string;
+  confidence: number;
+  confirmationToken: string;
+  expiresAt: string;
+}
+
+export interface OniControlPlanResult {
+  planId: string;
+  revision: number;
+  status: string;
+  success: boolean;
+  partial: boolean;
+  stopped: boolean;
+  failurePolicy: string;
+  results: Array<Record<string, unknown>>;
+  compensation?: string;
+}
+
+export interface OniControlHistoryRecord {
+  requestId: string;
+  actor: string;
+  role: string;
+  tenantId: string;
+  proxyId: string;
+  targetXuid: string;
+  displayLabel: string;
+  backend: string;
+  action: string;
+  executionPlane: OniControlActionCapability["executionPlane"];
+  status: string;
+  timestamp: string;
+  durationMillis: number;
+  payloadSummary: string;
+  resultSummary: string;
+  failureReason: string;
+  confirmed: boolean;
 }
 
 export interface DashboardUser extends Principal {
@@ -247,6 +405,7 @@ export interface TenantProxy {
   port: number;
   publicAddress: string;
   backendAddress: string;
+  primaryBackend: string;
   trustedProxyCidr: string;
   bdsProfile: string;
   maxPlayers: number;
@@ -271,6 +430,9 @@ export interface TenantProxyDashboard {
   state: Partial<RuntimeState>;
   players: Player[];
   backends: Backend[];
+  primaryBackend: string;
+  primaryBackendAddress: string;
+  configuredBackends: Array<{ name: string; address: string }>;
   allowlist: Allowlist;
   configurationRevision: string;
 }

@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "dev.onistone"
-version = "0.2.0"
+version = "0.3.0-beta.1"
 
 // OneDrive and antivirus scanners can transiently lock Gradle's class directories on Windows.
 // CI and local release jobs may place disposable intermediates on a local scratch volume while
@@ -22,6 +22,8 @@ java {
 dependencies {
     implementation("org.cloudburstmc.protocol:bedrock-codec")
     implementation("org.cloudburstmc.protocol:bedrock-connection")
+    implementation("org.xerial:sqlite-jdbc:3.49.1.0")
+    implementation("nl.martijndwars:web-push:5.1.1")
     runtimeOnly("org.slf4j:slf4j-simple:1.7.36")
 
     testImplementation(platform("org.junit:junit-bom:5.11.4"))
@@ -137,4 +139,17 @@ tasks.test {
     )) {
         System.getProperty(key)?.let { systemProperty(key, it) }
     }
+}
+
+val forgeReports by tasks.registering(JavaExec::class) {
+    group = "verification"
+    description = "Generates evidence-based protocol compatibility artifacts."
+    dependsOn(tasks.named("classes"))
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass.set("dev.onistone.onilink.modules.forge.ForgeCli")
+    args(layout.projectDirectory.dir("build/forge").asFile.absolutePath)
+}
+
+tasks.named("check") {
+    dependsOn(forgeReports)
 }

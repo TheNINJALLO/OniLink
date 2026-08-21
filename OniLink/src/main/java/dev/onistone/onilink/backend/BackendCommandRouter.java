@@ -64,13 +64,14 @@ public final class BackendCommandRouter {
             case "alert" -> networkCommands.alert(sender, CommandArguments.remainder(command.originalCommandLine()));
             case "perm" -> networkCommands.permission(sender, arguments);
             case "allowlist" -> networkCommands.allowlist(sender, arguments);
+            case "support" -> networkCommands.support(sender, arguments);
             default -> sender.sendMessage("Unknown proxy command: " + name);
         }
     }
 
     private void server(ProxyConnection connection, List<String> arguments) {
         if (arguments.isEmpty()) {
-            BackendSwitcher.sendMessage(connection, "Servers: " + backendDirectory.backends().stream()
+            BackendSwitcher.sendMessage(connection, "Servers: " + backendDirectory.routableBackends().stream()
                     .map(BackendConfig::name)
                     .filter(name -> mayJoin(connection, name))
                     .collect(Collectors.joining(", ")));

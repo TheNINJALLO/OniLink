@@ -16,8 +16,10 @@ import {
   ServerCog,
   Settings,
   ShieldCheck,
+  SlidersHorizontal,
   UsersRound,
   Wrench,
+  Workflow,
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState, type ComponentType, type PropsWithChildren } from "react";
@@ -45,6 +47,8 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
       { route: "players", label: "Players", icon: UsersRound, minimum: "viewer" },
       { route: "backends", label: "Backends", icon: Network, minimum: "viewer" },
       { route: "packet-monitor", label: "Packet Monitor", icon: ScanSearch, allRoles: true },
+      { route: "onicontrol", label: "OniControl", icon: SlidersHorizontal, allRoles: true },
+      { route: "platform", label: "Platform", icon: Workflow, allRoles: true },
     ],
   },
   {

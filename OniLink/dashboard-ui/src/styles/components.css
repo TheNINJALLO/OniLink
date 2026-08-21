@@ -725,3 +725,121 @@ hr {
   padding: 2rem;
   text-align: center;
 }
+
+.controlStats .card {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.controlFormGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.controlPayload {
+  min-height: 9rem;
+  resize: vertical;
+}
+
+.ruleEditor {
+  min-height: 22rem;
+}
+
+.platformTabs {
+  display: flex;
+  gap: 0.45rem;
+  margin: 0 0 1rem;
+  padding: 0.35rem;
+  overflow-x: auto;
+  border: 1px solid #26394e;
+  border-radius: 10px;
+  background: #0b1725;
+  scrollbar-width: thin;
+}
+.platformTabs button {
+  display: inline-flex;
+  min-height: 42px;
+  flex: none;
+  align-items: center;
+  gap: 0.42rem;
+  padding: 0.55rem 0.72rem;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: #98abbe;
+  cursor: pointer;
+  font-weight: 700;
+}
+.platformTabs button.active {
+  border-color: #35637a;
+  background: #153149;
+  color: #e8f7ff;
+}
+.platformTabs svg {
+  width: 17px;
+}
+.platformTabs i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #66788b;
+}
+.platformTabs i.ready {
+  background: var(--green);
+}
+.platformTabs i.disabled {
+  background: #617085;
+}
+.platformMetrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.moduleGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+.moduleHeading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.moduleHeading h2 {
+  margin: 0;
+  text-transform: capitalize;
+}
+.moduleHeading small {
+  color: var(--muted);
+}
+.platformContent {
+  display: grid;
+  gap: 1rem;
+}
+.platformContent > .card > h2 {
+  margin-top: 0;
+}
+.platformContent form > .button + .button,
+.platformContent .card > .button + .button {
+  margin-left: 0.55rem;
+}
+.platformData pre {
+  max-height: 65vh;
+  margin: 0.9rem 0 0;
+  padding: 0.9rem;
+  overflow: auto;
+  border: 1px solid #273c52;
+  border-radius: 7px;
+  background: #06101b;
+  color: #bdd5e7;
+  font-size: 0.72rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.platformEditor {
+  min-height: 18rem;
+  margin-bottom: 0.7rem;
+  font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.76rem;
+}

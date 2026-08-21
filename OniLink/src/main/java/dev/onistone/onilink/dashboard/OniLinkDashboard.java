@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -45,6 +46,8 @@ public final class OniLinkDashboard implements AutoCloseable {
     private final DashboardAuditLog audit;
     private final DashboardConfigFile configFile;
     private final DashboardTenantHosting tenantHosting;
+    private final ExpansionRuntime expansion;
+    private final ExpansionApi expansionApi;
     private final Path logPath;
     private final HttpServer server;
     private final ExecutorService requestExecutor;
@@ -78,6 +81,20 @@ public final class OniLinkDashboard implements AutoCloseable {
         this.audit = new DashboardAuditLog(config.dataDirectory());
         this.tenantHosting = new DashboardTenantHosting(
                 config.dataDirectory(), accounts, tenantRuntimeFactory, providerPort(control));
+        ExpansionRuntime expansionRuntime = null;
+        ExpansionApi expansionHandler = null;
+        try {
+            expansionRuntime = new ExpansionRuntime(proxyConfigPath, config.dataDirectory(), scope -> {
+                if ("provider".equals(scope.tenantId()) && "main".equals(scope.proxyId())) return control;
+                return tenantHosting.runtimeControl(scope.tenantId(), scope.proxyId());
+            });
+            expansionHandler = new ExpansionApi(expansionRuntime, config.maxRequestBytes(), audit);
+        } catch (IOException | RuntimeException failure) {
+            System.err.printf("OniLink expansion modules are unavailable; core proxy and dashboard remain active: %s%n",
+                    failure.getMessage());
+        }
+        this.expansion = expansionRuntime;
+        this.expansionApi = expansionHandler;
         this.requestExecutor = Executors.newFixedThreadPool(8, runnable -> {
             Thread thread = new Thread(runnable, "onilink-dashboard-http");
             thread.setDaemon(true);
@@ -176,6 +193,7 @@ public final class OniLinkDashboard implements AutoCloseable {
             String token,
             DashboardAccounts.Principal principal
     ) throws Exception {
+        if (expansionApi != null && expansionApi.route(exchange, path, principal)) return;
         switch (path) {
             case "/api/logout" -> {
                 requireMutation(exchange, "POST");
@@ -200,10 +218,15 @@ public final class OniLinkDashboard implements AutoCloseable {
                 sendJson(exchange, 200, state);
             }
             case "/api/players" -> {
-                requireRole(principal, DashboardAccounts.Role.VIEWER);
                 requireMethod(exchange, "GET");
-                sendJson(exchange, 200, Map.of("players",
-                        control.players(principal.role().allows(DashboardAccounts.Role.OPERATOR))));
+                if (principal.tenantScoped()) {
+                    sendJson(exchange, 200, Map.of("players",
+                            scopedControl(principal, query(exchange)).players(false)));
+                } else {
+                    requireRole(principal, DashboardAccounts.Role.VIEWER);
+                    sendJson(exchange, 200, Map.of("players",
+                            control.players(principal.role().allows(DashboardAccounts.Role.OPERATOR))));
+                }
             }
             case "/api/backends" -> {
                 requireRole(principal, DashboardAccounts.Role.VIEWER);
@@ -212,6 +235,19 @@ public final class OniLinkDashboard implements AutoCloseable {
                         control.backends(principal.role().allows(DashboardAccounts.Role.ADMIN))));
             }
             case "/api/packets" -> handlePacketMonitor(exchange, principal);
+            case "/api/control/status" -> handleOniControlStatus(exchange, principal);
+            case "/api/control/capabilities" -> handleOniControlCapabilities(exchange, principal);
+            case "/api/control/actions/preview" -> handleOniControlPreview(exchange, principal);
+            case "/api/control/actions/execute" -> handleOniControlExecute(exchange, principal);
+            case "/api/control/plans/validate" -> handleOniControlPlan(exchange, principal, "validate");
+            case "/api/control/plans/preview" -> handleOniControlPlan(exchange, principal, "preview");
+            case "/api/control/plans/execute" -> handleOniControlPlan(exchange, principal, "execute");
+            case "/api/control/history" -> handleOniControlHistory(exchange, principal);
+            case "/api/control/rules" -> handleOniPacketRules(exchange, principal);
+            case "/api/control/protocol-lab/status" -> handleProtocolLab(exchange, principal, "status");
+            case "/api/control/protocol-lab/session" -> handleProtocolLab(exchange, principal, "session");
+            case "/api/control/protocol-lab/validate" -> handleProtocolLab(exchange, principal, "validate");
+            case "/api/control/protocol-lab/send" -> handleProtocolLab(exchange, principal, "send");
             case "/api/allowlist" -> handleAllowlist(exchange, principal);
             case "/api/logs" -> {
                 requireRole(principal, DashboardAccounts.Role.OPERATOR);
@@ -268,6 +304,8 @@ public final class OniLinkDashboard implements AutoCloseable {
             case "/api/tenancy/proxy/runtime" -> handleTenantProxyRuntime(exchange, principal);
             case "/api/tenancy/proxy/allowlist" -> handleTenantProxyAllowlist(exchange, principal);
             case "/api/tenancy/proxy/backends" -> handleTenantProxyBackends(exchange, principal);
+            case "/api/tenancy/proxy/primary-backend" -> handleTenantProxyPrimaryBackend(exchange, principal);
+            case "/api/tenancy/control-grants" -> handleTenantControlGrants(exchange, principal);
             case "/api/tenancy/handoff" -> handleTenancyHandoff(exchange, principal);
             case "/api/account/password" -> handlePassword(exchange, principal);
             case "/api/account/totp/begin" -> {
@@ -497,6 +535,22 @@ public final class OniLinkDashboard implements AutoCloseable {
         sendJson(exchange, 201, result);
     }
 
+    private void handleTenantProxyPrimaryBackend(
+            HttpExchange exchange,
+            DashboardAccounts.Principal principal
+    ) throws IOException {
+        requireMutation(exchange, "POST");
+        Map<String, String> values = form(exchange);
+        String tenant = authorizedTenant(principal, values.get("tenant"));
+        values.put("tenant", tenant);
+        Map<String, Object> result = tenantHosting.setPrimaryBackend(values);
+        audit(exchange, principal, "tenancy.primary_backend_change", "success", Map.of(
+                "tenant", tenant,
+                "proxy", value(values.get("proxy")),
+                "backend", value(values.get("backend"))));
+        sendJson(exchange, 200, result);
+    }
+
     private void handlePacketMonitor(
             HttpExchange exchange,
             DashboardAccounts.Principal principal
@@ -517,6 +571,161 @@ public final class OniLinkDashboard implements AutoCloseable {
         sendJson(exchange, 200, control.packetMonitor(filters));
     }
 
+    private void handleOniControlStatus(
+            HttpExchange exchange,
+            DashboardAccounts.Principal principal
+    ) throws IOException {
+        requireMethod(exchange, "GET");
+        if (!principal.tenantScoped()) requireRole(principal, DashboardAccounts.Role.VIEWER);
+        Map<String, String> values = query(exchange);
+        sendJson(exchange, 200, scopedControl(principal, values).oniControlStatus());
+    }
+
+    private void handleOniControlPreview(
+            HttpExchange exchange,
+            DashboardAccounts.Principal principal
+    ) throws IOException {
+        if (!principal.tenantScoped()) requireRole(principal, DashboardAccounts.Role.OPERATOR);
+        requireMutation(exchange, "POST");
+        Map<String, String> values = form(exchange);
+        Map<String, Object> preview = scopedControl(principal, values).oniControlPreview(
+                principal.username(), principal.role().wireName(), values);
+        audit(exchange, principal, "onicontrol.preview", "success", Map.of(
+                "action", value(values.get("action")),
+                "target", value(values.get("xuid")),
+                "backend", value(values.get("backend")),
+                "revision", preview.get("revision")));
+        sendJson(exchange, 200, preview);
+    }
+
+    private void handleOniControlCapabilities(
+            HttpExchange exchange,
+            DashboardAccounts.Principal principal
+    ) throws IOException {
+        requireMethod(exchange, "GET");
+        if (!principal.tenantScoped()) requireRole(principal, DashboardAccounts.Role.VIEWER);
+        Map<String, String> values = query(exchange);
+        if (principal.tenantScoped()) values.put("requestRole", "tenant");
+        sendJson(exchange, 200, scopedControl(principal, values).oniControlCapabilities(values));
+    }
+
+    private void handleProtocolLab(
+            HttpExchange exchange, DashboardAccounts.Principal principal, String operation
+    ) throws IOException {
+        requireRole(principal, DashboardAccounts.Role.OWNER);
+        Map<String, String> values;
+        Map<String, Object> result;
+        if ("status".equals(operation)) {
+            requireMethod(exchange, "GET");
+            values = query(exchange);
+            result = scopedControl(principal, values).protocolLabStatus(principal.username());
+        } else {
+            requireMutation(exchange, "POST", "DELETE");
+            values = form(exchange);
+            DashboardControl scoped = scopedControl(principal, values);
+            result = switch (operation) {
+                case "session" -> scoped.protocolLabSession(
+                        principal.username(), !"DELETE".equals(exchange.getRequestMethod()));
+                case "validate" -> scoped.protocolLab(principal.username(), values, false);
+                case "send" -> scoped.protocolLab(principal.username(), values, true);
+                default -> throw new IllegalArgumentException("Unknown Protocol Lab operation");
+            };
+            audit(exchange, principal, "protocol_lab." + operation, "success", Map.of(
+                    "model", value(values.get("model")), "direction", value(values.get("direction")),
+                    "backend", value(values.get("backend"))));
+        }
+        sendJson(exchange, 200, result);
+    }
+
+    private void handleOniControlExecute(
+            HttpExchange exchange,
+            DashboardAccounts.Principal principal
+    ) throws IOException {
+        if (!principal.tenantScoped()) requireRole(principal, DashboardAccounts.Role.OPERATOR);
+        requireMutation(exchange, "POST");
+        Map<String, String> values = form(exchange);
+        Map<String, Object> result = scopedControl(principal, values).oniControlExecute(
+                principal.username(), principal.role().wireName(), values.get("confirmationToken"),
+                booleanValue(values.get("confirmed")));
+        audit(exchange, principal, "onicontrol.execute",
+                Boolean.TRUE.equals(result.get("success")) ? "success" : "rejected", Map.of(
+                        "requestId", result.get("requestId"),
+                        "status", result.get("status"),
+                        "auditReference", result.get("auditReference")));
+        sendJson(exchange, Boolean.TRUE.equals(result.get("success")) ? 200 : 409, result);
+    }
+
+    private void handleOniControlHistory(
+            HttpExchange exchange,
+            DashboardAccounts.Principal principal
+    ) throws IOException {
+        requireMethod(exchange, "GET");
+        if (!principal.tenantScoped()) requireRole(principal, DashboardAccounts.Role.VIEWER);
+        sendJson(exchange, 200, scopedControl(principal, query(exchange)).oniControlHistory());
+    }
+
+    private void handleOniControlPlan(
+            HttpExchange exchange,
+            DashboardAccounts.Principal principal,
+            String operation
+    ) throws IOException {
+        if (!principal.tenantScoped()) requireRole(principal, DashboardAccounts.Role.OPERATOR);
+        requireMutation(exchange, "POST");
+        Map<String, String> values = form(exchange);
+        DashboardControl scoped = scopedControl(principal, values);
+        Map<String, Object> result = switch (operation) {
+            case "validate" -> scoped.oniControlPlanValidate(
+                    principal.username(), principal.role().wireName(), values);
+            case "preview" -> scoped.oniControlPlanPreview(
+                    principal.username(), principal.role().wireName(), values);
+            case "execute" -> scoped.oniControlPlanExecute(
+                    principal.username(), principal.role().wireName(), values.get("confirmationToken"),
+                    booleanValue(values.get("confirmed")));
+            default -> throw new IllegalArgumentException("Unknown plan operation");
+        };
+        audit(exchange, principal, "onicontrol.plan_" + operation,
+                "FAILED".equals(result.get("status")) ? "rejected" : "success", Map.of(
+                        "planId", value(String.valueOf(result.getOrDefault("planId", ""))),
+                        "revision", result.getOrDefault("revision", 0),
+                        "status", result.getOrDefault("status", "VALID")));
+        sendJson(exchange, "FAILED".equals(result.get("status")) ? 409 : 200, result);
+    }
+
+    private void handleOniPacketRules(
+            HttpExchange exchange,
+            DashboardAccounts.Principal principal
+    ) throws IOException {
+        requireRole(principal, DashboardAccounts.Role.ADMIN);
+        if ("GET".equals(exchange.getRequestMethod())) {
+            sendJson(exchange, 200, scopedControl(principal, query(exchange)).oniPacketRules());
+            return;
+        }
+        requireMutation(exchange, "POST");
+        Map<String, String> values = form(exchange);
+        DashboardControl.ActionResult result = scopedControl(principal, values)
+                .replaceOniPacketRules(values.get("rules"));
+        audit(exchange, principal, "onipacket.rules_replace", result.success() ? "success" : "rejected",
+                Map.of("message", result.message()));
+        sendJson(exchange, result.success() ? 200 : 409, result.asMap());
+    }
+
+    private DashboardControl scopedControl(
+            DashboardAccounts.Principal principal,
+            Map<String, String> values
+    ) {
+        String requestedTenant = value(values.get("tenant"));
+        String requestedProxy = value(values.get("proxy"));
+        if (principal.tenantScoped() || !requestedTenant.isBlank() || !requestedProxy.isBlank()) {
+            String tenant = authorizedTenant(principal, requestedTenant);
+            if (requestedProxy.isBlank() && principal.tenantScoped()) {
+                requestedProxy = tenantHosting.defaultProxy(tenant);
+            }
+            if (requestedProxy.isBlank()) throw new IllegalArgumentException("Proxy ID is required for tenant control");
+            return tenantHosting.runtimeControl(tenant, requestedProxy);
+        }
+        return control;
+    }
+
     private void handleTenancyHandoff(
             HttpExchange exchange,
             DashboardAccounts.Principal principal
@@ -533,6 +742,27 @@ public final class OniLinkDashboard implements AutoCloseable {
         headers.set("Content-Disposition", "attachment; filename=" + tenant + "--" + proxy + ".handoff.zip");
         exchange.sendResponseHeaders(200, payload.length);
         exchange.getResponseBody().write(payload);
+    }
+
+    private void handleTenantControlGrants(
+            HttpExchange exchange,
+            DashboardAccounts.Principal principal
+    ) throws IOException {
+        requireRole(principal, DashboardAccounts.Role.OWNER);
+        Map<String, String> values;
+        Map<String, Object> result;
+        if ("GET".equals(exchange.getRequestMethod())) {
+            values = query(exchange);
+            result = tenantHosting.controlGrants(values.get("tenant"));
+        } else {
+            requireMutation(exchange, "POST");
+            values = form(exchange);
+            result = tenantHosting.setControlGrants(values.get("tenant"), values.get("grants"));
+            audit(exchange, principal, "tenancy.control_grants", "success", Map.of(
+                    "tenant", result.get("tenant"),
+                    "actionCount", ((List<?>) result.get("actions")).size()));
+        }
+        sendJson(exchange, 200, result);
     }
 
     private void handleAllowlist(HttpExchange exchange, DashboardAccounts.Principal principal) throws IOException {
@@ -609,17 +839,22 @@ public final class OniLinkDashboard implements AutoCloseable {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         try (ZipOutputStream zip = new ZipOutputStream(bytes, StandardCharsets.UTF_8)) {
             zip(zip, "state.json", DashboardJson.encode(control.state()));
-            zip(zip, "players.json", DashboardJson.encode(control.players(false)));
+            zip(zip, "players.json", DashboardJson.encode(redactedPlayers(control.players(false))));
             zip(zip, "backends.json", DashboardJson.encode(control.backends(false)));
             zip(zip, "packet-monitor.json", DashboardJson.encode(control.packetMonitor(Map.of(
                     "limit", "500",
                     "redactSensitive", "true"
             ))));
-            zip(zip, "allowlist.json", DashboardJson.encode(control.allowlist()));
+            zip(zip, "allowlist.json", DashboardJson.encode(redactedAllowlist(control.allowlist())));
+            zip(zip, "onicontrol-status.json", DashboardJson.encode(
+                    redactedControlStatus(control.oniControlStatus())));
+            zip(zip, "onicontrol-history.json", DashboardJson.encode(
+                    redactedControlHistory(control.oniControlHistory())));
             zip(zip, "config.properties.redacted", String.valueOf(configFile.read().get("content")));
-            zip(zip, "latest.log.tail", String.join(System.lineSeparator(),
-                    DashboardAuditLog.tail(logPath, 2_000, MAX_SUPPORT_FILE_BYTES)));
-            zip(zip, "audit.jsonl.tail", String.join(System.lineSeparator(), audit.recent(1_000)));
+            zip(zip, "latest.log.tail", redactSupportText(String.join(System.lineSeparator(),
+                    DashboardAuditLog.tail(logPath, 2_000, MAX_SUPPORT_FILE_BYTES))));
+            zip(zip, "audit.jsonl.tail", redactSupportText(
+                    String.join(System.lineSeparator(), audit.recent(1_000))));
         }
         byte[] payload = bytes.toByteArray();
         Headers headers = exchange.getResponseHeaders();
@@ -635,17 +870,231 @@ public final class OniLinkDashboard implements AutoCloseable {
         zip.closeEntry();
     }
 
+    private static List<Map<String, Object>> redactedPlayers(List<Map<String, Object>> players) {
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Map<String, Object> player : players) {
+            Map<String, Object> copy = new LinkedHashMap<>(player);
+            copy.put("name", "<redacted>");
+            copy.put("xuid", "<redacted>");
+            copy.put("identity", "<redacted>");
+            copy.put("address", "hidden");
+            result.add(Map.copyOf(copy));
+        }
+        return List.copyOf(result);
+    }
+
+    private static Map<String, Object> redactedAllowlist(Map<String, Object> allowlist) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("enabled", allowlist.getOrDefault("enabled", false));
+        result.put("count", allowlist.getOrDefault("count", 0));
+        result.put("disconnectOnRemoval", allowlist.getOrDefault("disconnectOnRemoval", false));
+        result.put("entries", List.of());
+        return Map.copyOf(result);
+    }
+
+    private static Map<String, Object> redactedControlHistory(Map<String, Object> history) {
+        Object raw = history.get("history");
+        if (!(raw instanceof List<?> records)) return Map.of("history", List.of());
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Object item : records) {
+            if (!(item instanceof Map<?, ?> record)) continue;
+            Map<String, Object> copy = new LinkedHashMap<>();
+            record.forEach((key, value) -> copy.put(String.valueOf(key), value));
+            copy.put("actor", "<redacted>");
+            copy.put("targetXuid", "<redacted>");
+            copy.put("displayLabel", "<redacted>");
+            result.add(Map.copyOf(copy));
+        }
+        return Map.of("history", List.copyOf(result));
+    }
+
+    private static Map<String, Object> redactedControlStatus(Map<String, Object> status) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        for (String key : List.of("started", "available", "controlEnabled", "packetRulesEnabled",
+                "virtualizationEnabled", "protocolLabEnabled", "ruleCount", "historyCount",
+                "packetRuleMetrics", "packetFactoryMetrics", "capabilities")) {
+            if (status.containsKey(key)) result.put(key, status.get(key));
+        }
+        Object rawBridges = status.get("bridges");
+        List<Map<String, Object>> bridges = new ArrayList<>();
+        if (rawBridges instanceof List<?> entries) {
+            for (Object item : entries) {
+                if (!(item instanceof Map<?, ?> bridge)) continue;
+                Map<String, Object> copy = new LinkedHashMap<>();
+                bridge.forEach((key, value) -> copy.put(String.valueOf(key), value));
+                if (copy.containsKey("lastError")) {
+                    copy.put("lastError", redactSupportText(String.valueOf(copy.get("lastError"))));
+                }
+                copy.remove("address");
+                copy.remove("host");
+                bridges.add(Map.copyOf(copy));
+            }
+        }
+        result.put("bridges", List.copyOf(bridges));
+        result.put("virtualInventorySessionCount", listSize(status.get("virtualInventorySessions")));
+        result.put("privateEntityCount", listSize(status.get("privateEntities")));
+        result.put("fakeBlockCount", listSize(status.get("fakeBlocks")));
+        return Map.copyOf(result);
+    }
+
+    private static String redactSupportText(String text) {
+        if (text == null || text.isEmpty()) return "";
+        return text
+                .replaceAll("(?i)(\\\"(?:xuid|targetxuid|player|target|address|identity|name|actor|"
+                        + "displaylabel|connectionid|sessionid|requestid)\\\"\\s*:\\s*\\\")[^\\\"]*(\\\")",
+                        "$1<redacted>$2")
+                .replaceAll("\\b[0-9]{12,20}\\b", "<redacted-id>")
+                .replaceAll("(?i)\\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\b", "<redacted-uuid>")
+                .replaceAll("\\b(?:[0-9]{1,3}\\.){3}[0-9]{1,3}(?::[0-9]{1,5})?\\b", "<redacted-address>");
+    }
+
     private void sendMetrics(HttpExchange exchange) throws IOException {
         Map<String, Object> state = control.state();
-        String body = "# TYPE onilink_players gauge\n"
-                + "onilink_players " + state.get("players") + "\n"
-                + "# TYPE onilink_backends gauge\n"
-                + "onilink_backends " + state.get("backends") + "\n"
-                + "# TYPE onilink_uptime_milliseconds counter\n"
-                + "onilink_uptime_milliseconds " + state.get("uptimeMillis") + "\n"
-                + "# TYPE onilink_memory_used_bytes gauge\n"
-                + "onilink_memory_used_bytes " + state.get("memoryUsedBytes") + "\n";
-        send(exchange, 200, "text/plain; version=0.0.4; charset=utf-8", body.getBytes(StandardCharsets.UTF_8));
+        Map<String, Object> status = control.oniControlStatus();
+        StringBuilder body = new StringBuilder()
+                .append("# TYPE onilink_players gauge\n")
+                .append("onilink_players ").append(metricNumber(state.get("players"))).append('\n')
+                .append("# TYPE onilink_backends gauge\n")
+                .append("onilink_backends ").append(metricNumber(state.get("backends"))).append('\n')
+                .append("# TYPE onilink_uptime_milliseconds counter\n")
+                .append("onilink_uptime_milliseconds ").append(metricNumber(state.get("uptimeMillis"))).append('\n')
+                .append("# TYPE onilink_memory_used_bytes gauge\n")
+                .append("onilink_memory_used_bytes ").append(metricNumber(state.get("memoryUsedBytes"))).append('\n')
+                .append("# TYPE onilink_control_enabled gauge\n")
+                .append("onilink_control_enabled ").append(Boolean.TRUE.equals(status.get("controlEnabled")) ? 1 : 0)
+                .append('\n');
+
+        long bridgeCount = 0;
+        long connected = 0;
+        long queueSize = 0;
+        long latencyTotal = 0;
+        Object bridgeValue = status.get("bridges");
+        if (bridgeValue instanceof List<?> bridges) {
+            bridgeCount = bridges.size();
+            for (Object entry : bridges) {
+                if (!(entry instanceof Map<?, ?> bridge)) continue;
+                if (Boolean.TRUE.equals(bridge.get("connected"))) connected++;
+                queueSize += metricNumber(bridge.get("queueSize"));
+                latencyTotal += metricNumber(bridge.get("latencyMillis"));
+            }
+        }
+        body.append("# TYPE onilink_control_bridges gauge\n")
+                .append("onilink_control_bridges ").append(bridgeCount).append('\n')
+                .append("# TYPE onilink_control_bridges_connected gauge\n")
+                .append("onilink_control_bridges_connected ").append(connected).append('\n')
+                .append("# TYPE onilink_control_bridge_connected gauge\n")
+                .append("onilink_control_bridge_connected ").append(connected).append('\n')
+                .append("# TYPE onilink_control_queue_depth gauge\n")
+                .append("onilink_control_queue_depth ").append(queueSize).append('\n')
+                .append("# TYPE onilink_control_queue_size gauge\n")
+                .append("onilink_control_queue_size ").append(queueSize).append('\n')
+                .append("# TYPE onilink_control_bridge_latency_milliseconds gauge\n")
+                .append("onilink_control_bridge_latency_milliseconds ")
+                .append(bridgeCount == 0 ? 0 : latencyTotal / bridgeCount).append('\n')
+                .append("# TYPE onilink_control_bridge_latency_seconds gauge\n")
+                .append("onilink_control_bridge_latency_seconds ")
+                .append(bridgeCount == 0 ? 0.0 : (latencyTotal / 1000.0) / bridgeCount).append('\n');
+
+        appendMetricMap(body, "onilink_packet_rule", status.get("packetRuleMetrics"));
+        appendMetricMap(body, "onilink_packet_factory", status.get("packetFactoryMetrics"));
+        if (status.get("packetRuleMetrics") instanceof Map<?, ?> packetMetrics) {
+            body.append("# TYPE onilink_packet_rules_evaluated_total counter\n")
+                    .append("onilink_packet_rules_evaluated_total ")
+                    .append(metricNumber(packetMetrics.get("evaluated"))).append('\n')
+                    .append("# TYPE onilink_packet_rules_actions_total counter\n");
+            for (String action : List.of("pass", "drop", "replace", "inject_before", "inject_after", "consume")) {
+                body.append("onilink_packet_rules_actions_total{action=\"").append(action)
+                        .append("\"} ").append(metricNumber(packetMetrics.get(action))).append('\n');
+            }
+        }
+        Object sessions = status.get("virtualInventorySessions");
+        body.append("# TYPE onilink_virtual_inventory_sessions gauge\n")
+                .append("onilink_virtual_inventory_sessions ")
+                .append(listSize(sessions)).append('\n')
+                .append("# TYPE onilink_private_entities gauge\n")
+                .append("onilink_private_entities ")
+                .append(listSize(status.get("privateEntities"))).append('\n')
+                .append("# TYPE onilink_fake_blocks gauge\n")
+                .append("onilink_fake_blocks ")
+                .append(listSize(status.get("fakeBlocks"))).append('\n')
+                .append("# TYPE onilink_virtual_scenes gauge\n")
+                .append("onilink_virtual_scenes 0\n");
+
+        Map<String, Long> requests = new java.util.TreeMap<>();
+        Map<String, Long> durations = new java.util.TreeMap<>();
+        Map<String, Long> rejections = new java.util.TreeMap<>();
+        Object historyValue = control.oniControlHistory().get("history");
+        if (historyValue instanceof List<?> history) {
+            for (Object item : history) {
+                if (!(item instanceof Map<?, ?> record)) continue;
+                String action = metricLabel(record.get("action"));
+                String result = metricLabel(record.get("status"));
+                String key = action + '\0' + result;
+                requests.merge(key, 1L, Long::sum);
+                durations.merge(key, metricNumber(record.get("durationMillis")), Long::sum);
+                if (!"confirmed".equals(result) && !"partial".equals(result)) {
+                    rejections.merge(result, 1L, Long::sum);
+                }
+            }
+        }
+        body.append("# TYPE onilink_control_requests_total counter\n");
+        for (Map.Entry<String, Long> entry : requests.entrySet()) {
+            String[] labels = entry.getKey().split("\\x00", -1);
+            body.append("onilink_control_requests_total{action=\"").append(labels[0])
+                    .append("\",result=\"").append(labels[1]).append("\"} ")
+                    .append(entry.getValue()).append('\n');
+        }
+        body.append("# TYPE onilink_control_request_duration_milliseconds_sum counter\n");
+        for (Map.Entry<String, Long> entry : durations.entrySet()) {
+            String[] labels = entry.getKey().split("\\x00", -1);
+            body.append("onilink_control_request_duration_milliseconds_sum{action=\"")
+                    .append(labels[0]).append("\",result=\"").append(labels[1]).append("\"} ")
+                    .append(entry.getValue()).append('\n');
+        }
+        body.append("# TYPE onilink_control_request_duration_seconds summary\n");
+        long durationCount = 0;
+        long durationMillis = 0;
+        for (Map.Entry<String, Long> entry : requests.entrySet()) durationCount += entry.getValue();
+        for (Map.Entry<String, Long> entry : durations.entrySet()) durationMillis += entry.getValue();
+        body.append("onilink_control_request_duration_seconds_sum ")
+                .append(durationMillis / 1000.0).append('\n')
+                .append("onilink_control_request_duration_seconds_count ")
+                .append(durationCount).append('\n')
+                .append("# TYPE onilink_control_rejected_total counter\n");
+        for (Map.Entry<String, Long> entry : rejections.entrySet()) {
+            body.append("onilink_control_rejected_total{reason=\"").append(entry.getKey())
+                    .append("\"} ").append(entry.getValue()).append('\n');
+        }
+        send(exchange, 200, "text/plain; version=0.0.4; charset=utf-8",
+                body.toString().getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static void appendMetricMap(StringBuilder output, String prefix, Object value) {
+        if (!(value instanceof Map<?, ?> metrics)) return;
+        for (Map.Entry<?, ?> entry : metrics.entrySet()) {
+            String suffix = metricLabel(entry.getKey()).toLowerCase(Locale.ROOT);
+            output.append(prefix).append('_').append(suffix).append(' ')
+                    .append(metricNumber(entry.getValue())).append('\n');
+        }
+    }
+
+    private static long metricNumber(Object value) {
+        if (value instanceof Number number) return Math.max(0, number.longValue());
+        try {
+            return Math.max(0, Long.parseLong(String.valueOf(value)));
+        } catch (NumberFormatException exception) {
+            return 0;
+        }
+    }
+
+    private static int listSize(Object value) {
+        return value instanceof List<?> list ? list.size() : 0;
+    }
+
+    private static String metricLabel(Object value) {
+        String label = String.valueOf(value == null ? "unknown" : value)
+                .toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_]", "_");
+        return label.isBlank() ? "unknown" : label;
     }
 
     private boolean staticResource(HttpExchange exchange, String path) throws IOException {
@@ -661,6 +1110,10 @@ public final class OniLinkDashboard implements AutoCloseable {
         if (path.equals("/") || path.equals("/index.html")) {
             resource = "/dashboard/index.html";
             html = true;
+        } else if (Set.of("/sw.js", "/manifest.webmanifest", "/offline.html", "/offline.css",
+                "/icons/onilink.svg").contains(path)) {
+            resource = "/dashboard" + path;
+            html = path.endsWith(".html");
         } else if (path.startsWith("/assets/")
                 && path.length() > "/assets/".length()
                 && path.substring("/assets/".length()).matches("[A-Za-z0-9._-]+")) {
@@ -688,6 +1141,7 @@ public final class OniLinkDashboard implements AutoCloseable {
         if (resource.endsWith(".css")) return "text/css; charset=utf-8";
         if (resource.endsWith(".svg")) return "image/svg+xml; charset=utf-8";
         if (resource.endsWith(".json")) return "application/json; charset=utf-8";
+        if (resource.endsWith(".webmanifest")) return "application/manifest+json; charset=utf-8";
         if (resource.endsWith(".woff")) return "font/woff";
         if (resource.endsWith(".woff2")) return "font/woff2";
         throw new HttpFailure(404, "Unsupported dashboard asset type");
@@ -708,13 +1162,13 @@ public final class OniLinkDashboard implements AutoCloseable {
         return values;
     }
 
-    private static void requireMethod(HttpExchange exchange, String... allowed) {
+    static void requireMethod(HttpExchange exchange, String... allowed) {
         String method = exchange.getRequestMethod();
         for (String candidate : allowed) if (candidate.equals(method)) return;
         throw new HttpFailure(405, "Method not allowed");
     }
 
-    private static void requireMutation(HttpExchange exchange, String... allowed) {
+    static void requireMutation(HttpExchange exchange, String... allowed) {
         requireMethod(exchange, allowed);
         String origin = exchange.getRequestHeaders().getFirst("Origin");
         if (origin == null || origin.isBlank()) return;
@@ -729,7 +1183,7 @@ public final class OniLinkDashboard implements AutoCloseable {
         }
     }
 
-    private static void requireRole(DashboardAccounts.Principal principal, DashboardAccounts.Role required) {
+    static void requireRole(DashboardAccounts.Principal principal, DashboardAccounts.Role required) {
         if (!principal.role().allows(required)) throw new HttpFailure(403, "Insufficient role");
     }
 
@@ -761,7 +1215,7 @@ public final class OniLinkDashboard implements AutoCloseable {
         audit.record(principal, remoteAddress(exchange), action, result, details);
     }
 
-    private static String remoteAddress(HttpExchange exchange) {
+    static String remoteAddress(HttpExchange exchange) {
         InetAddress address = exchange.getRemoteAddress().getAddress();
         return address == null ? exchange.getRemoteAddress().getHostString() : address.getHostAddress();
     }
@@ -776,7 +1230,7 @@ public final class OniLinkDashboard implements AutoCloseable {
         }
     }
 
-    private static Map<String, String> query(HttpExchange exchange) {
+    static Map<String, String> query(HttpExchange exchange) {
         Map<String, String> values = new LinkedHashMap<>();
         String raw = exchange.getRequestURI().getRawQuery();
         if (raw == null) return values;
@@ -797,6 +1251,13 @@ public final class OniLinkDashboard implements AutoCloseable {
         }
     }
 
+    private static boolean booleanValue(String value) {
+        if (value == null || value.isBlank()) return false;
+        if ("true".equalsIgnoreCase(value)) return true;
+        if ("false".equalsIgnoreCase(value)) return false;
+        throw new IllegalArgumentException("confirmed must be true or false");
+    }
+
     private static String value(String value) {
         return value == null ? "" : value;
     }
@@ -810,7 +1271,7 @@ public final class OniLinkDashboard implements AutoCloseable {
         headers.set("X-Frame-Options", "DENY");
     }
 
-    private static void sendJson(HttpExchange exchange, int status, Object body) throws IOException {
+    static void sendJson(HttpExchange exchange, int status, Object body) throws IOException {
         send(exchange, status, "application/json; charset=utf-8",
                 (DashboardJson.encode(body) + "\n").getBytes(StandardCharsets.UTF_8));
     }
@@ -858,13 +1319,14 @@ public final class OniLinkDashboard implements AutoCloseable {
         maintenanceExecutor.shutdownNow();
         requestExecutor.shutdownNow();
         tenantHosting.close();
+        if (expansion != null) expansion.close();
         control.close();
     }
 
-    private static final class HttpFailure extends RuntimeException {
+    static final class HttpFailure extends RuntimeException {
         private final int status;
 
-        private HttpFailure(int status, String message) {
+        HttpFailure(int status, String message) {
             super(message);
             this.status = status;
         }

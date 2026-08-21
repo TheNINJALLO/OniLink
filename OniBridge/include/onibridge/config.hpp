@@ -16,6 +16,35 @@ struct SecretSource {
     std::filesystem::path restricted_file;
 };
 
+struct ControlTlsConfig {
+    bool enabled{false};
+    std::filesystem::path certificate_file;
+    std::filesystem::path private_key_file;
+    std::filesystem::path client_ca_file;
+    bool require_client_certificate{true};
+};
+
+struct ControlConfig {
+    bool enabled{false};
+    std::string listen_host{"127.0.0.1"};
+    std::uint16_t listen_port{19'132};
+    std::string bridge_id;
+    std::string backend_name;
+    std::string key_id{"control-key-1"};
+    SecretSource secret;
+    std::vector<std::string> trusted_proxy_cidrs{"127.0.0.1/32", "::1/128"};
+    std::size_t max_frame_bytes{262'144};
+    std::size_t max_connections{4};
+    std::size_t max_in_flight{32};
+    std::int64_t clock_skew_seconds{30};
+    std::int64_t replay_retention_seconds{120};
+    bool allow_insecure_private_network{false};
+    bool allow_public_address{false};
+    ControlTlsConfig tls;
+
+    [[nodiscard]] std::optional<std::string> validate() const;
+};
+
 struct OniBridgeConfig {
     std::string bridge_id;
     std::string backend_name;
@@ -44,6 +73,7 @@ struct OniBridgeConfig {
     bool allow_unknown_bds{false};
     bool allow_unknown_endstone{false};
     bool legacy_verification_enabled{false};
+    ControlConfig control;
 
     [[nodiscard]] std::optional<std::string> validate() const;
 };

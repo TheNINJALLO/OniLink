@@ -4,6 +4,7 @@ import dev.onistone.onilink.allowlist.ProxyAllowlist;
 import dev.onistone.onilink.config.ProxyConfig;
 import dev.onistone.onilink.listener.BedrockProxyListener;
 import dev.onistone.onilink.permissions.ProxyPermissions;
+import dev.onistone.onilink.control.ControlJson;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -17,6 +18,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.PosixFilePermission;
 import java.security.SecureRandom;
+import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -72,6 +74,8 @@ final class DashboardTenantHosting implements AutoCloseable {
     private final Map<String, Tenant> tenants = new LinkedHashMap<>();
     private final Map<String, ProxyInstance> proxies = new LinkedHashMap<>();
     private final Map<String, RuntimeHandle> runtimes = new LinkedHashMap<>();
+    private final Map<String, Set<String>> controlGrants = new LinkedHashMap<>();
+    private final Map<String, TenantControlPreview> tenantControlPreviews = new LinkedHashMap<>();
     private boolean closed;
 
     DashboardTenantHosting(
@@ -101,7 +105,9 @@ final class DashboardTenantHosting implements AutoCloseable {
                     config,
                     ProxyPermissions.load(config.permissions(), permissionsPath),
                     ProxyAllowlist.load(config.allowlist()),
-                    null);
+                    null,
+                    configPath.toAbsolutePath().getParent().getParent().getFileName().toString(),
+                    configPath.toAbsolutePath().getParent().getFileName().toString());
             try {
                 listener.start(false);
             } catch (Exception exception) {
@@ -212,6 +218,7 @@ final class DashboardTenantHosting implements AutoCloseable {
                 port,
                 displayEndpoint(publicHost, port),
                 backend.display(),
+                "default",
                 proxySourceCidr,
                 profile,
                 boundedIntDefault(form.get("maxPlayers"), "maximum players", 20, 1, 10_000),
@@ -282,7 +289,7 @@ final class DashboardTenantHosting implements AutoCloseable {
         return Map.of("proxy", proxyView(updated), "message", message);
     }
 
-    synchronized Map<String, Object> proxyDashboard(String rawTenant, String rawProxy) {
+    synchronized Map<String, Object> proxyDashboard(String rawTenant, String rawProxy) throws IOException {
         ProxyInstance proxy = existingProxy(rawTenant, rawProxy);
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("proxy", proxyView(proxy));
@@ -298,11 +305,9 @@ final class DashboardTenantHosting implements AutoCloseable {
             result.put("backends", runtime.control().backends(true));
             result.put("allowlist", runtime.control().allowlist());
         }
-        try {
-            result.put("configurationRevision", new DashboardConfigFile(configPath(proxy)).read().get("revision"));
-        } catch (IOException exception) {
-            result.put("configurationRevision", "");
-        }
+        DashboardConfigFile config = new DashboardConfigFile(configPath(proxy));
+        result.putAll(config.routing());
+        result.put("configurationRevision", config.read().get("revision"));
         return result;
     }
 
@@ -366,6 +371,38 @@ final class DashboardTenantHosting implements AutoCloseable {
         return Map.copyOf(result);
     }
 
+    synchronized Map<String, Object> setPrimaryBackend(Map<String, String> form) throws IOException {
+        ProxyInstance proxy = existingProxy(form.get("tenant"), form.get("proxy"));
+        DashboardConfigFile config = new DashboardConfigFile(configPath(proxy));
+        Map<String, Object> result = new LinkedHashMap<>(config.setPrimaryBackend(
+                form.get("revision"), form.get("backend")));
+        boolean changed = Boolean.TRUE.equals(result.get("changed"));
+        boolean wasRunning = runtimes.containsKey(runtimeKey(proxy));
+        ProxyInstance updated = proxy;
+        if (changed) {
+            updated = proxy.withPrimaryBackend(
+                    String.valueOf(result.get("primaryBackend")),
+                    String.valueOf(result.get("primaryBackendAddress")));
+            replaceProxy(updated);
+            if (wasRunning) {
+                stopRuntime(proxy);
+                updated = startProxy(updated);
+            }
+            saveCatalog();
+        }
+        result.put("proxy", proxyView(updated));
+        if (changed) {
+            result.put("message", updated.status().equals("error")
+                    ? "Primary server saved, but the proxy could not restart: " + updated.lastError()
+                    : wasRunning
+                            ? "Primary server changed to " + result.get("primaryBackend")
+                                    + " and the proxy restarted. New connections will use it."
+                            : "Primary server changed to " + result.get("primaryBackend")
+                                    + ". New connections will use it when the proxy starts.");
+        }
+        return Map.copyOf(result);
+    }
+
     synchronized byte[] handoff(String rawTenant, String rawProxy) throws IOException {
         ProxyInstance proxy = existingProxy(rawTenant, rawProxy);
         Path path = handoffPath(proxy);
@@ -417,6 +454,129 @@ final class DashboardTenantHosting implements AutoCloseable {
         RuntimeHandle runtime = runtimes.get(runtimeKey(proxy));
         if (runtime == null) throw new IllegalStateException("Start the proxy before using runtime controls");
         return runtime.control();
+    }
+
+    synchronized DashboardControl runtimeControl(String tenantId, String proxyId) {
+        ProxyInstance proxy = existingProxy(tenantId, proxyId);
+        DashboardControl delegate = runningControl(proxy);
+        Set<String> grants = Set.copyOf(controlGrants.getOrDefault(proxy.tenantId(), Set.of()));
+        return new DashboardControl() {
+            @Override public Map<String, Object> state() { return delegate.state(); }
+            @Override public List<Map<String, Object>> players(boolean addresses) { return delegate.players(addresses); }
+            @Override public List<Map<String, Object>> backends(boolean addresses) { return delegate.backends(addresses); }
+            @Override public Map<String, Object> oniControlStatus() { return delegate.oniControlStatus(); }
+            @Override public Map<String, Object> oniControlCapabilities(Map<String, String> values) {
+                Map<String, Object> source = delegate.oniControlCapabilities(values);
+                if (!"tenant".equalsIgnoreCase(values.getOrDefault("requestRole", "tenant"))) return source;
+                Object actions = source.get("actions");
+                if (!(actions instanceof List<?> list)) return source;
+                List<Map<String, Object>> filtered = new ArrayList<>();
+                for (Object item : list) {
+                    if (!(item instanceof Map<?, ?> map)) continue;
+                    Map<String, Object> copy = new LinkedHashMap<>();
+                    map.forEach((key, value) -> copy.put(String.valueOf(key), value));
+                    String action = String.valueOf(copy.get("action"));
+                    if (!grants.contains(action)) {
+                        copy.put("supported", false);
+                        copy.put("reason", "The provider owner has not granted this action to the tenant");
+                    }
+                    filtered.add(Map.copyOf(copy));
+                }
+                return Map.of("target", source.getOrDefault("target", Map.of()), "actions", List.copyOf(filtered));
+            }
+            @Override public Map<String, Object> oniControlPreview(
+                    String actor, String role, Map<String, String> values) {
+                requireTenantGrant(role, grants, values.get("action"));
+                Map<String, Object> preview = delegate.oniControlPreview(actor, role, values);
+                if ("tenant".equalsIgnoreCase(role)) {
+                    rememberTenantPreview(proxy, actor, preview,
+                            Set.of(values.get("action").trim().toUpperCase(Locale.ROOT)));
+                }
+                return preview;
+            }
+            @Override public Map<String, Object> oniControlExecute(
+                    String actor, String role, String token, boolean confirmed) {
+                if ("tenant".equalsIgnoreCase(role)) consumeTenantPreview(proxy, actor, token);
+                return delegate.oniControlExecute(actor, role, token, confirmed);
+            }
+            @Override public Map<String, Object> oniControlPlanValidate(
+                    String actor, String role, Map<String, String> values) {
+                requireTenantPlanGrants(role, grants, values.get("plan"));
+                return delegate.oniControlPlanValidate(actor, role, values);
+            }
+            @Override public Map<String, Object> oniControlPlanPreview(
+                    String actor, String role, Map<String, String> values) {
+                Set<String> actions = requireTenantPlanGrants(role, grants, values.get("plan"));
+                Map<String, Object> preview = delegate.oniControlPlanPreview(actor, role, values);
+                if ("tenant".equalsIgnoreCase(role)) {
+                    rememberTenantPreview(proxy, actor, preview, actions);
+                }
+                return preview;
+            }
+            @Override public Map<String, Object> oniControlPlanExecute(
+                    String actor, String role, String token, boolean confirmed) {
+                if ("tenant".equalsIgnoreCase(role)) consumeTenantPreview(proxy, actor, token);
+                return delegate.oniControlPlanExecute(actor, role, token, confirmed);
+            }
+            @Override public Map<String, Object> oniControlHistory() { return delegate.oniControlHistory(); }
+            @Override public Map<String, Object> oniPacketRules() { return delegate.oniPacketRules(); }
+            @Override public ActionResult replaceOniPacketRules(String json) {
+                return delegate.replaceOniPacketRules(json);
+            }
+            @Override public ActionResult transfer(String player, String backend) {
+                return delegate.transfer(player, backend);
+            }
+            @Override public ActionResult disconnect(String player, String reason) {
+                return delegate.disconnect(player, reason);
+            }
+            @Override public ActionResult alert(String message) { return delegate.alert(message); }
+            @Override public ActionResult trace(String player, long milliseconds) {
+                return delegate.trace(player, milliseconds);
+            }
+            @Override public void shutdown() { throw new IllegalStateException("Tenant cannot stop the provider runtime"); }
+        };
+    }
+
+    synchronized String defaultProxy(String rawTenant) {
+        String tenant = existingTenant(rawTenant).id();
+        List<ProxyInstance> matches = proxies.values().stream()
+                .filter(proxy -> proxy.tenantId().equals(tenant) && proxy.enabled()).toList();
+        if (matches.size() != 1) throw new IllegalArgumentException(
+                matches.isEmpty() ? "Tenant has no enabled proxy" : "Select a proxy for this tenant action");
+        return matches.getFirst().id();
+    }
+
+    synchronized Map<String, Object> controlGrants(String rawTenant) {
+        Tenant tenant = existingTenant(rawTenant);
+        return Map.of("tenant", tenant.id(), "actions",
+                controlGrants.getOrDefault(tenant.id(), Set.of()).stream().sorted().toList());
+    }
+
+    synchronized Map<String, Object> setControlGrants(String rawTenant, String json) throws IOException {
+        Tenant tenant = existingTenant(rawTenant);
+        Object raw = ControlJson.parseObject(json == null || json.isBlank() ? "{}" : json, 64 * 1024)
+                .get("actions");
+        if (!(raw instanceof List<?> list) || list.size() > 128) {
+            throw new IllegalArgumentException("actions must be an array with at most 128 entries");
+        }
+        Set<String> values = new java.util.TreeSet<>();
+        for (Object item : list) {
+            if (!(item instanceof String action)) throw new IllegalArgumentException("grant actions must be text");
+            try {
+                dev.onistone.onilink.control.ActionType parsed =
+                        dev.onistone.onilink.control.ActionType.valueOf(action.toUpperCase(Locale.ROOT));
+                if (!dev.onistone.onilink.control.ControlRole.OPERATOR.allows(parsed.minimumRole())) {
+                    throw new IllegalArgumentException("Tenant grants cannot include administrator or owner actions");
+                }
+                values.add(parsed.name());
+            } catch (IllegalArgumentException exception) {
+                throw new IllegalArgumentException("Unknown or forbidden tenant action " + action);
+            }
+        }
+        controlGrants.put(tenant.id(), Set.copyOf(values));
+        tenantControlPreviews.values().removeIf(preview -> preview.tenantId().equals(tenant.id()));
+        saveCatalog();
+        return controlGrants(tenant.id());
     }
 
     private Map<String, Object> proxyView(ProxyInstance proxy) {
@@ -561,6 +721,8 @@ final class DashboardTenantHosting implements AutoCloseable {
                     properties.getProperty(prefix + "createdAt", ""),
                     properties.getProperty(prefix + "updatedAt", ""));
             tenants.put(tenant.id(), tenant);
+            controlGrants.put(tenant.id(), Set.copyOf(csv(
+                    properties.getProperty(prefix + "controlActions", ""))));
         }
         for (String item : csv(properties.getProperty("proxies", ""))) {
             String[] ids = item.split("/", 2);
@@ -576,6 +738,7 @@ final class DashboardTenantHosting implements AutoCloseable {
                     integer(properties.getProperty(prefix + "port"), "stored proxy port"),
                     properties.getProperty(prefix + "publicAddress", ""),
                     properties.getProperty(prefix + "backendAddress", ""),
+                    properties.getProperty(prefix + "primaryBackend", "default"),
                     properties.getProperty(prefix + "trustedProxyCidr", ""),
                     properties.getProperty(prefix + "bdsProfile", DEFAULT_BDS_PROFILE),
                     integer(properties.getProperty(prefix + "maxPlayers", "20"), "stored maximum players"),
@@ -602,6 +765,8 @@ final class DashboardTenantHosting implements AutoCloseable {
             properties.setProperty(prefix + "suspended", Boolean.toString(tenant.suspended()));
             properties.setProperty(prefix + "createdAt", tenant.createdAt());
             properties.setProperty(prefix + "updatedAt", tenant.updatedAt());
+            properties.setProperty(prefix + "controlActions", String.join(",",
+                    controlGrants.getOrDefault(tenant.id(), Set.of()).stream().sorted().toList()));
         }
         properties.setProperty("proxies", String.join(",", proxies.values().stream()
                 .map(proxy -> proxy.tenantId() + "/" + proxy.id()).toList()));
@@ -611,6 +776,7 @@ final class DashboardTenantHosting implements AutoCloseable {
             properties.setProperty(prefix + "port", Integer.toString(proxy.port()));
             properties.setProperty(prefix + "publicAddress", proxy.publicAddress());
             properties.setProperty(prefix + "backendAddress", proxy.backendAddress());
+            properties.setProperty(prefix + "primaryBackend", proxy.primaryBackend());
             properties.setProperty(prefix + "trustedProxyCidr", proxy.trustedProxyCidr());
             properties.setProperty(prefix + "bdsProfile", proxy.bdsProfile());
             properties.setProperty(prefix + "maxPlayers", Integer.toString(proxy.maxPlayers()));
@@ -848,6 +1014,67 @@ final class DashboardTenantHosting implements AutoCloseable {
         return raw == null ? "" : raw;
     }
 
+    private static void requireTenantGrant(String role, Set<String> grants, String rawAction) {
+        if (!"tenant".equalsIgnoreCase(role)) return;
+        String action = rawAction == null ? "" : rawAction.trim().toUpperCase(Locale.ROOT);
+        if (!grants.contains(action)) {
+            throw new IllegalArgumentException("The provider owner has not granted this action to the tenant");
+        }
+    }
+
+    private static Set<String> requireTenantPlanGrants(String role, Set<String> grants, String json) {
+        if (!"tenant".equalsIgnoreCase(role)) return Set.of();
+        Map<String, Object> document = ControlJson.parseObject(json == null ? "" : json, 64 * 1024);
+        Object rawSteps = document.get("steps");
+        if (!(rawSteps instanceof List<?> steps)) throw new IllegalArgumentException("plan steps are required");
+        Set<String> actions = new java.util.TreeSet<>();
+        for (Object raw : steps) {
+            if (!(raw instanceof Map<?, ?> step) || !(step.get("action") instanceof String action)) {
+                throw new IllegalArgumentException("every plan step requires a typed action");
+            }
+            requireTenantGrant(role, grants, action);
+            actions.add(action.trim().toUpperCase(Locale.ROOT));
+        }
+        return Set.copyOf(actions);
+    }
+
+    private synchronized void rememberTenantPreview(
+            ProxyInstance proxy,
+            String actor,
+            Map<String, Object> preview,
+            Set<String> actions
+    ) {
+        String token = String.valueOf(preview.getOrDefault("confirmationToken", ""));
+        if (token.isBlank()) throw new IllegalStateException("control preview did not return a confirmation token");
+        Instant now = Instant.now();
+        tenantControlPreviews.values().removeIf(value -> !value.expiresAt().isAfter(now));
+        tenantControlPreviews.put(previewDigest(token), new TenantControlPreview(
+                proxy.tenantId(), proxy.id(), actor, Set.copyOf(actions), now.plusSeconds(60)));
+    }
+
+    private synchronized void consumeTenantPreview(ProxyInstance proxy, String actor, String token) {
+        if (token == null || token.isBlank()) throw new IllegalArgumentException("confirmation token is required");
+        TenantControlPreview preview = tenantControlPreviews.remove(previewDigest(token));
+        if (preview == null || !preview.expiresAt().isAfter(Instant.now())
+                || !preview.tenantId().equals(proxy.tenantId()) || !preview.proxyId().equals(proxy.id())
+                || !preview.actor().equals(actor)) {
+            throw new IllegalArgumentException("tenant confirmation token is invalid or expired");
+        }
+        Set<String> current = controlGrants.getOrDefault(proxy.tenantId(), Set.of());
+        if (!current.containsAll(preview.actions())) {
+            throw new IllegalArgumentException("the provider owner revoked an action after preview");
+        }
+    }
+
+    private static String previewDigest(String token) {
+        try {
+            return java.util.HexFormat.of().formatHex(
+                    MessageDigest.getInstance("SHA-256").digest(token.getBytes(StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is unavailable", exception);
+        }
+    }
+
     @Override
     public synchronized void close() {
         if (closed) return;
@@ -873,6 +1100,15 @@ final class DashboardTenantHosting implements AutoCloseable {
         }
     }
 
+    private record TenantControlPreview(
+            String tenantId,
+            String proxyId,
+            String actor,
+            Set<String> actions,
+            Instant expiresAt
+    ) {
+    }
+
     private record ProxyInstance(
             String id,
             String tenantId,
@@ -880,6 +1116,7 @@ final class DashboardTenantHosting implements AutoCloseable {
             int port,
             String publicAddress,
             String backendAddress,
+            String primaryBackend,
             String trustedProxyCidr,
             String bdsProfile,
             int maxPlayers,
@@ -898,6 +1135,7 @@ final class DashboardTenantHosting implements AutoCloseable {
             result.put("port", port);
             result.put("publicAddress", publicAddress);
             result.put("backendAddress", backendAddress);
+            result.put("primaryBackend", primaryBackend);
             result.put("trustedProxyCidr", trustedProxyCidr);
             result.put("bdsProfile", bdsProfile);
             result.put("maxPlayers", maxPlayers);
@@ -912,13 +1150,19 @@ final class DashboardTenantHosting implements AutoCloseable {
 
         ProxyInstance withEnabled(boolean value) {
             return new ProxyInstance(id, tenantId, label, port, publicAddress, backendAddress,
-                    trustedProxyCidr, bdsProfile, maxPlayers, motd, value, status, lastError,
+                    primaryBackend, trustedProxyCidr, bdsProfile, maxPlayers, motd, value, status, lastError,
                     createdAt, Instant.now().toString());
         }
 
         ProxyInstance withState(String state, String error) {
             return new ProxyInstance(id, tenantId, label, port, publicAddress, backendAddress,
-                    trustedProxyCidr, bdsProfile, maxPlayers, motd, enabled, state, error,
+                    primaryBackend, trustedProxyCidr, bdsProfile, maxPlayers, motd, enabled, state, error,
+                    createdAt, Instant.now().toString());
+        }
+
+        ProxyInstance withPrimaryBackend(String name, String address) {
+            return new ProxyInstance(id, tenantId, label, port, publicAddress, address,
+                    name, trustedProxyCidr, bdsProfile, maxPlayers, motd, enabled, status, lastError,
                     createdAt, Instant.now().toString());
         }
     }

@@ -107,6 +107,23 @@ final class DashboardConfigFile {
         String trustedProxyCidr = trustedProxyCidr(fields);
         String bridgeId = optionalIdentifier(fields.get("bridgeId"), name + "-main", "Bridge ID");
         String keyId = optionalIdentifier(fields.get("activeKeyId"), "key-1", "Active key ID");
+        boolean controlEnabled = optionalBoolean(fields.get("controlEnabled"), false, "Enable OniControl");
+        String controlHost = "";
+        int controlPort = 19_132;
+        String controlMode = "advisor";
+        if (controlEnabled) {
+            controlHost = safeValue(fields.getOrDefault("controlHost", host), "OniControl host");
+            if (!HOST.matcher(controlHost).matches() || !privateLiteral(controlHost)) {
+                throw new IllegalArgumentException(
+                        "OniControl host must be a loopback or private numeric IP; use a private network or tunnel");
+            }
+            controlPort = integer(fields.get("controlPort"), "OniControl TCP port", 1, 65_535);
+            controlMode = safeValue(fields.getOrDefault("controlMode", "advisor"), "OniControl mode")
+                    .toLowerCase(Locale.ROOT);
+            if (!controlMode.equals("advisor") && !controlMode.equals("enforce")) {
+                throw new IllegalArgumentException("OniControl mode must be advisor or enforce");
+            }
+        }
 
         Properties properties = new Properties();
         properties.load(new StringReader(original));
@@ -127,6 +144,8 @@ final class DashboardConfigFile {
 
         String secretRelativePath = "secrets/" + name + ".key";
         String secretFileName = name + ".key";
+        String controlSecretRelativePath = "secrets/" + name + ".control.key";
+        String controlSecretFileName = name + ".control.key";
         String line = System.lineSeparator();
         String candidate = replaceProperty(original, "backends", String.join(",", backends));
         if (!candidate.endsWith("\n") && !candidate.endsWith("\r")) candidate += line;
@@ -138,6 +157,20 @@ final class DashboardConfigFile {
                 + prefix + "forwarding.activeSecretEnv=" + line
                 + prefix + "forwarding.activeSecretFile=" + secretRelativePath + line
                 + prefix + "forwarding.tokenLifetimeMillis=5000" + line;
+        if (controlEnabled) {
+            backendProperties += prefix + "control.enabled=true" + line
+                    + prefix + "control.mode=" + controlMode + line
+                    + prefix + "control.connectHost=" + controlHost + line
+                    + prefix + "control.connectPort=" + controlPort + line
+                    + prefix + "control.bridgeId=" + bridgeId + line
+                    + prefix + "control.backendName=" + name + line
+                    + prefix + "control.keyId=control-key-1" + line
+                    + prefix + "control.secretEnvironment=" + line
+                    + prefix + "control.secretFile=" + controlSecretRelativePath + line
+                    + prefix + "control.allowInsecurePrivateNetwork="
+                    + !isLoopback(controlHost) + line
+                    + prefix + "control.allowPublicAddress=false" + line;
+        }
         candidate += line
                 + "# Added by the OniLink dashboard backend wizard." + line
                 + backendProperties;
@@ -157,10 +190,18 @@ final class DashboardConfigFile {
         RANDOM.nextBytes(secretBytes);
         String secret = Base64.getEncoder().encodeToString(secretBytes);
         java.util.Arrays.fill(secretBytes, (byte) 0);
-        String bridgeToml = onibridgeToml(name, bridgeId, keyId, trustedProxyCidr, secretFileName);
+        String controlSecret = "";
+        if (controlEnabled) {
+            RANDOM.nextBytes(secretBytes);
+            controlSecret = Base64.getEncoder().encodeToString(secretBytes);
+            java.util.Arrays.fill(secretBytes, (byte) 0);
+        }
+        String bridgeToml = onibridgeToml(name, bridgeId, keyId, trustedProxyCidr, secretFileName,
+                controlEnabled, controlHost, controlPort, controlSecretFileName);
         String setupBundleFileName = name + "-onibridge-setup.zip";
         byte[] setupBundle = setupBundle(
-                name, secretFileName, secret, bridgeToml, host, port, trustedProxyCidr);
+                name, secretFileName, secret, controlSecretFileName, controlSecret, bridgeToml,
+                host, port, trustedProxyCidr, controlEnabled, controlHost, controlPort);
         Path secretsDirectory = path.getParent().resolve("secrets");
         Path secretPath = secretsDirectory.resolve(secretFileName).normalize();
         if (!secretPath.startsWith(secretsDirectory) || Files.exists(secretPath)) {
@@ -168,7 +209,14 @@ final class DashboardConfigFile {
             throw new IllegalStateException("Secret file already exists for backend '" + name + "'");
         }
         Path secretTemporary = secretsDirectory.resolve("." + secretFileName + ".setup.tmp");
+        Path controlSecretPath = secretsDirectory.resolve(controlSecretFileName).normalize();
+        Path controlSecretTemporary = secretsDirectory.resolve("." + controlSecretFileName + ".setup.tmp");
+        if (controlEnabled && (!controlSecretPath.startsWith(secretsDirectory) || Files.exists(controlSecretPath))) {
+            Files.deleteIfExists(temporary);
+            throw new IllegalStateException("Control secret file already exists for backend '" + name + "'");
+        }
         boolean secretInstalled = false;
+        boolean controlSecretInstalled = false;
         try {
             Files.createDirectories(secretsDirectory);
             setPosixPermissions(secretsDirectory, Set.of(
@@ -180,15 +228,28 @@ final class DashboardConfigFile {
             setPosixPermissions(secretTemporary, Set.of(
                     PosixFilePermission.OWNER_READ,
                     PosixFilePermission.OWNER_WRITE));
+            if (controlEnabled) {
+                Files.writeString(controlSecretTemporary, controlSecret + line, StandardCharsets.US_ASCII,
+                        StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
+                setPosixPermissions(controlSecretTemporary, Set.of(
+                        PosixFilePermission.OWNER_READ,
+                        PosixFilePermission.OWNER_WRITE));
+            }
             Files.copy(path, backupPath, StandardCopyOption.REPLACE_EXISTING,
                     StandardCopyOption.COPY_ATTRIBUTES);
             moveNew(secretTemporary, secretPath);
             secretInstalled = true;
+            if (controlEnabled) {
+                moveNew(controlSecretTemporary, controlSecretPath);
+                controlSecretInstalled = true;
+            }
             replace(temporary, path);
         } catch (RuntimeException | IOException exception) {
             Files.deleteIfExists(temporary);
             Files.deleteIfExists(secretTemporary);
+            Files.deleteIfExists(controlSecretTemporary);
             if (secretInstalled) Files.deleteIfExists(secretPath);
+            if (controlSecretInstalled) Files.deleteIfExists(controlSecretPath);
             throw exception;
         }
 
@@ -196,6 +257,11 @@ final class DashboardConfigFile {
         result.put("added", true);
         result.put("backendName", name);
         result.put("secret", secret);
+        result.put("controlEnabled", controlEnabled);
+        result.put("controlSecret", controlSecret);
+        result.put("controlSecretFileName", controlEnabled ? controlSecretFileName : "");
+        result.put("onilinkControlSecretFile", controlEnabled ? controlSecretRelativePath : "");
+        result.put("controlEndpoint", controlEnabled ? displayEndpoint(controlHost, controlPort) : "disabled");
         result.put("secretFileName", secretFileName);
         result.put("onilinkSecretFile", secretRelativePath);
         result.put("onilinkProperties", onilinkProperties);
@@ -206,6 +272,77 @@ final class DashboardConfigFile {
         result.put("setupBundleBase64", Base64.getEncoder().encodeToString(setupBundle));
         result.put("restartRequired", true);
         result.put("message", "Backend added. Install the generated files on Endstone, then restart OniLink.");
+        return Map.copyOf(result);
+    }
+
+    synchronized Map<String, Object> routing() throws IOException {
+        ProxyConfig config = ProxyConfig.loadOrCreate(path);
+        List<Map<String, Object>> configuredBackends = new ArrayList<>();
+        for (var backend : config.backends().values()) {
+            configuredBackends.add(Map.of(
+                    "name", backend.name(),
+                    "address", displayEndpoint(
+                            backend.address().getHostString(), backend.address().getPort())));
+        }
+        return Map.of(
+                "primaryBackend", config.backend().name(),
+                "primaryBackendAddress", displayEndpoint(
+                        config.backend().address().getHostString(), config.backend().address().getPort()),
+                "configuredBackends", List.copyOf(configuredBackends));
+    }
+
+    synchronized Map<String, Object> setPrimaryBackend(
+            String expectedRevision,
+            String requestedBackend
+    ) throws IOException {
+        String original = readConfig(path);
+        requireRevision(original, expectedRevision);
+
+        String requested = safeValue(requestedBackend, "Primary backend").toLowerCase(Locale.ROOT);
+        if (!BACKEND_NAME.matcher(requested).matches()) {
+            throw new IllegalArgumentException("Primary backend name is invalid");
+        }
+
+        ProxyConfig current = ProxyConfig.loadOrCreate(path);
+        var selected = current.backends().values().stream()
+                .filter(backend -> backend.name().equalsIgnoreCase(requested))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Backend '" + requested + "' is not configured for this proxy"));
+        String selectedName = selected.name();
+        String selectedAddress = displayEndpoint(
+                selected.address().getHostString(), selected.address().getPort());
+        if (current.backend().name().equalsIgnoreCase(selectedName)) {
+            Map<String, Object> result = new LinkedHashMap<>(read());
+            result.put("changed", false);
+            result.put("primaryBackend", selectedName);
+            result.put("primaryBackendAddress", selectedAddress);
+            result.put("restartRequired", false);
+            result.put("message", selectedName + " is already the primary server.");
+            return Map.copyOf(result);
+        }
+
+        String candidate = replaceProperty(original, "backend.name", selectedName);
+        candidate = replaceProperty(candidate, "backend.host", selected.address().getHostString());
+        candidate = replaceProperty(candidate, "backend.port", Integer.toString(selected.address().getPort()));
+        Path temporary = path.resolveSibling(path.getFileName() + ".dashboard.primary.tmp");
+        Files.writeString(temporary, candidate, StandardCharsets.UTF_8);
+        try {
+            ProxyConfig.loadOrCreate(temporary);
+            Files.copy(path, backupPath, StandardCopyOption.REPLACE_EXISTING,
+                    StandardCopyOption.COPY_ATTRIBUTES);
+            replace(temporary, path);
+        } catch (RuntimeException | IOException exception) {
+            Files.deleteIfExists(temporary);
+            throw exception;
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>(read());
+        result.put("changed", true);
+        result.put("primaryBackend", selectedName);
+        result.put("primaryBackendAddress", selectedAddress);
+        result.put("restartRequired", true);
+        result.put("message", "Primary server changed to " + selectedName + ".");
         return Map.copyOf(result);
     }
 
@@ -376,7 +513,7 @@ final class DashboardConfigFile {
         if (expectedRevision == null || !MessageDigest.isEqual(
                 revision(original).getBytes(StandardCharsets.US_ASCII),
                 expectedRevision.getBytes(StandardCharsets.US_ASCII))) {
-            throw new IllegalStateException("Configuration changed on disk; reload before adding a backend");
+            throw new IllegalStateException("Configuration changed on disk; reload before saving");
         }
     }
 
@@ -503,9 +640,13 @@ final class DashboardConfigFile {
             String bridgeId,
             String keyId,
             String trustedProxyCidr,
-            String secretFileName
+            String secretFileName,
+            boolean controlEnabled,
+            String controlHost,
+            int controlPort,
+            String controlSecretFileName
     ) {
-        return """
+        String base = """
                 # Generated by the OniLink dashboard backend wizard.
                 # Install as: /home/container/plugins/onibridge/onibridge.toml
 
@@ -547,20 +688,65 @@ final class DashboardConfigFile {
                 [legacy_verification]
                 enabled = false
                 """.formatted(bridgeId, name, trustedProxyCidr, keyId, secretFileName, LINUX_PROFILE);
+        if (!controlEnabled) {
+            return base + """
+
+                    # OniControl remains disabled until a separate private TCP route and key are configured.
+                    [control]
+                    enabled = false
+                    """;
+        }
+        return base + """
+
+                # Dedicated authenticated semantic-control channel. This key is intentionally different
+                # from the OniForward identity key above.
+                [control]
+                enabled = true
+                listen_host = "%s"
+                listen_port = %d
+                bridge_id = "%s"
+                backend_name = "%s"
+                key_id = "control-key-1"
+                secret_environment = ""
+                secret_file = "%s"
+                trusted_proxy_cidrs = ["%s"]
+                max_frame_bytes = 262144
+                max_connections = 4
+                max_in_flight = 32
+                clock_skew_seconds = 30
+                replay_retention_seconds = 120
+                allow_insecure_private_network = %s
+                allow_public_address = false
+                [control.tls]
+                enabled = false
+                certificate_file = ""
+                private_key_file = ""
+                client_ca_file = ""
+                require_client_certificate = true
+                """.formatted(controlHost, controlPort, bridgeId, name, controlSecretFileName,
+                trustedProxyCidr, !isLoopback(controlHost));
     }
 
     private static byte[] setupBundle(
             String name,
             String secretFileName,
             String secret,
+            String controlSecretFileName,
+            String controlSecret,
             String bridgeToml,
             String host,
             int port,
-            String trustedProxyCidr
+            String trustedProxyCidr,
+            boolean controlEnabled,
+            String controlHost,
+            int controlPort
     ) throws IOException {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         try (ZipOutputStream zip = new ZipOutputStream(bytes, StandardCharsets.UTF_8)) {
             zipText(zip, secretFileName, secret + System.lineSeparator());
+            if (controlEnabled) {
+                zipText(zip, controlSecretFileName, controlSecret + System.lineSeparator());
+            }
             zipText(zip, "onibridge.toml", bridgeToml);
             zipText(zip, "INSTALL.txt", """
                     ONILINK BACKEND SETUP: %s
@@ -570,6 +756,7 @@ final class DashboardConfigFile {
                       on that same numeric port.
                     - This backend uses its existing BDS UDP allocation: %s
                     - OniBridge does not need another port.
+                    %s
 
                     INSTALL
                     1. Stop this BDS/Endstone server in Pterodactyl.
@@ -577,7 +764,7 @@ final class DashboardConfigFile {
                        /home/container/plugins/
                     3. Create this directory if it does not exist:
                        /home/container/plugins/onibridge/
-                    4. Upload %s and onibridge.toml from this ZIP into that directory.
+                    4. Upload %s%s and onibridge.toml from this ZIP into that directory.
                     5. Start BDS and confirm the native identity hook reports active.
                     6. Restart OniLink so it loads the new route.
                     7. Join through OniLink and run: /server %s
@@ -586,9 +773,14 @@ final class DashboardConfigFile {
                     BDS address: %s
                     Trusted OniLink source: %s
 
-                    Keep the key private. Do not paste its contents into active_secret_env; the generated
-                    TOML intentionally loads it from the file beside onibridge.toml.
-                    """.formatted(name, displayEndpoint(host, port), secretFileName, name,
+                    Keep both keys private. Do not paste their contents into an *_env setting; the generated
+                    TOML intentionally loads each key from an owner-only file beside onibridge.toml.
+                    """.formatted(name, displayEndpoint(host, port),
+                            controlEnabled
+                                    ? "- OniControl additionally uses private TCP "
+                                            + displayEndpoint(controlHost, controlPort) + "."
+                                    : "- OniControl is disabled; no control TCP allocation is needed.",
+                            secretFileName, controlEnabled ? " and " + controlSecretFileName : "", name,
                             displayEndpoint(host, port), trustedProxyCidr));
         }
         return bytes.toByteArray();
@@ -602,6 +794,28 @@ final class DashboardConfigFile {
 
     private static String displayEndpoint(String host, int port) {
         return (host.indexOf(':') >= 0 ? "[" + host + "]" : host) + ":" + port;
+    }
+
+    private static boolean optionalBoolean(String value, boolean fallback, String label) {
+        if (value == null || value.isBlank()) return fallback;
+        if ("true".equalsIgnoreCase(value.trim())) return true;
+        if ("false".equalsIgnoreCase(value.trim())) return false;
+        throw new IllegalArgumentException(label + " must be true or false");
+    }
+
+    private static boolean isLoopback(String host) {
+        return "127.0.0.1".equals(host) || "::1".equals(host) || "localhost".equalsIgnoreCase(host);
+    }
+
+    private static boolean privateLiteral(String host) {
+        if (isLoopback(host)) return true;
+        if (!host.matches("[0-9A-Fa-f:.]+")) return false;
+        try {
+            InetAddress address = InetAddress.getByName(host);
+            return address.isSiteLocalAddress() || address.isLinkLocalAddress() || address.isLoopbackAddress();
+        } catch (UnknownHostException exception) {
+            return false;
+        }
     }
 
     private static void setPosixPermissions(Path target, Set<PosixFilePermission> permissions) throws IOException {

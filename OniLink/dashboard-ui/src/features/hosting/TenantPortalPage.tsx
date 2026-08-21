@@ -126,6 +126,13 @@ export function TenantPortalPage() {
   });
   const [backendResult, setBackendResult] = useState<BackendSetup | null>(null);
   const [runtime, setRuntime] = useState<RuntimeSelection | null>(null);
+  const [primaryChoice, setPrimaryChoice] = useState<{ proxyKey: string; backend: string } | null>(
+    null,
+  );
+  const primarySelection =
+    primaryChoice?.proxyKey === activeKey
+      ? primaryChoice.backend
+      : (proxy.data?.primaryBackend ?? "");
   const defaultProxySourceIp = selectedProxy?.trustedProxyCidr.replace(/\/(32|128)$/, "") ?? "";
   const refresh = async () => {
     await client.invalidateQueries({ queryKey: ["tenant-proxy"] });
@@ -179,6 +186,19 @@ export function TenantPortalPage() {
       await refresh();
     },
   });
+  const changePrimary = useMutation({
+    mutationFn: () =>
+      dashboardApi.setTenantPrimaryBackend({
+        ...selection!,
+        backend: primarySelection,
+        revision: proxy.data?.configurationRevision ?? "",
+      }),
+    onSuccess: async (result) => {
+      setMessage(result.message);
+      setPrimaryChoice(null);
+      await refresh();
+    },
+  });
   const activeError =
     tenancy.error ??
     proxy.error ??
@@ -186,9 +206,17 @@ export function TenantPortalPage() {
     allowAdd.error ??
     allowDrop.error ??
     sendAlert.error ??
-    addBackend.error;
+    addBackend.error ??
+    changePrimary.error;
   const state = proxy.data;
-  const backendNames = useMemo(() => (state?.backends ?? []).map((item) => item.name), [state]);
+  const configuredBackends = useMemo(
+    () => state?.configuredBackends ?? [],
+    [state?.configuredBackends],
+  );
+  const backendNames = useMemo(
+    () => configuredBackends.map((item) => item.name),
+    [configuredBackends],
+  );
   return (
     <>
       <PageHeader
@@ -254,8 +282,11 @@ export function TenantPortalPage() {
                 <dd>{selectedProxy.publicAddress}</dd>
               </div>
               <div>
-                <dt>Initial game server</dt>
-                <dd>{selectedProxy.backendAddress}</dd>
+                <dt>Primary server</dt>
+                <dd>
+                  {state?.primaryBackend ?? selectedProxy.primaryBackend} ·{" "}
+                  {state?.primaryBackendAddress ?? selectedProxy.backendAddress}
+                </dd>
               </div>
               <div>
                 <dt>Players</dt>
@@ -295,6 +326,48 @@ export function TenantPortalPage() {
                 </Button>
               ) : null}
             </div>
+          </Card>
+          <Card>
+            <h2>Choose the primary server</h2>
+            <p>
+              New players are sent here when they join this proxy. Changing it restarts this proxy,
+              so connected players will need to reconnect.
+            </p>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                changePrimary.mutate();
+              }}
+            >
+              <label>
+                Primary destination server
+                <span className="fieldHelp">Select one of the named backends on this proxy.</span>
+                <select
+                  required
+                  value={primarySelection}
+                  onChange={(event) =>
+                    setPrimaryChoice({ proxyKey: activeKey, backend: event.target.value })
+                  }
+                >
+                  {configuredBackends.map((item) => (
+                    <option key={item.name} value={item.name}>
+                      {item.name} · {item.address}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <Button
+                type="submit"
+                disabled={
+                  changePrimary.isPending ||
+                  !primarySelection ||
+                  primarySelection === state?.primaryBackend
+                }
+              >
+                <RotateCw aria-hidden="true" />
+                {changePrimary.isPending ? "Changing…" : "Change primary server"}
+              </Button>
+            </form>
           </Card>
           <Card>
             <h2>Connected players</h2>

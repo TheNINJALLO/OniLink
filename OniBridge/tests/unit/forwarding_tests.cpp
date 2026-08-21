@@ -3,6 +3,8 @@
 #include <onibridge/login_envelope.hpp>
 #include <onibridge/service.hpp>
 
+#include "../../src/forwarding/crypto.hpp"
+
 #include <array>
 #include <atomic>
 #include <cstdlib>
@@ -210,6 +212,74 @@ void secret_file_tests() {
 #endif
 }
 
+void control_config_tests() {
+    const auto path = std::filesystem::temp_directory_path() / "onibridge-control-config-test.toml";
+    auto write = [&](std::string_view control) {
+        std::ofstream output(path, std::ios::binary | std::ios::trunc);
+        output << "bridge_id = \"survival-main\"\nbackend_name = \"survival\"\n"
+                  "trusted_proxy_cidrs = [\"127.0.0.1/32\"]\n"
+                  "[forwarding]\nactive_key_id = \"key-1\"\n"
+                  "active_secret_env = \"ONIBRIDGE_FORWARDING_SECRET\"\n"
+                  "[compatibility]\nrequired_profile = \"reviewed-profile\"\n"
+               << control;
+    };
+    write("");
+    check(!load_config(path).control.enabled, "OniControl defaults to disabled");
+
+    write("[control]\nenabled = true\nlisten_host = \"127.0.0.1\"\nlisten_port = 19132\n"
+          "bridge_id = \"survival-control\"\nbackend_name = \"survival\"\nkey_id = "
+          "\"control-key-1\"\n"
+          "secret_environment = \"ONIBRIDGE_CONTROL_SECRET\"\n"
+          "trusted_proxy_cidrs = [\"127.0.0.1/32\"]\n");
+    const auto configured = load_config(path);
+    check(configured.control.enabled && configured.control.listen_port == 19132,
+          "valid loopback OniControl configuration loads");
+    check(configured.control.secret.environment_variable == "ONIBRIDGE_CONTROL_SECRET",
+          "OniControl keeps a separate secret source");
+
+    bool rejected = false;
+    try {
+        write("[control]\nenabled = true\nlisten_host = \"0.0.0.0\"\nlisten_port = 19132\n"
+              "bridge_id = \"survival-control\"\nbackend_name = \"survival\"\nkey_id = "
+              "\"control-key-1\"\n"
+              "secret_environment = \"ONIBRIDGE_CONTROL_SECRET\"\n"
+              "trusted_proxy_cidrs = [\"0.0.0.0/0\"]\n");
+        (void)load_config(path);
+    } catch (const std::exception&) {
+        rejected = true;
+    }
+    check(rejected, "public wildcard OniControl listener fails closed by default");
+    std::filesystem::remove(path);
+}
+
+void control_signature_vector_tests() {
+    const std::string secret = "0123456789abcdef0123456789abcdef";
+    std::vector<std::byte> secret_bytes(secret.size());
+    for (std::size_t index = 0; index < secret.size(); ++index)
+        secret_bytes[index] = static_cast<std::byte>(static_cast<unsigned char>(secret[index]));
+    const std::string input =
+        "ONICTL/1\n"
+        "control-key-1\n"
+        "123e4567-e89b-12d3-a456-426614174000\n"
+        "idempotency-1\n"
+        "1787184000000\n"
+        "AAECAwQFBgcICQoLDA0ODw\n"
+        "survival-main\n"
+        "survival\n"
+        "2533274790000001\n"
+        "TELEPORT\n"
+        "eyJwYXlsb2FkVmVyc2lvbiI6MSwidmFsdWVzIjp7IngiOjEuMjUsInkiOjY0LCJ6IjotMi41fX0";
+    const auto message =
+        std::span<const std::byte>(reinterpret_cast<const std::byte*>(input.data()), input.size());
+    const auto signature = crypto::base64url_encode(crypto::hmac_sha256(secret_bytes, message));
+    check(signature == "Y_aDTdDJCzyiZEDsuUMyypns_xltMjDRZD5DiYMiTjY",
+          "ONICTL/1 C++ signature matches the shared Java vector");
+    const auto decoded = crypto::base64url_decode(signature);
+    const auto expected = crypto::hmac_sha256(secret_bytes, message);
+    check(decoded && crypto::constant_time_equal(*decoded, expected),
+          "ONICTL/1 shared vector verifies through the constant-time path");
+}
+
 void service_tests() {
     OniBridgeService service(
         "kingdom-main", "kingdom", {key(), std::nullopt}, TrustedProxyMatcher({"10.0.0.0/8"}));
@@ -272,6 +342,8 @@ int main() {
     replay_tests();
     cidr_tests();
     secret_file_tests();
+    control_config_tests();
+    control_signature_vector_tests();
     service_tests();
     login_envelope_tests();
     if (failures)

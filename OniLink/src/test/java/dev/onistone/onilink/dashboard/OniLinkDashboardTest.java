@@ -57,6 +57,7 @@ class OniLinkDashboardTest {
             assertTrue(application.headers().firstValue("Cache-Control").orElseThrow().contains("immutable"));
             assertTrue(application.body().contains("/api/tenancy/tenants"));
             assertTrue(application.body().contains("/api/tenancy/proxy/runtime"));
+            assertTrue(application.body().contains("/api/tenancy/proxy/primary-backend"));
             assertTrue(application.body().contains("/api/packets"));
             assertFalse(application.body().contains("/api/hosting"));
             String stylesheetPath = assetPath(home.body(), "href", "css");
@@ -147,6 +148,37 @@ class OniLinkDashboardTest {
                     base.resolve("/api/tenancy/proxy?tenant=acme&proxy=survival"), tenantToken);
             assertEquals(200, tenantProxy.statusCode());
             assertTrue(tenantProxy.body().contains("45.143.196.108:19135"));
+            String tenantRevision = jsonString(tenantProxy.body(), "configurationRevision");
+            HttpResponse<String> tenantBackend = post(client,
+                    base.resolve("/api/tenancy/proxy/backends"), Map.of(
+                            "tenant", "acme",
+                            "proxy", "survival",
+                            "revision", tenantRevision,
+                            "name", "creative",
+                            "address", "45.143.196.161:25571",
+                            "proxyPublicIp", "45.143.196.108"), bearer(tenantToken));
+            assertEquals(201, tenantBackend.statusCode());
+            HttpResponse<String> tenantPrimary = post(client,
+                    base.resolve("/api/tenancy/proxy/primary-backend"), Map.of(
+                            "tenant", "acme",
+                            "proxy", "survival",
+                            "revision", jsonString(tenantBackend.body(), "revision"),
+                            "backend", "creative"), bearer(tenantToken));
+            assertEquals(200, tenantPrimary.statusCode());
+            assertTrue(tenantPrimary.body().contains("\"primaryBackend\":\"creative\""));
+            HttpResponse<String> ownerPrimary = post(client,
+                    base.resolve("/api/tenancy/proxy/primary-backend"), Map.of(
+                            "tenant", "acme",
+                            "proxy", "survival",
+                            "revision", jsonString(tenantPrimary.body(), "revision"),
+                            "backend", "default"), bearer(ownerToken));
+            assertEquals(200, ownerPrimary.statusCode());
+            assertTrue(ownerPrimary.body().contains("\"primaryBackend\":\"default\""));
+            assertEquals(403, post(client, base.resolve("/api/tenancy/proxy/primary-backend"), Map.of(
+                    "tenant", "other",
+                    "proxy", "survival",
+                    "revision", jsonString(ownerPrimary.body(), "revision"),
+                    "backend", "default"), bearer(tenantToken)).statusCode());
             assertEquals(403, get(client, base.resolve("/api/state"), tenantToken).statusCode());
             assertEquals(403, get(client,
                     base.resolve("/api/tenancy/proxy?tenant=other&proxy=survival"), tenantToken).statusCode());
@@ -228,7 +260,12 @@ class OniLinkDashboardTest {
     }
 
     private static String token(String body) {
-        Matcher matcher = Pattern.compile("\\\"token\\\":\\\"([^\\\"]+)\\\"").matcher(body);
+        return jsonString(body, "token");
+    }
+
+    private static String jsonString(String body, String key) {
+        Matcher matcher = Pattern.compile("\\\"" + Pattern.quote(key) + "\\\":\\\"([^\\\"]+)\\\"")
+                .matcher(body);
         assertTrue(matcher.find());
         return matcher.group(1);
     }

@@ -39,3 +39,28 @@ allow_unknown_endstone = false
 [legacy_verification]
 enabled = false
 
+# Separate authenticated management channel. OniForward secrets must never be reused here.
+[control]
+enabled = false
+listen_host = "127.0.0.1"
+listen_port = 19132
+bridge_id = "survival-main"
+backend_name = "survival"
+key_id = "control-key-1"
+secret_environment = "ONIBRIDGE_CONTROL_SECRET"
+secret_file = ""
+trusted_proxy_cidrs = ["127.0.0.1/32", "::1/128"]
+max_frame_bytes = 262144
+max_connections = 4
+max_in_flight = 32
+clock_skew_seconds = 30
+replay_retention_seconds = 120
+allow_insecure_private_network = false
+allow_public_address = false
+
+[control.tls]
+enabled = false
+certificate_file = ""
+private_key_file = ""
+client_ca_file = ""
+require_client_certificate = true

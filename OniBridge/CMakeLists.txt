@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 if(NOT DEFINED ONIBRIDGE_VERSION)
-    set(ONIBRIDGE_VERSION "0.2.0")
+    set(ONIBRIDGE_VERSION "0.3.0-beta.1")
 endif()
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ONIBRIDGE_PROJECT_VERSION "${ONIBRIDGE_VERSION}")
 if(NOT ONIBRIDGE_PROJECT_VERSION)
@@ -30,6 +30,7 @@ add_library(onibridge_core STATIC
     src/config/onibridge_config.cpp
     src/commands/command_compatibility_monitor.cpp
     src/migration/legacy_data_migrator.cpp)
+target_sources(onibridge_core PRIVATE src/control/control_server.cpp)
 target_compile_features(onibridge_core PUBLIC cxx_std_20)
 target_include_directories(onibridge_core PUBLIC include PRIVATE src/forwarding)
 target_link_libraries(onibridge_core PUBLIC Threads::Threads)
@@ -85,6 +86,17 @@ if(ONIBRIDGE_BUILD_PLUGIN)
     endstone_add_plugin(onibridge src/plugin/onibridge_plugin.cpp "${ONIBRIDGE_GENERATED_ADAPTER}")
     target_compile_features(onibridge PRIVATE cxx_std_20)
     target_compile_definitions(onibridge PRIVATE ONIBRIDGE_VERSION="${ONIBRIDGE_VERSION}")
+    if(WIN32)
+        target_compile_definitions(onibridge PRIVATE
+            ONIBRIDGE_BDS_VERSION="1.26.44.3"
+            ONIBRIDGE_BDS_SHA256="2d6518ddd25211aa51155fc015cd0393b29b2af74551a378b16f9a724ed771bd"
+            ONIBRIDGE_OPERATING_SYSTEM="windows")
+    else()
+        target_compile_definitions(onibridge PRIVATE
+            ONIBRIDGE_BDS_VERSION="1.26.44.3"
+            ONIBRIDGE_BDS_SHA256="06effdd00067f1ae0951ee7a732398dde721728e6b18ea149b138b8e2aececa7"
+            ONIBRIDGE_OPERATING_SYSTEM="linux")
+    endif()
     target_link_libraries(onibridge PRIVATE onibridge_core)
     set_target_properties(onibridge PROPERTIES PREFIX "" OUTPUT_NAME "onibridge")
 endif()

@@ -4,10 +4,10 @@
         "version": "PTDL_v2",
         "update_url": "https://raw.githubusercontent.com/TheNINJALLO/OniLink/main/packaging/pterodactyl/egg-onilink.json"
     },
-    "exported_at": "2026-08-20T00:00:00-04:00",
+    "exported_at": "2026-08-21T00:00:00-04:00",
     "name": "OniLink Bedrock Edge System",
     "author": "TheNINJALLO@users.noreply.github.com",
-    "description": "OniLink is a standalone Java 21 Bedrock edge system with fail-closed OniForward identity forwarding, an authenticated XUID allowlist, and an embedded operations dashboard. This stable egg verifies its bootstrap release and atomically installs checksum-verified runtime updates from the selected stable, beta, or pinned channel.",
+    "description": "OniLink is a standalone Java 21 Bedrock edge system with fail-closed OniForward identity forwarding, tenant-aware operations modules, an installable dashboard PWA, and native OniBridge control. This 0.3 beta egg verifies its bootstrap release and atomically follows the selected stable, beta, or pinned channel.",
     "features": [
         "java_version",
         "pid_limit"
@@ -19,7 +19,7 @@
     "file_denylist": [],
     "startup": "bash ./start-onilink.sh",
     "config": {
-        "files": "{\n    \"config.properties\": {\n        \"parser\": \"properties\",\n        \"find\": {\n            \"listener.host\": \"0.0.0.0\",\n            \"listener.port\": \"{{server.build.default.port}}\",\n            \"dashboard.enabled\": \"{{env.DASHBOARD_ENABLED}}\",\n            \"dashboard.host\": \"0.0.0.0\",\n            \"dashboard.port\": \"{{server.build.default.port}}\",\n            \"allowlist.enabled\": \"{{env.ALLOWLIST_ENABLED}}\",\n            \"backend.host\": \"{{env.BACKEND_HOST}}\",\n            \"backend.port\": \"{{env.BACKEND_PORT}}\",\n            \"backend.default.host\": \"{{env.BACKEND_HOST}}\",\n            \"backend.default.port\": \"{{env.BACKEND_PORT}}\",\n            \"motd\": \"{{env.SERVER_MOTD}}\",\n            \"maxPlayers\": \"{{env.MAX_PLAYERS}}\"\n        }\n    }\n}",
+        "files": "{\n    \"config.properties\": {\n        \"parser\": \"properties\",\n        \"find\": {\n            \"listener.host\": \"0.0.0.0\",\n            \"listener.port\": \"{{server.build.default.port}}\",\n            \"dashboard.enabled\": \"{{env.DASHBOARD_ENABLED}}\",\n            \"dashboard.host\": \"0.0.0.0\",\n            \"dashboard.port\": \"{{server.build.default.port}}\",\n            \"allowlist.enabled\": \"{{env.ALLOWLIST_ENABLED}}\",\n            \"backend.host\": \"{{env.BACKEND_HOST}}\",\n            \"backend.port\": \"{{env.BACKEND_PORT}}\",\n            \"backend.default.host\": \"{{env.BACKEND_HOST}}\",\n            \"backend.default.port\": \"{{env.BACKEND_PORT}}\",\n            \"control.enabled\": \"{{env.CONTROL_ENABLED}}\",\n            \"control.mode\": \"{{env.CONTROL_MODE}}\",\n            \"control.connectHost\": \"{{env.CONTROL_HOST}}\",\n            \"control.connectPort\": \"{{env.CONTROL_PORT}}\",\n            \"control.bridgeId\": \"{{env.CONTROL_BRIDGE_ID}}\",\n            \"control.backendName\": \"{{env.CONTROL_BACKEND_NAME}}\",\n            \"control.keyId\": \"{{env.CONTROL_KEY_ID}}\",\n            \"control.secretEnvironment\": \"ONILINK_CONTROL_SECRET\",\n            \"control.secretFile\": \"\",\n            \"control.allowInsecurePrivateNetwork\": \"{{env.CONTROL_ALLOW_PRIVATE}}\",\n            \"control.tls.enabled\": \"{{env.CONTROL_TLS_ENABLED}}\",\n            \"control.tls.serverName\": \"{{env.CONTROL_TLS_SERVER_NAME}}\",\n            \"control.tls.pinnedCertificateSha256\": \"{{env.CONTROL_CERT_PIN}}\",\n            \"packetRules.enabled\": \"{{env.PACKET_RULES_ENABLED}}\",\n            \"virtualization.enabled\": \"{{env.VIRTUALIZATION_ENABLED}}\",\n            \"protocolLab.enabled\": \"{{env.PROTOCOL_LAB_ENABLED}}\",\n            \"protocolLab.allowedXuids\": \"{{env.PROTOCOL_LAB_XUIDS}}\",\n            \"protocolLab.allowedBackends\": \"{{env.PROTOCOL_LAB_BACKENDS}}\",\n            \"motd\": \"{{env.SERVER_MOTD}}\",\n            \"maxPlayers\": \"{{env.MAX_PLAYERS}}\"\n        }\n    }\n}",
         "startup": "{\n    \"done\": \"OniLink listening on\"\n}",
         "logs": "{}",
         "stop": "stop"
@@ -36,7 +36,7 @@
             "name": "OniLink bootstrap release tag",
             "description": "Exact public GitHub release used during create/reinstall and when the update channel is pinned.",
             "env_variable": "ONILINK_VERSION",
-            "default_value": "v0.2.0",
+            "default_value": "v0.3.0-beta.1",
             "user_viewable": true,
             "user_editable": true,
             "rules": "required|string|max:64|regex:/^[A-Za-z0-9][A-Za-z0-9._-]*$/",
@@ -46,7 +46,7 @@
             "name": "Automatic update channel",
             "description": "beta installs the newest published release including prereleases; stable ignores prereleases; pinned stays on the exact OniLink bootstrap release tag.",
             "env_variable": "ONILINK_UPDATE_CHANNEL",
-            "default_value": "stable",
+            "default_value": "beta",
             "user_viewable": true,
             "user_editable": true,
             "rules": "required|string|in:stable,beta,pinned",
@@ -140,6 +140,176 @@
             "user_viewable": true,
             "user_editable": true,
             "rules": "required|integer|between:1,100000",
+            "field_type": "text"
+        },
+        {
+            "name": "Enable OniControl",
+            "description": "Enables the optional typed backend-control channel for the default backend. Keep disabled until the matching OniBridge control block and a dedicated TCP allocation/private route are configured.",
+            "env_variable": "CONTROL_ENABLED",
+            "default_value": "false",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "OniControl safety mode",
+            "description": "advisor requires dashboard preview and confirmation; enforce permits already-authorized typed actions. Start with advisor.",
+            "env_variable": "CONTROL_MODE",
+            "default_value": "advisor",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:advisor,enforce",
+            "field_type": "text"
+        },
+        {
+            "name": "OniBridge private control IP",
+            "description": "Private numeric IP used only for OniControl TCP. It is not the player-facing UDP address. Public cleartext addresses are rejected.",
+            "env_variable": "CONTROL_HOST",
+            "default_value": "127.0.0.1",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|max:64",
+            "field_type": "text"
+        },
+        {
+            "name": "OniBridge control TCP port",
+            "description": "Dedicated TCP allocation listened to by OniBridge and reached by OniLink. This is separate from both Bedrock UDP ports and the dashboard port.",
+            "env_variable": "CONTROL_PORT",
+            "default_value": "19132",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|integer|between:1,65535",
+            "field_type": "text"
+        },
+        {
+            "name": "OniControl bridge ID",
+            "description": "Must exactly match control.bridge_id in the OniBridge TOML for the default backend.",
+            "env_variable": "CONTROL_BRIDGE_ID",
+            "default_value": "default-bridge",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|max:64|regex:/^[A-Za-z0-9._-]+$/",
+            "field_type": "text"
+        },
+        {
+            "name": "OniControl backend name",
+            "description": "Exact configured backend route name carried in signed control envelopes.",
+            "env_variable": "CONTROL_BACKEND_NAME",
+            "default_value": "default",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|max:64|regex:/^[A-Za-z0-9._-]+$/",
+            "field_type": "text"
+        },
+        {
+            "name": "OniControl key ID",
+            "description": "Non-secret rotation label that must match OniBridge control.key_id.",
+            "env_variable": "CONTROL_KEY_ID",
+            "default_value": "control-key-1",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|max:64|regex:/^[A-Za-z0-9._-]+$/",
+            "field_type": "text"
+        },
+        {
+            "name": "Allow private cleartext control route",
+            "description": "Set true only when CONTROL_HOST is a trusted private IP or loopback tunnel. HMAC authentication remains mandatory, but transport contents are not encrypted.",
+            "env_variable": "CONTROL_ALLOW_PRIVATE",
+            "default_value": "false",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "Enable OniControl TLS client",
+            "description": "Requires a TLS-enabled control endpoint, validated server name, and CA/pin. The bundled native bridge currently rejects TLS until its reviewed TLS transport is available.",
+            "env_variable": "CONTROL_TLS_ENABLED",
+            "default_value": "false",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "OniControl TLS server name",
+            "description": "Certificate hostname used by the Java TLS client; required only when TLS is enabled.",
+            "env_variable": "CONTROL_TLS_SERVER_NAME",
+            "default_value": "",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "nullable|string|max:253",
+            "field_type": "text"
+        },
+        {
+            "name": "OniControl certificate SHA-256 pin",
+            "description": "ADMIN ONLY. Optional 64-character lowercase/uppercase certificate fingerprint without colons.",
+            "env_variable": "CONTROL_CERT_PIN",
+            "default_value": "",
+            "user_viewable": false,
+            "user_editable": false,
+            "rules": "nullable|string|size:64|regex:/^[0-9A-Fa-f]+$/",
+            "field_type": "text"
+        },
+        {
+            "name": "Enable OniPacket rules",
+            "description": "Enables persisted typed packet rules in both relay directions. Rules still start empty and are managed from the OniControl dashboard.",
+            "env_variable": "PACKET_RULES_ENABLED",
+            "default_value": "false",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "Enable per-player virtualization",
+            "description": "Enables safety-bounded virtual inventory sessions. Unsupported virtual actions remain rejected explicitly.",
+            "env_variable": "VIRTUALIZATION_ENABLED",
+            "default_value": "false",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "Enable Protocol Lab",
+            "description": "OWNER-ONLY EXPERIMENTAL GATE. Keep disabled in production. Enabling also requires explicit test XUID and backend allowlists.",
+            "env_variable": "PROTOCOL_LAB_ENABLED",
+            "default_value": "false",
+            "user_viewable": false,
+            "user_editable": false,
+            "rules": "required|boolean",
+            "field_type": "text"
+        },
+        {
+            "name": "Protocol Lab test XUIDs",
+            "description": "ADMIN ONLY. Comma-separated Xbox XUID allowlist used only by the disabled-by-default Protocol Lab gate.",
+            "env_variable": "PROTOCOL_LAB_XUIDS",
+            "default_value": "",
+            "user_viewable": false,
+            "user_editable": false,
+            "rules": "nullable|string|max:2048|regex:/^[0-9, ]*$/",
+            "field_type": "text"
+        },
+        {
+            "name": "Protocol Lab test backends",
+            "description": "ADMIN ONLY. Comma-separated backend route allowlist for Protocol Lab.",
+            "env_variable": "PROTOCOL_LAB_BACKENDS",
+            "default_value": "",
+            "user_viewable": false,
+            "user_editable": false,
+            "rules": "nullable|string|max:1024|regex:/^[A-Za-z0-9._, -]*$/",
+            "field_type": "text"
+        },
+        {
+            "name": "Default OniControl secret",
+            "description": "ADMIN ONLY. Standard Base64 for at least 32 random bytes. Must match OniBridge control.secret_environment and must never equal the OniForward secret.",
+            "env_variable": "ONILINK_CONTROL_SECRET",
+            "default_value": "",
+            "user_viewable": false,
+            "user_editable": false,
+            "rules": "nullable|string|min:43|max:512|regex:/^[A-Za-z0-9+\\/]+={0,2}$/",
             "field_type": "text"
         },
         {

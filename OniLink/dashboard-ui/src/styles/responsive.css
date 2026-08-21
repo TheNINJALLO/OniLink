@@ -1,4 +1,7 @@
 @media (max-width: 1180px) {
+  .moduleGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .metricGrid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -16,6 +19,9 @@
   }
 }
 @media (max-width: 820px) {
+  .controlFormGrid {
+    grid-template-columns: 1fr;
+  }
   body.drawerOpen {
     overflow: hidden;
   }
@@ -113,6 +119,18 @@
   }
 }
 @media (max-width: 540px) {
+  .moduleGrid,
+  .platformMetrics {
+    grid-template-columns: 1fr;
+  }
+  .platformMetrics .metric:last-child {
+    grid-column: auto;
+  }
+  .platformTabs {
+    margin-right: -1rem;
+    border-right: 0;
+    border-radius: 10px 0 0 10px;
+  }
   .topbar {
     gap: 0.5rem;
   }

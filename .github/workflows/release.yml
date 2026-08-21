@@ -5,7 +5,7 @@ on:
       version: {description: OniBridge version, required: true}
       bds_version: {description: Exact locked BDS version, required: true}
 permissions:
-  contents: read
+  contents: write
 jobs:
   validate-lock:
     environment: bds-profile-generation
@@ -29,12 +29,17 @@ jobs:
         with: {distribution: temurin, java-version: "21"}
       - uses: actions/setup-node@v4
         with: {node-version: "22", cache: npm, cache-dependency-path: OniLink/dashboard-ui/package-lock.json}
-      - run: ./gradlew test standaloneJar --no-daemon
+      - run: ./gradlew check standaloneJar --no-daemon
         working-directory: OniLink
       - uses: actions/upload-artifact@v4
         with:
           name: onilink-java
           path: OniLink/dist/OniLink.jar
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: oniforge-compatibility
+          path: OniLink/build/forge
           if-no-files-found: error
   native:
     needs: validate-lock
@@ -110,6 +115,10 @@ jobs:
           path: OniLink/dist
       - uses: actions/download-artifact@v4
         with:
+          name: oniforge-compatibility
+          path: OniLink/dist
+      - uses: actions/download-artifact@v4
+        with:
           name: onibridge-linux-x86_64
           path: OniBridge/build/linux-release
       - uses: actions/download-artifact@v4
@@ -126,3 +135,22 @@ jobs:
           name: onilink-${{ inputs.version }}-bds-${{ inputs.bds_version }}
           path: dist
           if-no-files-found: error
+      - name: Publish GitHub prerelease
+        if: ${{ contains(inputs.version, '-') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: v${{ inputs.version }}
+        run: >-
+          gh release create "$RELEASE_TAG" dist/*
+          --title "OniLink ${{ inputs.version }}"
+          --notes-file "docs/releases/v${{ inputs.version }}.md"
+          --prerelease
+      - name: Publish GitHub release
+        if: ${{ !contains(inputs.version, '-') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: v${{ inputs.version }}
+        run: >-
+          gh release create "$RELEASE_TAG" dist/*
+          --title "OniLink ${{ inputs.version }}"
+          --notes-file "docs/releases/v${{ inputs.version }}.md"

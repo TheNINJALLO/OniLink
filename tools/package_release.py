@@ -122,6 +122,9 @@ def main() -> int:
     validate_release_token("BDS version", args.bds_version)
     expected = {
         "OniLink.jar": Path("OniLink/dist/OniLink.jar"),
+        "onilink.properties.example": Path("OniLink/onilink.example.properties"),
+        "compatibility-matrix.json": Path("OniLink/dist/compatibility-matrix.json"),
+        "compatibility-matrix.md": Path("OniLink/dist/compatibility-matrix.md"),
         "egg-onilink.json": Path("packaging/pterodactyl/egg-onilink.json"),
         "start-onilink.sh": Path("packaging/pterodactyl/start-onilink.sh"),
         f"onibridge-{args.version}-bds-{args.bds_version}-linux-x86_64.so": Path(

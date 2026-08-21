@@ -39,8 +39,10 @@ import dev.onistone.onilink.registry.BackendPaletteStore;
 import dev.onistone.onilink.resourcepack.BackendPackCache;
 import dev.onistone.onilink.resourcepack.ProxyResourcePackRegistry;
 import dev.onistone.onilink.session.ConnectedPlayerRegistry;
+import dev.onistone.onilink.control.OniControlRuntime;
 import dev.onistone.onilink.migration.verification.LegacyVerificationServer;
 import dev.onistone.onilink.migration.verification.PendingJoinRegistry;
+import dev.onistone.onilink.modules.pulse.JourneyArchive;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -74,6 +76,9 @@ public final class BedrockProxyListener {
     private BackendPackCache backendPackCache = BackendPackCache.disabled();
     private final java.util.List<Channel> trustedChannels = new java.util.ArrayList<>();
     private final PluginManager pluginManager;
+    private final OniControlRuntime oniControlRuntime;
+    private final String tenantId;
+    private final String proxyId;
 
     public BedrockProxyListener(ProxyConfig config) {
         this(config, ProtocolRegistry.createDefault());
@@ -104,7 +109,19 @@ public final class BedrockProxyListener {
             ProxyAllowlist allowlist,
             PluginManager pluginManager
     ) {
-        this(config, registryWith(pluginManager), permissions, allowlist, pluginManager);
+        this(config, registryWith(pluginManager), permissions, allowlist, pluginManager, "provider", "main");
+    }
+
+    /** Creates an isolated tenant runtime while keeping all users in the provider's one dashboard. */
+    public BedrockProxyListener(
+            ProxyConfig config,
+            ProxyPermissions permissions,
+            ProxyAllowlist allowlist,
+            PluginManager pluginManager,
+            String tenantId,
+            String proxyId
+    ) {
+        this(config, registryWith(pluginManager), permissions, allowlist, pluginManager, tenantId, proxyId);
     }
 
     private static ProtocolRegistry registryWith(PluginManager pluginManager) {
@@ -141,7 +158,21 @@ public final class BedrockProxyListener {
             ProxyAllowlist allowlist,
             PluginManager pluginManager
     ) {
+        this(config, protocolRegistry, permissions, allowlist, pluginManager, "provider", "main");
+    }
+
+    private BedrockProxyListener(
+            ProxyConfig config,
+            ProtocolRegistry protocolRegistry,
+            ProxyPermissions permissions,
+            ProxyAllowlist allowlist,
+            PluginManager pluginManager,
+            String tenantId,
+            String proxyId
+    ) {
         this.pluginManager = pluginManager;
+        this.tenantId = tenantId == null || tenantId.isBlank() ? "provider" : tenantId;
+        this.proxyId = proxyId == null || proxyId.isBlank() ? "main" : proxyId;
         if (config == null) {
             throw new IllegalArgumentException("config cannot be null");
         }
@@ -162,6 +193,8 @@ public final class BedrockProxyListener {
                 pendingJoins,
                 Clock.systemUTC()
         );
+        this.oniControlRuntime = new OniControlRuntime(
+                config.oniControl(), connectedPlayers, packetMonitor, tenantId, proxyId);
     }
 
     public void start() throws IOException {
@@ -171,6 +204,7 @@ public final class BedrockProxyListener {
     /** Starts the listener, optionally attaching the process-wide interactive console. */
     public void start(boolean consoleEnabled) throws IOException {
         InetSocketAddress listen = config.listenAddress();
+        oniControlRuntime.start();
         legacyVerificationServer.start();
         backendDirectory = new BackendDirectory(
                 config.backends(),
@@ -225,6 +259,7 @@ public final class BedrockProxyListener {
                 config.publicAddress(),
                 listen.getPort()
         );
+        backendConnector.setRoutingScope(tenantId, proxyId);
         backendSwitcher = backendConnector.switcher();
         NetworkCommands networkCommands = new NetworkCommands(
                 connectedPlayers,
@@ -235,6 +270,7 @@ public final class BedrockProxyListener {
                 commandRegistry,
                 playerEnum::broadcast
         );
+        networkCommands.setScope(tenantId, proxyId);
         console = new ProxyConsole(networkCommands, this::stop);
         backendConnector.setNetworkCommands(networkCommands);
         SecurityConfig security = config.security();
@@ -456,7 +492,8 @@ public final class BedrockProxyListener {
                                 backendPaletteStore,
                                 backendPackCache,
                                 allowlist,
-                                packetMonitor
+                                packetMonitor,
+                                oniControlRuntime
                         ));
                         updateAdvertisement();
                     }
@@ -539,6 +576,10 @@ public final class BedrockProxyListener {
         return packetMonitor;
     }
 
+    public OniControlRuntime oniControlRuntime() {
+        return oniControlRuntime;
+    }
+
     public void awaitShutdown() throws InterruptedException {
         stopped.await();
     }
@@ -559,6 +600,7 @@ public final class BedrockProxyListener {
                 channel.close().awaitUninterruptibly();
             }
         } finally {
+            oniControlRuntime.close();
             legacyVerificationServer.close();
             eventLoopGroup.shutdownGracefully();
             stopped.countDown();
@@ -570,6 +612,9 @@ public final class BedrockProxyListener {
         // here when its channel closes — releasing that would hand its address a free slot.
         if (sessions.remove(session) && session.isThrottled()) {
             connectionThrottle.release(session.getSocketAddress());
+        }
+        if (session.proxyConnection() != null) {
+            JourneyArchive.complete(session.proxyConnection().journeyTrace());
         }
         connectedPlayers.unregister(session.proxyConnection());
         onPlayerRosterChanged();
@@ -583,6 +628,9 @@ public final class BedrockProxyListener {
      * would autocomplete whoever happened to be online at that moment and nobody since.</p>
      */
     private void onPlayerRosterChanged() {
+        for (dev.onistone.onilink.backend.ProxyConnection connection : connectedPlayers.connections()) {
+            connection.journeyTrace().scope(tenantId, proxyId);
+        }
         updateAdvertisement();
         if (playerEnum != null) {
             playerEnum.broadcast();

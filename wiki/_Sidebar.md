@@ -10,6 +10,8 @@
 - [[Tenant Hosting]]
 - [[Operations Dashboard|Dashboard]]
 - [[Packet Monitor]]
+- [[OniControl]]
+- [[0.3 Operations Modules|Expansion Modules]]
 - [[Configuration]]
 - [[Architecture and Security]]
 - [[Compatibility and Testing]]

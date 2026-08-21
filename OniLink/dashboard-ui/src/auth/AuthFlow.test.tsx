@@ -133,6 +133,8 @@ describe("authentication and shell", () => {
       "Players",
       "Backends",
       "Packet Monitor",
+      "OniControl",
+      "Platform",
       "Account",
     ]);
     expect(visibleNav("operator").map((item) => item.label)).toContain("Operations");
@@ -142,6 +144,8 @@ describe("authentication and shell", () => {
     expect(visibleNav("owner").map((item) => item.label)).toContain("Tenant Hosting");
     expect(visibleNav("tenant").map((item) => item.label)).toEqual([
       "Packet Monitor",
+      "OniControl",
+      "Platform",
       "My Proxies",
       "Account",
     ]);

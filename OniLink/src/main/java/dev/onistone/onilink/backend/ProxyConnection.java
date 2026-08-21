@@ -13,6 +13,8 @@ import dev.onistone.onilink.resourcepack.BackendPackCache;
 import dev.onistone.onilink.resourcepack.ProxyResourcePackRegistry;
 import dev.onistone.onilink.session.ProxySessionProfile;
 import dev.onistone.onilink.protocol.PacketMonitor;
+import dev.onistone.onilink.control.OniControlRuntime;
+import dev.onistone.onilink.modules.pulse.JourneyTrace;
 
 import java.security.KeyPair;
 import java.util.ArrayList;
@@ -43,11 +45,13 @@ public final class ProxyConnection {
     private final ClientLogin clientLogin;
     private final KeyPair keyPair;
     private final String forwardingSessionId = UUID.randomUUID().toString();
+    private final JourneyTrace journeyTrace = new JourneyTrace(forwardingSessionId);
     private LoginPacket backendLogin;
     private final ProxyResourcePackRegistry proxyResourcePackRegistry;
     private final BackendPackCache backendPackCache;
     private final CrossBackendPalette crossBackendPalette;
     private final PacketMonitor packetMonitor;
+    private volatile OniControlRuntime oniControlRuntime;
     private Boolean clientBlockIdsHashed;
     private final ClientWorldState clientWorldState = new ClientWorldState();
     private BackendSession backend;
@@ -162,6 +166,10 @@ public final class ProxyConnection {
         this.crossBackendPalette = new CrossBackendPalette(backendPaletteStore);
         this.backendPackCache = backendPackCache != null ? backendPackCache : BackendPackCache.disabled();
         this.packetMonitor = packetMonitor;
+        if (clientLogin != null && clientLogin.authData() != null) {
+            journeyTrace.identity(clientLogin.authData().xuid(), clientLogin.authData().displayName());
+        }
+        updateJourneyProtocols(sessionProfile);
     }
 
     public dev.onistone.onilink.listener.ListenerSession client() {
@@ -178,6 +186,14 @@ public final class ProxyConnection {
         }
         this.sessionProfile = sessionProfile;
         client.setSessionProfile(sessionProfile);
+        updateJourneyProtocols(sessionProfile);
+    }
+
+    private void updateJourneyProtocols(ProxySessionProfile profile) {
+        if (profile != null && profile.clientCodec() != null && profile.backendCodec() != null) {
+            journeyTrace.protocols(profile.clientCodec().getMinecraftVersion(),
+                    profile.backendCodec().getMinecraftVersion());
+        }
     }
 
     public ClientLogin clientLogin() {
@@ -200,6 +216,10 @@ public final class ProxyConnection {
 
     public KeyPair keyPair() {
         return keyPair;
+    }
+
+    public JourneyTrace journeyTrace() {
+        return journeyTrace;
     }
 
     public String forwardingSessionId() {
@@ -235,6 +255,14 @@ public final class ProxyConnection {
      */
     public CrossBackendPalette crossBackendPalette() {
         return crossBackendPalette;
+    }
+
+    public OniControlRuntime oniControlRuntime() {
+        return oniControlRuntime;
+    }
+
+    public void setOniControlRuntime(OniControlRuntime oniControlRuntime) {
+        this.oniControlRuntime = oniControlRuntime;
     }
 
     public void observePacket(
@@ -358,6 +386,9 @@ public final class ProxyConnection {
         }
         this.backendName = backendName;
         this.backend = backend;
+        journeyTrace.backend(backendName);
+        journeyTrace.mark(clientJoinedWorld
+                ? JourneyTrace.Stage.TRANSFER_BACKEND_CONNECTED : JourneyTrace.Stage.BACKEND_CONNECTED);
         backendSwitchInProgress = false;
         backendSwitchTarget = null;
         firstLevelChunkForwarded = false;
@@ -431,6 +462,9 @@ public final class ProxyConnection {
         backendSwitchInProgress = true;
         backendSwitchTarget = backendName;
         backendSwitchStartedAtMillis = System.currentTimeMillis();
+        journeyTrace.mark(JourneyTrace.Stage.TRANSFER_STARTED);
+        journeyTrace.transfer(this.backendName, backendName, "STARTED");
+        if (oniControlRuntime != null) oniControlRuntime.onWorldReset(this, "backend transfer");
         return SwitchStart.STARTED;
     }
 
@@ -571,7 +605,10 @@ public final class ProxyConnection {
      * across every subsequent switch.</p>
      */
     public synchronized void markClientJoinedWorld() {
+        boolean transfer = clientJoinedWorld;
         clientJoinedWorld = true;
+        journeyTrace.mark(transfer ? JourneyTrace.Stage.TRANSFER_COMPLETED : JourneyTrace.Stage.WORLD_JOIN_COMPLETED);
+        if (transfer) journeyTrace.transfer("", backendName, "COMPLETED");
         // A world means the join succeeded, so the remaining candidates are no longer wanted: from
         // here on a backend loss belongs to mid-session failover.
         joinSequenceActive = false;
@@ -651,6 +688,15 @@ public final class ProxyConnection {
 
     public synchronized long clientPlayerRuntimeEntityId() {
         return clientPlayerRuntimeEntityId <= 0 ? backendPlayerRuntimeEntityId : clientPlayerRuntimeEntityId;
+    }
+
+    /** Allocates an ID from the connection's client-only namespace for OniVirtual/OniPacket. */
+    public synchronized long allocateSyntheticClientEntityId() {
+        while (nextSyntheticClientRuntimeEntityId == clientPlayerRuntimeEntityId
+                || clientToBackendRuntimeIds.containsKey(nextSyntheticClientRuntimeEntityId)) {
+            nextSyntheticClientRuntimeEntityId++;
+        }
+        return nextSyntheticClientRuntimeEntityId++;
     }
 
     public synchronized long toClientRuntimeEntityId(long backendRuntimeEntityId, boolean registerEntity) {
@@ -1020,15 +1066,13 @@ public final class ProxyConnection {
     }
 
     public void tracePacketsForMillis(long millis) {
-        if (LOG_PACKETS || CONFIGURED_PACKET_TRACE_MILLIS <= 0 || millis <= 0) {
-            return;
-        }
-        packetTraceUntilNanos = System.nanoTime() + (millis * 1_000_000L);
+        if (LOG_PACKETS) return;
+        packetTraceUntilNanos = millis <= 0 ? 0 : System.nanoTime() + (millis * 1_000_000L);
     }
 
     public boolean isPacketTraceActive() {
         return LOG_PACKETS
-                || (CONFIGURED_PACKET_TRACE_MILLIS > 0 && System.nanoTime() <= packetTraceUntilNanos);
+                || System.nanoTime() <= packetTraceUntilNanos;
     }
 
     public static int configuredPacketTraceMillis() {

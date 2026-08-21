@@ -23,8 +23,8 @@ export const state: RuntimeState = {
 
 export const player: Player = {
   name: "TheN1NJ4LL0",
-  xuid: "2535438695543476",
-  identity: "bedrock:2535438695543476",
+  xuid: "1000000000000001",
+  identity: "bedrock:1000000000000001",
   backend: "survival",
   switching: false,
   switchTarget: "",

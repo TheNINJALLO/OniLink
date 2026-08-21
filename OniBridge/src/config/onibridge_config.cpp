@@ -147,7 +147,58 @@ std::vector<std::string> string_array(const std::unordered_map<std::string, std:
     return result;
 }
 
+bool is_loopback(std::string_view host) {
+    return host == "127.0.0.1" || host == "::1" || host == "localhost";
+}
+
+bool is_private_literal(std::string_view host) {
+    if (is_loopback(host) || host.starts_with("10.") || host.starts_with("192.168.") ||
+        host.starts_with("fc") || host.starts_with("fd"))
+        return true;
+    if (!host.starts_with("172."))
+        return false;
+    const auto second_dot = host.find('.', 4);
+    if (second_dot == std::string_view::npos)
+        return false;
+    int octet = 0;
+    const auto [end, error] = std::from_chars(host.data() + 4, host.data() + second_dot, octet);
+    return error == std::errc{} && end == host.data() + second_dot && octet >= 16 && octet <= 31;
+}
+
 } // namespace
+
+std::optional<std::string> ControlConfig::validate() const {
+    if (!enabled)
+        return std::nullopt;
+    if (listen_port == 0 || bridge_id.empty() || backend_name.empty() || key_id.empty())
+        return "enabled control requires a listen port, bridge ID, backend name, and key ID";
+    const auto sources = !secret.environment_variable.empty() + !secret.restricted_file.empty();
+    if (sources != 1)
+        return "enabled control requires exactly one separate secret source";
+    if (trusted_proxy_cidrs.empty())
+        return "enabled control requires at least one trusted proxy CIDR";
+    if (max_frame_bytes < 1'024 || max_frame_bytes > 1'048'576)
+        return "control max_frame_bytes must be 1024..1048576";
+    if (max_connections == 0 || max_connections > 128 || max_in_flight == 0 ||
+        max_in_flight > 1'024)
+        return "control connection and in-flight limits are outside safe bounds";
+    if (clock_skew_seconds < 1 || clock_skew_seconds > 300 || replay_retention_seconds < 30 ||
+        replay_retention_seconds > 3'600)
+        return "control time and replay limits are outside safe bounds";
+    if (tls.enabled) {
+        if (tls.certificate_file.empty() || tls.private_key_file.empty() ||
+            tls.client_ca_file.empty() || !tls.require_client_certificate)
+            return "control TLS requires a certificate, private key, client CA, and client "
+                   "certificates";
+        return "control TLS is not available in this release artifact; use loopback or a private "
+               "network tunnel";
+    }
+    if (!is_private_literal(listen_host) && !allow_public_address)
+        return "cleartext control may bind only a private literal unless allow_public_address=true";
+    if (!is_loopback(listen_host) && !allow_insecure_private_network)
+        return "cleartext control off loopback requires allow_insecure_private_network=true";
+    return std::nullopt;
+}
 
 std::optional<std::string> OniBridgeConfig::validate() const {
     if (bridge_id.empty() || backend_name.empty()) {
@@ -200,6 +251,18 @@ std::optional<std::string> OniBridgeConfig::validate() const {
     if (allow_unknown_bds || allow_unknown_endstone) {
         return "unknown BDS or Endstone runtimes are forbidden";
     }
+    if (const auto error = control.validate())
+        return error;
+    const auto forwarding_source =
+        !active_secret.environment_variable.empty()
+            ? "env:" + active_secret.environment_variable
+            : "file:" + active_secret.restricted_file.lexically_normal().string();
+    const auto control_source =
+        !control.secret.environment_variable.empty()
+            ? "env:" + control.secret.environment_variable
+            : "file:" + control.secret.restricted_file.lexically_normal().string();
+    if (control.enabled && forwarding_source == control_source)
+        return "OniControl and OniForward must use different secret sources";
     return std::nullopt;
 }
 
@@ -318,6 +381,27 @@ OniBridgeConfig load_config(const std::filesystem::path& path) {
         "commands.command_namespace",
         "commands.interfere_with_backend_commands",
         "commands.register_native_commands",
+        "control.allow_insecure_private_network",
+        "control.allow_public_address",
+        "control.backend_name",
+        "control.bridge_id",
+        "control.clock_skew_seconds",
+        "control.enabled",
+        "control.key_id",
+        "control.listen_host",
+        "control.listen_port",
+        "control.max_connections",
+        "control.max_frame_bytes",
+        "control.max_in_flight",
+        "control.replay_retention_seconds",
+        "control.secret_environment",
+        "control.secret_file",
+        "control.trusted_proxy_cidrs",
+        "control.tls.certificate_file",
+        "control.tls.client_ca_file",
+        "control.tls.enabled",
+        "control.tls.private_key_file",
+        "control.tls.require_client_certificate",
         "compatibility.allow_unknown_bds",
         "compatibility.allow_unknown_endstone",
         "compatibility.allow_unreviewed_profile",
@@ -394,10 +478,52 @@ OniBridgeConfig load_config(const std::filesystem::path& path) {
     config.allow_unknown_endstone =
         bool_value(values, "compatibility.allow_unknown_endstone", false);
     config.legacy_verification_enabled = bool_value(values, "legacy_verification.enabled", false);
+    config.control.enabled = bool_value(values, "control.enabled", false);
+    config.control.listen_host = string_value(values, "control.listen_host", "127.0.0.1");
+    const auto control_port = int_value(values, "control.listen_port", 19'132);
+    if (control_port < 1 || control_port > 65'535)
+        throw std::runtime_error("control.listen_port must be 1..65535");
+    config.control.listen_port = static_cast<std::uint16_t>(control_port);
+    config.control.bridge_id = string_value(values, "control.bridge_id", config.bridge_id);
+    config.control.backend_name = string_value(values, "control.backend_name", config.backend_name);
+    config.control.key_id = string_value(values, "control.key_id", "control-key-1");
+    config.control.secret.environment_variable = string_value(values, "control.secret_environment");
+    config.control.secret.restricted_file = string_value(values, "control.secret_file");
+    config.control.trusted_proxy_cidrs = string_array(values, "control.trusted_proxy_cidrs");
+    if (config.control.trusted_proxy_cidrs.empty())
+        config.control.trusted_proxy_cidrs = {"127.0.0.1/32", "::1/128"};
+    config.control.max_frame_bytes =
+        static_cast<std::size_t>(int_value(values, "control.max_frame_bytes", 262'144));
+    config.control.max_connections =
+        static_cast<std::size_t>(int_value(values, "control.max_connections", 4));
+    config.control.max_in_flight =
+        static_cast<std::size_t>(int_value(values, "control.max_in_flight", 32));
+    config.control.clock_skew_seconds = int_value(values, "control.clock_skew_seconds", 30);
+    config.control.replay_retention_seconds =
+        int_value(values, "control.replay_retention_seconds", 120);
+    config.control.allow_insecure_private_network =
+        bool_value(values, "control.allow_insecure_private_network", false);
+    config.control.allow_public_address = bool_value(values, "control.allow_public_address", false);
+    config.control.tls.enabled = bool_value(values, "control.tls.enabled", false);
+    config.control.tls.certificate_file = string_value(values, "control.tls.certificate_file");
+    config.control.tls.private_key_file = string_value(values, "control.tls.private_key_file");
+    config.control.tls.client_ca_file = string_value(values, "control.tls.client_ca_file");
+    config.control.tls.require_client_certificate =
+        bool_value(values, "control.tls.require_client_certificate", true);
     for (auto* source : {&config.active_secret, &config.previous_secret}) {
         if (!source->restricted_file.empty() && source->restricted_file.is_relative()) {
             source->restricted_file = path.parent_path() / source->restricted_file;
         }
+    }
+    if (!config.control.secret.restricted_file.empty() &&
+        config.control.secret.restricted_file.is_relative())
+        config.control.secret.restricted_file =
+            path.parent_path() / config.control.secret.restricted_file;
+    for (auto* tls_path : {&config.control.tls.certificate_file,
+                           &config.control.tls.private_key_file,
+                           &config.control.tls.client_ca_file}) {
+        if (!tls_path->empty() && tls_path->is_relative())
+            *tls_path = path.parent_path() / *tls_path;
     }
     if (const auto error = config.validate()) {
         throw std::runtime_error(*error);

@@ -54,8 +54,13 @@ jobs:
         with: {distribution: temurin, java-version: "21"}
       - uses: actions/setup-node@v4
         with: {node-version: "22", cache: npm, cache-dependency-path: OniLink/dashboard-ui/package-lock.json}
-      - run: ./gradlew test standaloneJar --no-daemon
+      - run: ./gradlew check standaloneJar --no-daemon
         working-directory: OniLink
+      - uses: actions/upload-artifact@v4
+        with:
+          name: oniforge-compatibility
+          path: OniLink/build/forge
+          if-no-files-found: error
   onibridge-core:
     strategy:
       matrix: {os: [ubuntu-24.04, windows-2022]}

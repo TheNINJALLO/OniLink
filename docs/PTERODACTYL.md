@@ -230,3 +230,15 @@ management.
 
 Do not disable `shutdown_on_hook_failure`, direct-join rejection, profile approval, or firewall rules
 to make an error disappear. Diagnose the first critical message with [Troubleshooting](TROUBLESHOOTING.md).
+
+## OniControl private TCP allocation
+
+The egg exposes disabled-by-default `CONTROL_*`, `PACKET_RULES_ENABLED`,
+`VIRTUALIZATION_ENABLED`, and owner-hidden `PROTOCOL_LAB_*` variables. The control secret variable is
+administrator-only and is mapped to a secret environment name, never written into generated config.
+Panel reinstall and update preserve an existing `config.properties` and secret files.
+
+BDS `25570/udp` and OniBridge control `25570/tcp` may share the number because the transports are
+different, provided the node/panel can assign both. Permit control TCP only from the OniLink node;
+do not advertise it as a player allocation. Full variable and health guidance is in
+[OniControl on Pterodactyl](ONICONTROL_PTERODACTYL.md).

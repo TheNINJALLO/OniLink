@@ -80,6 +80,32 @@ public final class ConnectedPlayerRegistry {
         return Optional.empty();
     }
 
+    /** Exact authenticated XUID lookup used by OniControl. */
+    public synchronized Optional<ProxyConnection> findByXuid(String xuid) {
+        if (xuid == null || xuid.isBlank()) return Optional.empty();
+        return Optional.ofNullable(connectionsByXuid.get(key(xuid.trim())));
+    }
+
+    /** Stable active-connection lookup; display names are never used after resolution. */
+    public synchronized Optional<ProxyConnection> findByConnectionId(String connectionId) {
+        if (connectionId == null || connectionId.isBlank()) return Optional.empty();
+        return connectionsByXuid.values().stream()
+                .filter(connection -> connectionId.equals(connection.forwardingSessionId()))
+                .findFirst();
+    }
+
+    /**
+     * Resolves a display name only when exactly one authenticated connection matches it. This stays
+     * strict even though Xbox gamertags are normally unique, so future alternate identity providers
+     * cannot turn a convenience selector into a mutable ambiguous target.
+     */
+    public synchronized List<ProxyConnection> findAllByName(String name) {
+        if (name == null || name.isBlank()) return List.of();
+        return connectionsByXuid.values().stream()
+                .filter(connection -> name.trim().equalsIgnoreCase(connection.clientLogin().authData().displayName()))
+                .toList();
+    }
+
     /**
      * Returns the real XUID (from the client's Mojang-signed chain) for a
      * currently-connected player matched by display name, or an empty string

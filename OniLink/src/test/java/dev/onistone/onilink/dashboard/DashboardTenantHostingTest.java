@@ -103,6 +103,56 @@ class DashboardTenantHostingTest {
         }
     }
 
+    @Test
+    void tenantPrimaryBackendChangeRestartsOnlyItsProxy(@TempDir Path directory) throws Exception {
+        DashboardAccounts accounts = new DashboardAccounts(
+                directory.resolve("accounts"), 60, "http://127.0.0.1:8080");
+        List<FakeRuntime> started = new ArrayList<>();
+        DashboardTenantHosting.RuntimeFactory factory = configPath -> {
+            FakeRuntime runtime = new FakeRuntime(configPath);
+            started.add(runtime);
+            return runtime;
+        };
+
+        try (DashboardTenantHosting hosting = new DashboardTenantHosting(
+                directory.resolve("dashboard"), accounts, factory, 19130)) {
+            hosting.createTenant(Map.of(
+                    "tenant", "acme",
+                    "label", "Acme Network",
+                    "username", "acme-admin",
+                    "password", "a secure tenant password"));
+            hosting.createProxy(proxyForm("survival", 19135));
+            Map<String, Object> dashboard = hosting.proxyDashboard("acme", "survival");
+            hosting.addBackend(Map.of(
+                    "tenant", "acme",
+                    "proxy", "survival",
+                    "revision", String.valueOf(dashboard.get("configurationRevision")),
+                    "name", "creative",
+                    "address", "45.143.196.161:25571",
+                    "proxyPublicIp", "45.143.196.108"));
+            assertEquals(2, started.size(), "adding a backend restarts the running proxy");
+
+            Map<String, Object> withCreative = hosting.proxyDashboard("acme", "survival");
+            Map<String, Object> changed = hosting.setPrimaryBackend(Map.of(
+                    "tenant", "acme",
+                    "proxy", "survival",
+                    "revision", String.valueOf(withCreative.get("configurationRevision")),
+                    "backend", "creative"));
+
+            assertEquals(3, started.size());
+            assertTrue(started.get(1).closed.get());
+            assertEquals("creative", changed.get("primaryBackend"));
+            Properties properties = loadProperties(started.getLast().configPath);
+            assertEquals("creative", properties.getProperty("backend.name"));
+            assertEquals("45.143.196.161", properties.getProperty("backend.host"));
+            assertEquals("25571", properties.getProperty("backend.port"));
+            assertTrue(DashboardJson.encode(hosting.overview("acme"))
+                    .contains("\"primaryBackend\":\"creative\""));
+            assertTrue(DashboardJson.encode(hosting.proxyDashboard("acme", "survival"))
+                    .contains("\"primaryBackend\":\"creative\""));
+        }
+    }
+
     private static Map<String, String> proxyForm(String proxyId, int port) {
         return Map.ofEntries(
                 Map.entry("tenant", "acme"),

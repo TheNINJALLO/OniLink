@@ -6,15 +6,15 @@ import { dashboardApi } from "../api/dashboard";
 import { App } from "../app/App";
 import { AuthProvider } from "../auth/AuthProvider";
 import { backends, player, state } from "../test/fixtures";
-import type { GlobalRole, PacketMonitorSnapshot, Player } from "../types/dashboard";
+import type { PacketMonitorSnapshot, Player, Role } from "../types/dashboard";
 
-function renderRoute(role: GlobalRole, route: string) {
+function renderRoute(role: Role, route: string, tenantId = role === "tenant" ? "acme" : "") {
   sessionStorage.setItem("onilink_dashboard_token", "test-session");
   window.location.hash = `#/${route}`;
-  vi.spyOn(dashboardApi, "whoami").mockResolvedValue({ username: "tester", role, tenantId: "" });
+  vi.spyOn(dashboardApi, "whoami").mockResolvedValue({ username: "tester", role, tenantId });
   vi.spyOn(dashboardApi, "state").mockResolvedValue({
     ...state,
-    principal: { username: "tester", role, tenantId: "" },
+    principal: { username: "tester", role, tenantId },
   });
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -29,6 +29,193 @@ function renderRoute(role: GlobalRole, route: string) {
 }
 
 describe("monitoring features", () => {
+  it("previews and confirms a capability-filtered OniControl action", async () => {
+    vi.spyOn(dashboardApi, "oniControlStatus").mockResolvedValue({
+      started: true,
+      available: true,
+      controlEnabled: true,
+      packetRulesEnabled: false,
+      virtualizationEnabled: false,
+      protocolLabEnabled: false,
+      tenantId: "",
+      proxyId: "provider",
+      ruleCount: 0,
+      historyCount: 0,
+      bridges: [
+        {
+          enabled: true,
+          connected: true,
+          tls: false,
+          backend: "survival",
+          bridgeId: "survival-control",
+          capabilityRevision: 4,
+          latencyMillis: 8,
+          queueSize: 0,
+          supportedActionCount: 1,
+          lastError: "",
+          updatedAt: "2026-08-20T05:00:00Z",
+        },
+      ],
+      capabilities: [],
+      packetRuleMetrics: {},
+      packetFactoryMetrics: {},
+      virtualInventorySessions: [],
+      privateEntities: [],
+      fakeBlocks: [],
+    });
+    vi.spyOn(dashboardApi, "players").mockResolvedValue({ players: [player] });
+    vi.spyOn(dashboardApi, "oniControlHistory").mockResolvedValue({ history: [] });
+    vi.spyOn(dashboardApi, "oniControlCapabilities").mockResolvedValue({
+      target: {
+        xuid: player.xuid,
+        connectionId: "connection-1",
+        displayName: player.name,
+        tenantId: "",
+        proxyId: "provider",
+        backend: player.backend,
+        clientProtocol: 827,
+        backendProtocol: 827,
+        joinedWorld: true,
+        transferInProgress: false,
+      },
+      actions: [
+        {
+          action: "SEND_MESSAGE",
+          executionPlane: "CLIENT_ONLY",
+          minimumRole: "OPERATOR",
+          destructive: false,
+          supported: true,
+          reason: "",
+          payloadVersion: 1,
+        },
+      ],
+    });
+    const preview = vi.spyOn(dashboardApi, "oniControlPreview").mockResolvedValue({
+      confirmationToken: "one-time-token",
+      revision: "revision-1",
+      expiresAt: "2026-08-20T05:01:00Z",
+      action: "SEND_MESSAGE",
+      executionPlane: "CLIENT_ONLY",
+      destructive: false,
+      target: {
+        xuid: player.xuid,
+        connectionId: "connection-1",
+        displayName: player.name,
+        tenantId: "",
+        proxyId: "provider",
+        backend: player.backend,
+        clientProtocol: 827,
+        backendProtocol: 827,
+        joinedWorld: true,
+        transferInProgress: false,
+      },
+      payloadSummary: { version: 1, fields: ["message"] },
+      reason: "",
+    });
+    const execute = vi.spyOn(dashboardApi, "oniControlExecute").mockResolvedValue({
+      requestId: "request-1",
+      status: "CONFIRMED",
+      success: true,
+      reason: "",
+      result: {},
+      startedAt: "2026-08-20T05:00:00Z",
+      completedAt: "2026-08-20T05:00:00Z",
+      durationMillis: 4,
+      auditReference: "audit-1",
+    });
+
+    renderRoute("operator", "onicontrol");
+    const user = userEvent.setup();
+    expect(await screen.findByRole("heading", { name: "OniControl" })).toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: "Validate and preview" }));
+    expect(await screen.findByRole("dialog")).toHaveTextContent(player.xuid);
+    await user.click(screen.getByRole("button", { name: "Execute typed action" }));
+
+    await waitFor(() =>
+      expect(preview).toHaveBeenCalledWith({
+        xuid: player.xuid,
+        backend: player.backend,
+        action: "SEND_MESSAGE",
+        payload: '{"message":"Welcome to the network"}',
+        reason: "",
+        proxy: "",
+      }),
+    );
+    await waitFor(() => expect(execute).toHaveBeenCalledWith("one-time-token", true, ""));
+  });
+
+  it("loads OniControl players through the selected tenant proxy scope", async () => {
+    vi.spyOn(dashboardApi, "tenancy").mockResolvedValue({
+      mode: "single-container",
+      providerPort: 19130,
+      tenants: [],
+      proxies: [
+        {
+          id: "survival",
+          tenantId: "acme",
+          label: "Survival Proxy",
+          port: 19135,
+          publicAddress: "198.51.100.10:19135",
+          backendAddress: "10.0.0.2:19132",
+          primaryBackend: "default",
+          trustedProxyCidr: "10.0.0.1/32",
+          bdsProfile: "reviewed-profile",
+          maxPlayers: 100,
+          motd: "Acme",
+          enabled: true,
+          running: true,
+          status: "running",
+          lastError: "",
+          handoffAvailable: true,
+        },
+      ],
+      tenantScope: "acme",
+    });
+    vi.spyOn(dashboardApi, "oniControlStatus").mockResolvedValue({
+      started: true,
+      available: true,
+      controlEnabled: true,
+      packetRulesEnabled: false,
+      virtualizationEnabled: false,
+      protocolLabEnabled: false,
+      tenantId: "acme",
+      proxyId: "survival",
+      ruleCount: 0,
+      historyCount: 0,
+      bridges: [],
+      capabilities: [],
+      packetRuleMetrics: {},
+      packetFactoryMetrics: {},
+      virtualInventorySessions: [],
+      privateEntities: [],
+      fakeBlocks: [],
+    });
+    const scopedPlayers = vi
+      .spyOn(dashboardApi, "playersForProxy")
+      .mockResolvedValue({ players: [player] });
+    vi.spyOn(dashboardApi, "oniControlHistory").mockResolvedValue({ history: [] });
+    vi.spyOn(dashboardApi, "oniControlCapabilities").mockResolvedValue({
+      target: {
+        xuid: player.xuid,
+        connectionId: "tenant-connection",
+        displayName: player.name,
+        tenantId: "acme",
+        proxyId: "survival",
+        backend: player.backend,
+        clientProtocol: 827,
+        backendProtocol: 827,
+        joinedWorld: true,
+        transferInProgress: false,
+      },
+      actions: [],
+    });
+
+    renderRoute("tenant", "onicontrol");
+    expect(await screen.findByRole("heading", { name: "OniControl" })).toBeInTheDocument();
+    expect(await screen.findByRole("option", { name: /Survival Proxy/ })).toBeInTheDocument();
+    await waitFor(() => expect(scopedPlayers).toHaveBeenCalledWith("survival", expect.anything()));
+  });
+
   it("shows live packet matches and the cross-version codec catalog", async () => {
     const snapshot: PacketMonitorSnapshot = {
       enabled: true,
@@ -78,7 +265,7 @@ describe("monitoring features", () => {
           status: "automatic_codec_match",
           action: "forwarded",
           player: "TheN1NJ4LL0",
-          xuid: "2535438695543476",
+          xuid: "1000000000000001",
           clientAddress: "174.84.137.109:51120",
           backend: "survival",
           backendAddress: "45.143.196.160:25570",
@@ -129,7 +316,7 @@ describe("monitoring features", () => {
     expect(screen.getAllByText("StartGamePacket").length).toBeGreaterThan(0);
     await user.click(screen.getByRole("button", { name: "StartGamePacket" }));
     expect(screen.getByRole("heading", { name: "StartGamePacket" })).toBeInTheDocument();
-    expect(await screen.findByText("2535438695543476")).toBeInTheDocument();
+    expect(await screen.findByText("1000000000000001")).toBeInTheDocument();
     expect(screen.getByText("StartGamePacket{levelName=Survival}")).toBeInTheDocument();
     expect(screen.getByText(/Authentication tokens are always removed/i)).toBeInTheDocument();
   });
@@ -355,6 +542,7 @@ describe("administrative features", () => {
       port: 19135,
       publicAddress: "45.143.196.108:19135",
       backendAddress: "45.143.196.160:25570",
+      primaryBackend: "default",
       trustedProxyCidr: "45.143.196.108/32",
       bdsProfile: "bds-1.26.44.3-linux-x86_64",
       maxPlayers: 100,
@@ -377,6 +565,9 @@ describe("administrative features", () => {
       state: { players: 0 },
       players: [],
       backends: [],
+      primaryBackend: "default",
+      primaryBackendAddress: "45.143.196.160:25570",
+      configuredBackends: [{ name: "default", address: "45.143.196.160:25570" }],
       allowlist: { enabled: false, count: 0, entries: [] },
       configurationRevision: "tenant-revision-1",
     });
@@ -421,6 +612,74 @@ describe("administrative features", () => {
     );
   });
 
+  it("lets a tenant owner choose the primary server for future joins", async () => {
+    const tenantProxy = {
+      id: "survival",
+      tenantId: "acme",
+      label: "Survival Proxy",
+      port: 19135,
+      publicAddress: "45.143.196.108:19135",
+      backendAddress: "45.143.196.160:25570",
+      primaryBackend: "default",
+      trustedProxyCidr: "45.143.196.108/32",
+      bdsProfile: "bds-1.26.44.3-linux-x86_64",
+      maxPlayers: 100,
+      motd: "Acme Network",
+      enabled: true,
+      running: true,
+      status: "running",
+      lastError: "",
+      handoffAvailable: true,
+    };
+    vi.spyOn(dashboardApi, "tenancy").mockResolvedValue({
+      mode: "single-container",
+      providerPort: 19130,
+      tenants: [],
+      proxies: [tenantProxy],
+      tenantScope: "acme",
+    });
+    vi.spyOn(dashboardApi, "tenantProxy").mockResolvedValue({
+      proxy: tenantProxy,
+      state: { players: 0 },
+      players: [],
+      backends: [],
+      primaryBackend: "default",
+      primaryBackendAddress: "45.143.196.160:25570",
+      configuredBackends: [
+        { name: "default", address: "45.143.196.160:25570" },
+        { name: "creative", address: "45.143.196.161:25571" },
+      ],
+      allowlist: { enabled: false, count: 0, entries: [] },
+      configurationRevision: "tenant-revision-1",
+    });
+    const changePrimary = vi.spyOn(dashboardApi, "setTenantPrimaryBackend").mockResolvedValue({
+      message: "Primary server changed to creative and the proxy restarted.",
+      changed: true,
+      primaryBackend: "creative",
+      primaryBackendAddress: "45.143.196.161:25571",
+      proxy: { ...tenantProxy, primaryBackend: "creative" },
+    });
+
+    renderRoute("tenant", "my-proxies");
+    const user = userEvent.setup();
+    await screen.findByRole("option", { name: /creative/ });
+    await user.selectOptions(
+      await screen.findByLabelText(/^Primary destination server/),
+      "creative",
+    );
+    await user.click(screen.getByRole("button", { name: "Change primary server" }));
+
+    await waitFor(() =>
+      expect(changePrimary).toHaveBeenCalledWith({
+        tenant: "acme",
+        proxy: "survival",
+        backend: "creative",
+        revision: "tenant-revision-1",
+      }),
+    );
+    expect(await screen.findByText(/Primary server changed to creative/)).toBeInTheDocument();
+  });
+
   it("adds and removes allowlist entries", async () => {
     const allowlist = {
       enabled: true,
@@ -438,11 +697,11 @@ describe("administrative features", () => {
       .mockResolvedValue({ success: true, message: "Removed" });
     renderRoute("admin", "allowlist");
     const user = userEvent.setup();
-    await user.type(await screen.findByLabelText("XUID"), "2535438695543476");
+    await user.type(await screen.findByLabelText("XUID"), "1000000000000001");
     await user.type(screen.getByLabelText(/Gamertag label/), "Ninja");
     await user.click(screen.getByRole("button", { name: "Add entry" }));
     await waitFor(() =>
-      expect(add).toHaveBeenCalledWith({ xuid: "2535438695543476", name: "Ninja" }),
+      expect(add).toHaveBeenCalledWith({ xuid: "1000000000000001", name: "Ninja" }),
     );
     await user.click(screen.getByRole("button", { name: "Remove Alice" }));
     expect(screen.getByRole("dialog")).toHaveTextContent("may be disconnected immediately");

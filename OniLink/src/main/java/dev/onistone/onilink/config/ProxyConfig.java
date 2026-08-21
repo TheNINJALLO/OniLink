@@ -38,7 +38,8 @@ public record ProxyConfig(
         boolean crossBackendPalette,
         Path crossBackendPaletteCacheFile,
         String publicAddress,
-        DashboardConfig dashboard
+        DashboardConfig dashboard,
+        OniControlConfig oniControl
 ) {
     private static final String DEFAULT_LISTEN_HOST = "0.0.0.0";
     private static final int DEFAULT_LISTEN_PORT = 19132;
@@ -93,8 +94,18 @@ public record ProxyConfig(
         if (compressionThreshold < 0) {
             throw new IllegalArgumentException("compressionThreshold cannot be negative");
         }
-        if (dashboard == null) {
-            throw new IllegalArgumentException("dashboard cannot be null");
+        if (dashboard == null || oniControl == null) {
+            throw new IllegalArgumentException("dashboard and OniControl configuration cannot be null");
+        }
+        for (OniControlConfig.ControlBackendConfig control : oniControl.backends().values()) {
+            if (!control.enabled()) continue;
+            String source = !control.secretEnvironment().isEmpty()
+                    ? "env:" + control.secretEnvironment()
+                    : "file:" + control.secretFile().toAbsolutePath().normalize();
+            if (forwardingSecretSources.contains(source)) {
+                throw new IllegalArgumentException(
+                        "OniControl must use a separate secret source from OniForward");
+            }
         }
         // resourcePacksDir may be null (no packs configured)
     }
@@ -266,7 +277,8 @@ public record ProxyConfig(
                 crossBackendPalette,
                 crossBackendPaletteCacheFile,
                 ConfigValues.stripInlineComment(properties.getProperty("publicAddress", "")).trim(),
-                DashboardConfig.from(properties, configDir)
+                DashboardConfig.from(properties, configDir),
+                OniControlConfig.from(properties, configDir, backends.keySet())
         );
     }
 
@@ -344,6 +356,45 @@ public record ProxyConfig(
         properties.setProperty("dashboard.dataDirectory", "dashboard");
         properties.setProperty("dashboard.maxRequestBytes", "262144");
         properties.setProperty("dashboard.logTailLines", "400");
+        properties.setProperty("control.enabled", "false");
+        properties.setProperty("control.mode", "advisor");
+        properties.setProperty("control.connectHost", "127.0.0.1");
+        properties.setProperty("control.connectPort", "19132");
+        properties.setProperty("control.bridgeId", "default-bridge");
+        properties.setProperty("control.backendName", "default");
+        properties.setProperty("control.keyId", "control-key-1");
+        properties.setProperty("control.secretEnvironment", "ONILINK_CONTROL_SECRET");
+        properties.setProperty("control.secretFile", "");
+        properties.setProperty("control.connectTimeoutMillis", "5000");
+        properties.setProperty("control.requestTimeoutMillis", "10000");
+        properties.setProperty("control.maxFrameBytes", "262144");
+        properties.setProperty("control.maxInFlight", "32");
+        properties.setProperty("control.maxQueued", "128");
+        properties.setProperty("control.maxClockSkewSeconds", "30");
+        properties.setProperty("control.replayRetentionSeconds", "120");
+        properties.setProperty("control.tls.enabled", "false");
+        properties.setProperty("control.tls.serverName", "");
+        properties.setProperty("control.tls.caFile", "");
+        properties.setProperty("control.tls.clientCertificate", "");
+        properties.setProperty("control.tls.clientPrivateKey", "");
+        properties.setProperty("control.tls.pinnedCertificateSha256", "");
+        properties.setProperty("control.allowInsecurePrivateNetwork", "false");
+        properties.setProperty("control.allowPublicAddress", "false");
+        properties.setProperty("control.dataDirectory", "dashboard/control");
+        properties.setProperty("packetRules.enabled", "false");
+        properties.setProperty("packetRules.maxRules", "500");
+        properties.setProperty("packetRules.maxInjectedPacketsPerDecision", "16");
+        properties.setProperty("virtualization.enabled", "false");
+        properties.setProperty("virtualization.maxInventorySessions", "100");
+        properties.setProperty("virtualization.maxPrivateEntitiesPerPlayer", "256");
+        properties.setProperty("virtualization.maxFakeBlocksPerPlayer", "10000");
+        properties.setProperty("virtualization.maxVirtualCommandsPerPlayer", "100");
+        properties.setProperty("protocolLab.enabled", "false");
+        properties.setProperty("protocolLab.allowBackendBound", "false");
+        properties.setProperty("protocolLab.maxPacketsPerMinute", "30");
+        properties.setProperty("protocolLab.maxSessionSeconds", "300");
+        properties.setProperty("protocolLab.allowedXuids", "");
+        properties.setProperty("protocolLab.allowedBackends", "");
         return properties;
     }
 

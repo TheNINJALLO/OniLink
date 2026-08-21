@@ -39,7 +39,7 @@ final class PacketMonitorTest {
                 context,
                 new PacketMonitor.CaptureContext(
                         "TestPlayer",
-                        "2535438695543476",
+                        "1000000000000001",
                         "174.84.137.109:51120",
                         "survival",
                         "45.143.196.160:25570",
@@ -53,7 +53,7 @@ final class PacketMonitorTest {
         assertEquals(1, records.size());
         assertTrue(records.get(0).toString().contains("automatic_codec_match"));
         assertTrue(records.get(0).toString().contains("TestPlayer"));
-        assertTrue(records.get(0).toString().contains("2535438695543476"));
+        assertTrue(records.get(0).toString().contains("1000000000000001"));
         assertTrue(records.get(0).toString().contains("174.84.137.109:51120"));
         assertFalse(records.get(0).toString().contains("hello from private chat"));
 

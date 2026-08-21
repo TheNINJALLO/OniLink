@@ -85,7 +85,14 @@ public final class PacketMonitor {
         FORWARDED("forwarded"),
         DROPPED("dropped"),
         HANDLED("handled by proxy"),
-        WITHHELD("withheld");
+        WITHHELD("withheld"),
+        ONIPACKET_REPLACED("replaced by OniPacket"),
+        ONIPACKET_INJECTED("injected by OniPacket"),
+        ONIPACKET_CONSUMED("consumed by OniPacket"),
+        ONICONTROL_INJECTED("injected by OniControl"),
+        ONIVIRTUAL_INJECTED("injected by OniVirtual"),
+        ONIVIRTUAL_CONSUMED("consumed by OniVirtual"),
+        PROTOCOL_LAB_INJECTED("injected by Protocol Lab");
 
         private final String value;
 

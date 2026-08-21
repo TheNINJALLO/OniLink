@@ -41,6 +41,12 @@ import org.cloudburstmc.protocol.bedrock.packet.SyncEntityPropertyPacket;
 import dev.onistone.onilink.registry.CrossBackendPalette;
 import dev.onistone.onilink.registry.ItemPaletteMapping;
 import dev.onistone.onilink.protocol.PacketMonitor;
+import dev.onistone.onilink.control.OniControlRuntime;
+import dev.onistone.onilink.control.PacketOrigin;
+import dev.onistone.onilink.packet.PacketDecisionType;
+import dev.onistone.onilink.packet.PacketRuleDirection;
+import dev.onistone.onilink.packet.PacketRuleResult;
+import dev.onistone.onilink.packet.PacketRuleStage;
 import org.cloudburstmc.protocol.bedrock.packet.LevelChunkPacket;
 import org.cloudburstmc.protocol.bedrock.packet.LevelSoundEventPacket;
 import org.cloudburstmc.protocol.bedrock.packet.MoveEntityAbsolutePacket;
@@ -527,6 +533,12 @@ public final class BackendRelayPacketHandler implements BedrockPacketHandler {
             );
             return PacketSignal.HANDLED;
         }
+        OniControlRuntime virtualControl = connection.oniControlRuntime();
+        if (virtualControl != null && virtualControl.interceptVirtualBackendPacket(connection, packet)) {
+            connection.observePacket(PacketMonitor.Direction.CLIENTBOUND, packet, null,
+                    PacketMonitor.Action.ONIVIRTUAL_CONSUMED, backend);
+            return PacketSignal.HANDLED;
+        }
         if (packet instanceof DeathInfoPacket) {
             connection.tracePacketsForMillis(PACKET_TRACE_MILLIS);
             if (PACKET_TRACE_MILLIS > 0) {
@@ -686,16 +698,46 @@ public final class BackendRelayPacketHandler implements BedrockPacketHandler {
             }
             return PacketSignal.HANDLED;
         }
+        OniControlRuntime control = connection.oniControlRuntime();
+        BedrockPacket rewritten = rewriteClientboundRuntimeIds(packet);
+        PacketRuleResult preRules = control == null
+                ? PacketRuleResult.pass(rewritten)
+                : control.packetRules().evaluate(
+                        control.context(connection, PacketRuleDirection.CLIENTBOUND, PacketOrigin.BACKEND),
+                        PacketRuleStage.PRE_TRANSLATION, rewritten,
+                        connection.sessionProfile().backendCodec(), connection.sessionProfile().clientCodec(),
+                        connection.saneJoinPosition(), 0, 1);
+        if (!preRules.forwards()) {
+            connection.observePacket(PacketMonitor.Direction.CLIENTBOUND, packet, null,
+                    preRules.decision() == PacketDecisionType.CONSUME
+                            ? PacketMonitor.Action.ONIPACKET_CONSUMED : PacketMonitor.Action.DROPPED,
+                    backend);
+            sendRulePackets(preRules.responses());
+            return PacketSignal.HANDLED;
+        }
         BedrockPacket translated = connection.sessionProfile()
                 .translator()
-                .translateClientbound(rewriteClientboundRuntimeIds(packet), connection.sessionProfile().translationContext());
+                .translateClientbound(preRules.packet(), connection.sessionProfile().translationContext());
+        PacketRuleResult postRules = translated == null || control == null
+                ? PacketRuleResult.pass(translated)
+                : control.packetRules().evaluate(
+                        control.context(connection, PacketRuleDirection.CLIENTBOUND, PacketOrigin.BACKEND),
+                        PacketRuleStage.POST_TRANSLATION, translated,
+                        connection.sessionProfile().clientCodec(), connection.sessionProfile().clientCodec(),
+                        connection.saneJoinPosition(), connection.allocateSyntheticClientEntityId(), 0x4f4e0001);
+        translated = postRules.packet();
         connection.observePacket(
                 PacketMonitor.Direction.CLIENTBOUND,
                 packet,
                 translated,
-                translated == null ? PacketMonitor.Action.DROPPED : PacketMonitor.Action.FORWARDED,
+                translated == null ? postRules.decision() == PacketDecisionType.CONSUME
+                        ? PacketMonitor.Action.ONIPACKET_CONSUMED : PacketMonitor.Action.DROPPED
+                        : postRules.decision() == PacketDecisionType.REPLACE
+                        ? PacketMonitor.Action.ONIPACKET_REPLACED : PacketMonitor.Action.FORWARDED,
                 backend
         );
+        sendRulePackets(postRules.before());
+        sendRulePackets(postRules.responses());
         if (translated == null) {
             System.out.printf(
                     "Dropping clientbound packet from backend %s after protocol translation for client protocol %d: %s.%n",
@@ -727,7 +769,11 @@ public final class BackendRelayPacketHandler implements BedrockPacketHandler {
         }
 
         boolean sent = sendTranslatedClientbound(translated, packet.getClass().getSimpleName(), traceSequence, false);
+        if (sent) sendRulePackets(postRules.after());
+        if (sent && control != null) control.afterAuthoritativeClientbound(connection, translated);
         if (sent && translated instanceof StartGamePacket) {
+            connection.journeyTrace().mark(
+                    dev.onistone.onilink.modules.pulse.JourneyTrace.Stage.START_GAME_RECEIVED);
             // From here on an unexpected backend loss can be turned into a switch rather than a kick.
             connection.markClientJoinedWorld();
         }
@@ -1068,6 +1114,15 @@ public final class BackendRelayPacketHandler implements BedrockPacketHandler {
             );
         }
         return true;
+    }
+
+    /** Direct rule packets were already dry-encoded for the negotiated client codec. */
+    private void sendRulePackets(List<BedrockPacket> packets) {
+        for (BedrockPacket injected : packets) {
+            connection.client().sendPacket(injected);
+            connection.observePacket(PacketMonitor.Direction.CLIENTBOUND, injected, injected,
+                    PacketMonitor.Action.ONIPACKET_INJECTED, backend);
+        }
     }
 
     /**
@@ -2473,7 +2528,11 @@ public final class BackendRelayPacketHandler implements BedrockPacketHandler {
             }
         } else if (packet instanceof CameraPresetsPacket cameraPresets) {
             CodecDefinitionState.syncFromCameraPresets(backend, connection.client(), cameraPresets);
+        } else if (packet instanceof AvailableEntityIdentifiersPacket entityIdentifiers) {
+            connection.crossBackendPalette().rememberClientEntityIdentifiers(entityIdentifiers.getIdentifiers());
         } else if (packet instanceof ChangeDimensionPacket changeDimension) {
+            OniControlRuntime control = connection.oniControlRuntime();
+            if (control != null) control.onWorldReset(connection, "dimension change");
             connection.setPlayerDimensionId(changeDimension.getDimension());
         } else if (packet instanceof SetCommandsEnabledPacket commandsEnabled) {
             if (!commandsEnabled.isCommandsEnabled()) {

@@ -59,7 +59,7 @@ function payloadMessage(payload: unknown, fallback: string): string {
 }
 
 export interface RequestOptions {
-  method?: "GET" | "POST" | "DELETE";
+  method?: "GET" | "POST" | "PUT" | "DELETE";
   body?: Record<string, string | number | boolean | null | undefined>;
   signal?: AbortSignal;
   authenticated?: boolean;

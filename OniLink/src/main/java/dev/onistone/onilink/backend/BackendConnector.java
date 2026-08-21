@@ -36,6 +36,7 @@ import dev.onistone.onilink.network.LoggingExceptionHandler;
 import dev.onistone.onilink.session.ProxySessionProfile;
 import dev.onistone.onilink.registry.BackendPaletteStore;
 import dev.onistone.onilink.migration.verification.PendingJoinRegistry;
+import dev.onistone.onilink.modules.fleet.RoutingOverrides;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -73,6 +74,8 @@ public final class BackendConnector {
     // owns, and the connector needs the commands to build a router. One of the two has to come
     // second, and a half-built connector is the safer of the pair to hand out.
     private volatile NetworkCommands networkCommands;
+    private volatile String tenantId = "provider";
+    private volatile String proxyId = "main";
 
     public BackendConnector(
             EventLoopGroup eventLoopGroup,
@@ -111,6 +114,11 @@ public final class BackendConnector {
                 publicAddress,
                 listenPort
         );
+    }
+
+    public void setRoutingScope(String tenantId, String proxyId) {
+        this.tenantId = tenantId == null || tenantId.isBlank() ? "provider" : tenantId;
+        this.proxyId = proxyId == null || proxyId.isBlank() ? "main" : proxyId;
     }
 
     BackendConnector(
@@ -280,6 +288,15 @@ public final class BackendConnector {
                     pending.name()
             );
             return pending;
+        }
+
+        BackendConfig override = RoutingOverrides.backend(
+                tenantId, proxyId, connection.clientLogin().authData().xuid())
+                .flatMap(backendDirectory::findOperational)
+                .orElse(null);
+        if (override != null) {
+            System.out.printf("Routing authenticated player to policy backend %s.%n", override.name());
+            return override;
         }
 
         ForcedHostsConfig forcedHosts = policy.forcedHosts();
