@@ -63,7 +63,8 @@ std::span<const std::byte> bytes(std::string_view value) {
 std::string escape_json(std::string_view value) {
     std::string output;
     output.reserve(value.size() + 8);
-    for (const unsigned char ch : value) {
+    for (const char raw : value) {
+        const auto ch = static_cast<unsigned char>(raw);
         switch (ch) {
         case '"':
             output += "\\\"";
@@ -455,7 +456,7 @@ class ControlServer::Impl final {
 #endif
         try {
             listener_ = bind_listener();
-            accept_thread_ = std::jthread([this](std::stop_token token) { accept_loop(token); });
+            accept_thread_ = std::thread([this] { accept_loop(); });
         } catch (...) {
             running_ = false;
 #ifdef _WIN32
@@ -468,8 +469,6 @@ class ControlServer::Impl final {
     void stop() noexcept {
         if (!running_.exchange(false))
             return;
-        if (accept_thread_.joinable())
-            accept_thread_.request_stop();
 #ifdef _WIN32
         shutdown(listener_, SD_BOTH);
 #else
@@ -488,6 +487,10 @@ class ControlServer::Impl final {
                 shutdown(socket, SHUT_RDWR);
 #endif
             }
+        }
+        for (auto& worker : workers_) {
+            if (worker.thread.joinable())
+                worker.thread.join();
         }
         workers_.clear();
         {
@@ -543,8 +546,8 @@ class ControlServer::Impl final {
         return listener;
     }
 
-    void accept_loop(std::stop_token token) {
-        while (!token.stop_requested() && running_) {
+    void accept_loop() {
+        while (running_) {
             sockaddr_storage peer{};
             socklen_t peer_length = sizeof(peer);
             const auto client = accept(listener_, reinterpret_cast<sockaddr*>(&peer), &peer_length);
@@ -566,7 +569,7 @@ class ControlServer::Impl final {
             }
             prune_workers();
             auto done = std::make_shared<std::atomic_bool>(false);
-            workers_.push_back(Worker{done, std::jthread([this, client, done](std::stop_token) {
+            workers_.push_back(Worker{done, std::thread([this, client, done] {
                                           serve(client);
                                           {
                                               std::lock_guard lock(clients_mutex_);
@@ -580,10 +583,15 @@ class ControlServer::Impl final {
     }
 
     void prune_workers() {
-        workers_.erase(std::remove_if(workers_.begin(),
-                                      workers_.end(),
-                                      [](Worker& worker) { return worker.done->load(); }),
-                       workers_.end());
+        for (auto worker = workers_.begin(); worker != workers_.end();) {
+            if (!worker->done->load()) {
+                ++worker;
+                continue;
+            }
+            if (worker->thread.joinable())
+                worker->thread.join();
+            worker = workers_.erase(worker);
+        }
     }
 
     void serve(socket_handle client) noexcept {
@@ -713,7 +721,7 @@ class ControlServer::Impl final {
 
     struct Worker {
         std::shared_ptr<std::atomic_bool> done;
-        std::jthread thread;
+        std::thread thread;
     };
 
     ControlConfig config_;
@@ -725,7 +733,7 @@ class ControlServer::Impl final {
     std::atomic_size_t active_connections_{0};
     std::atomic_size_t in_flight_{0};
     socket_handle listener_{invalid_socket};
-    std::jthread accept_thread_;
+    std::thread accept_thread_;
     std::vector<Worker> workers_;
     std::mutex clients_mutex_;
     std::unordered_set<socket_handle> client_sockets_;

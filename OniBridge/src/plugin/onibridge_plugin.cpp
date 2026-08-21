@@ -615,11 +615,13 @@ class OniBridgePlugin : public endstone::Plugin {
         if (action == "PREPARE_DRAIN")
             return {"CONFIRMED", "{\"prepared\":true,\"routingControlledByOniLink\":true}"};
         if (action == "GET_ONLINE_PLAYERS")
-            return unsupported("portable online-player enumeration is unavailable in the pinned Endstone API");
+            return unsupported(
+                "portable online-player enumeration is unavailable in the pinned Endstone API");
         if (action == "CLOSE_PLAYER_CONTAINERS")
             return unsupported("the pinned Endstone API has no safe close-container operation");
         if (action == "SAVE_WORLD")
-            return unsupported("the pinned Endstone API has no public synchronous world-save operation");
+            return unsupported(
+                "the pinned Endstone API has no public synchronous world-save operation");
         auto* player = verifiedPlayer(request);
         if (!player)
             return rejected("target XUID is not an active verified OniBridge player");
