@@ -61,8 +61,8 @@ class Response:
 class HttpTransport:
     def __init__(
         self,
-        connect_timeout: float = 120.0,
-        total_timeout: float = 900.0,
+        connect_timeout: float = 300.0,
+        total_timeout: float = 1_200.0,
         retries: int = 3,
     ):
         self.connect_timeout = connect_timeout
