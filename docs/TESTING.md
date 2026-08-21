@@ -4,9 +4,9 @@ Current completed results:
 
 | Suite | Result | Evidence category |
 | --- | --- | --- |
-| `bdsctl` | 26 passed | unit test |
+| `bdsctl` | 27 passed | unit test |
 | `sdkgen` | 17 passed | unit test |
-| packaging, egg, and ABI Python suite | 25 passed, 3 skipped | unit/platform fixture |
+| packaging, egg, ABI, and checked-profile Python suite | 28 passed, 3 skipped | unit/platform fixture |
 | OniLink Java 21 | 456 passed, 0 failed, 0 skipped | unit/integration fixture |
 | Dashboard UI | 35 passed, 0 failed | component/integration fixture |
 | OniBridge Windows CTest | 2 passed | native unit + synthetic executable hook harness |
@@ -37,6 +37,12 @@ pack scanning limits, notification redaction, PWA assets, Protocol Lab fail-clos
 documented native capability manifest. Native Linux and Windows compilation, CTest, and the Linux
 GLIBC policy remain mandatory GitHub release-workflow gates because this Windows workstation does
 not have the reviewed native toolchains installed.
+
+Application releases first validate the checked BDS lock, duplicate generated/profile documents,
+ABI facts, adapter-embedded executable binding, review state, and runtime evidence. The protected
+release gate then reacquires the official archives and validates the exact executables against those
+profiles. OniBridge independently hashes the installed executable again before enabling its native
+hook.
 
 ## OniControl verification performed on 2026-08-20
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from http.client import IncompleteRead, RemoteDisconnected
 import socket
 import ssl
 import time
@@ -70,33 +71,59 @@ class HttpTransport:
         self.retries = retries
         self.opener = build_opener(ApprovedRedirectHandler())
 
-    def _open(self, url: str):
+    def _open(self, url: str, offset: int = 0):
         validate_url(url)
+        headers = {
+            "User-Agent": USER_AGENT,
+            "Accept": "application/json, application/zip",
+        }
+        if offset:
+            headers["Range"] = f"bytes={offset}-"
         request = Request(
             url,
-            headers={
-                "User-Agent": USER_AGENT,
-                "Accept": "application/json, application/zip",
-            },
+            headers=headers,
         )
         return self.opener.open(request, timeout=self.connect_timeout)
 
     def get_bytes(self, url: str, max_size: int) -> Response:
         last_error: Exception | None = None
+        chunks: list[bytes] = []
+        size = 0
+        content_type = ""
+        final_url = url
         for attempt in range(self.retries):
             try:
                 started = time.monotonic()
-                with self._open(url) as response:
+                requested_offset = size
+                with self._open(url, requested_offset) as response:
                     validate_url(response.geturl())
+                    final_url = response.geturl()
+                    content_type = response.headers.get("Content-Type", content_type)
+                    status = getattr(response, "status", response.getcode())
+                    if requested_offset:
+                        if status == 200:
+                            chunks.clear()
+                            size = 0
+                            requested_offset = 0
+                        elif status != 206:
+                            raise ValidationError(
+                                f"resume request returned unexpected HTTP status {status}"
+                            )
+                        else:
+                            content_range = response.headers.get("Content-Range", "")
+                            if not content_range.startswith(
+                                f"bytes {requested_offset}-"
+                            ):
+                                raise ValidationError(
+                                    "resume response has an invalid Content-Range"
+                                )
                     declared = response.headers.get("Content-Length")
-                    if declared and int(declared) > max_size:
+                    if declared and size + int(declared) > max_size:
                         raise ValidationError(f"response exceeds {max_size} byte limit")
-                    chunks: list[bytes] = []
-                    size = 0
                     while True:
                         if time.monotonic() - started > self.total_timeout:
                             raise TimeoutError("total transfer timeout exceeded")
-                        chunk = response.read(min(1024 * 1024, max_size - size + 1))
+                        chunk = response.read(min(64 * 1024, max_size - size + 1))
                         if not chunk:
                             break
                         chunks.append(chunk)
@@ -107,14 +134,20 @@ class HttpTransport:
                             )
                     return Response(
                         b"".join(chunks),
-                        response.headers.get("Content-Type", ""),
-                        response.geturl(),
+                        content_type,
+                        final_url,
                     )
             except HTTPError as exc:
                 last_error = exc
                 if exc.code not in TRANSIENT_HTTP:
                     raise
-            except (TimeoutError, socket.timeout) as exc:
+            except (
+                TimeoutError,
+                socket.timeout,
+                ConnectionError,
+                IncompleteRead,
+                RemoteDisconnected,
+            ) as exc:
                 last_error = exc
             except URLError as exc:
                 last_error = exc

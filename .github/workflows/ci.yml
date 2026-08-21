@@ -44,7 +44,7 @@ jobs:
         working-directory: OniBridge/tools/sdkgen
       - run: >-
           python -m unittest test_package_release test_package_linux
-          test_pterodactyl_egg test_linux_abi -v
+          test_pterodactyl_egg test_linux_abi test_profile_pipeline -v
         working-directory: tools
   onilink:
     runs-on: ubuntu-24.04

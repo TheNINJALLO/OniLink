@@ -15,9 +15,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: python -m pip install -e OniBridge/tools/bdsctl -e OniBridge/tools/sdkgen
+      - name: Validate checked profiles for prerelease
+        if: ${{ contains(inputs.version, '-') }}
+        run: >-
+          python tools/profile_pipeline.py validate-checked
+          --lock OniBridge/bds.lock.json --allow-candidate
+      - name: Validate production-only checked profiles for stable release
+        if: ${{ !contains(inputs.version, '-') }}
+        run: >-
+          python tools/profile_pipeline.py validate-checked
+          --lock OniBridge/bds.lock.json
       - run: python -m bdsctl fetch --lock OniBridge/bds.lock.json
       - run: python -m bdsctl verify --lock OniBridge/bds.lock.json
-      - run: sh scripts/validate-release-profiles.sh
+      - name: Validate exact profiles for prerelease
+        if: ${{ contains(inputs.version, '-') }}
+        run: sh scripts/validate-release-profiles.sh --allow-candidate
+      - name: Validate exact production-only profiles for stable release
+        if: ${{ !contains(inputs.version, '-') }}
+        run: sh scripts/validate-release-profiles.sh
       - if: always()
         run: python -m bdsctl clean && rm -rf .cache/bds build/bds-analysis
   java:

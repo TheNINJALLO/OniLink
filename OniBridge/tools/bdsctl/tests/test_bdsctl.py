@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+from http.client import RemoteDisconnected
 import json
 import os
 from pathlib import Path
@@ -181,6 +182,54 @@ class TransportTests(unittest.TestCase):
         ):
             with self.assertRaisesRegex(ValidationError, "transient retries"):
                 transport.get_bytes(LINUX_URL, 100)
+
+    def test_remote_disconnect_resumes_with_a_bounded_range_request(self):
+        class FakeResponse:
+            def __init__(self, chunks, status, headers):
+                self.chunks = iter(chunks)
+                self.status = status
+                self.headers = headers
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+            def getcode(self):
+                return self.status
+
+            def geturl(self):
+                return LINUX_URL
+
+            def read(self, _):
+                value = next(self.chunks)
+                if isinstance(value, Exception):
+                    raise value
+                return value
+
+        first = FakeResponse(
+            (b"abc", RemoteDisconnected("closed")),
+            200,
+            {"Content-Type": "application/zip"},
+        )
+        second = FakeResponse(
+            (b"def", b""),
+            206,
+            {
+                "Content-Type": "application/zip",
+                "Content-Range": "bytes 3-5/6",
+                "Content-Length": "3",
+            },
+        )
+        transport = HttpTransport(retries=2)
+        with patch.object(transport, "_open", side_effect=(first, second)) as opened:
+            response = transport.get_bytes(LINUX_URL, 6)
+        self.assertEqual(response.body, b"abcdef")
+        self.assertEqual(
+            opened.call_args_list,
+            [unittest.mock.call(LINUX_URL, 0), unittest.mock.call(LINUX_URL, 3)],
+        )
 
 
 class ArchiveTests(unittest.TestCase):
