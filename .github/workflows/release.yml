@@ -9,7 +9,7 @@ permissions:
 jobs:
   validate-lock:
     environment: bds-profile-generation
-    runs-on: self-hosted
+    runs-on: ubuntu-24.04
     env:
       MINECRAFT_EULA_ACCEPTED: ${{ vars.MINECRAFT_EULA_ACCEPTED }}
     steps:
