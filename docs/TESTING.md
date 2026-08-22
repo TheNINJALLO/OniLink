@@ -39,10 +39,11 @@ GLIBC policy remain mandatory GitHub release-workflow gates because this Windows
 not have the reviewed native toolchains installed.
 
 Application releases first validate the checked BDS lock, duplicate generated/profile documents,
-ABI facts, adapter-embedded executable binding, review state, and runtime evidence. The protected
-release gate then reacquires the official archives and validates the exact executables against those
-profiles. OniBridge independently hashes the installed executable again before enabling its native
-hook.
+ABI facts, adapter-embedded executable binding, review state, and runtime evidence. With explicit
+operator approval, prereleases may build from that checked evidence when the official BDS host is
+unavailable to GitHub-hosted runners. Stable releases still reacquire the official archives and
+validate the exact executables against those profiles. OniBridge independently hashes the installed
+executable again before enabling its native hook.
 
 ## OniControl verification performed on 2026-08-20
 

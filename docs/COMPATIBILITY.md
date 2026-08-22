@@ -16,9 +16,11 @@ The Linux production artifact fails closed on every runtime mismatch and require
 
 For application releases, CI validates the checked lock against both profile copies, generated ABI
 facts, the adapter's embedded profile ID/executable hash/size/review flag, and any recorded runtime
-evidence. The protected release job then reacquires and verifies the official archives and exact
-executables. OniBridge repeats the executable hash, size, architecture, profile, and call-site checks
-at plugin startup, so release metadata cannot authorize a different server binary.
+evidence. Explicitly approved prereleases may use that checked evidence when the official BDS host is
+unavailable to GitHub-hosted runners. Stable release jobs still reacquire and verify the official
+archives and exact executables. OniBridge repeats the executable hash, size, architecture, profile,
+and call-site checks at plugin startup, so release metadata cannot authorize a different server
+binary.
 
 ## OniControl capability evidence
 

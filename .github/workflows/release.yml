@@ -25,11 +25,12 @@ jobs:
         run: >-
           python tools/profile_pipeline.py validate-checked
           --lock OniBridge/bds.lock.json
-      - run: python -m bdsctl fetch --lock OniBridge/bds.lock.json
-      - run: python -m bdsctl verify --lock OniBridge/bds.lock.json
-      - name: Validate exact profiles for prerelease
-        if: ${{ contains(inputs.version, '-') }}
-        run: sh scripts/validate-release-profiles.sh --allow-candidate
+      - name: Fetch official BDS archives for stable release
+        if: ${{ !contains(inputs.version, '-') }}
+        run: python -m bdsctl fetch --lock OniBridge/bds.lock.json
+      - name: Verify official BDS archives for stable release
+        if: ${{ !contains(inputs.version, '-') }}
+        run: python -m bdsctl verify --lock OniBridge/bds.lock.json
       - name: Validate exact production-only profiles for stable release
         if: ${{ !contains(inputs.version, '-') }}
         run: sh scripts/validate-release-profiles.sh
