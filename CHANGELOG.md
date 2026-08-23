@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+## 0.3.0-beta.2 - 2026-08-23
+
+- Added revision-checked backend destination editing, primary-route selection, and safe backend
+  removal to provider and tenant dashboards. Removal requires a replacement, repairs routing
+  references, validates the complete configuration, and retains key files for recovery.
+- Added atomic merge/replace allowlist imports for bounded JSON, properties, CSV/TSV, and numeric
+  XUID text files, with tenant scoping, audit summaries, rejected-row reporting, and explicit
+  rejection of insecure name-only entries.
+
 ## 0.3.0-beta.1 - 2026-08-21
 
 - Added the shared tenant-scoped platform, typed bounded event bus/action registry, SQLite

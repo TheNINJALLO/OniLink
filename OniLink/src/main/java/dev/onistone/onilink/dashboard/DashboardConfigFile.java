@@ -275,6 +275,120 @@ final class DashboardConfigFile {
         return Map.copyOf(result);
     }
 
+    synchronized Map<String, Object> updateBackend(
+            String expectedRevision,
+            Map<String, String> fields
+    ) throws IOException {
+        String original = readConfig(path);
+        requireRevision(original, expectedRevision);
+        String name = backendName(fields.get("name"));
+        BackendEndpoint endpoint = backendEndpoint(fields);
+        if (!HOST.matcher(endpoint.host()).matches()) {
+            throw new IllegalArgumentException("Backend host must be a hostname or numeric IP address without spaces");
+        }
+
+        ProxyConfig current = ProxyConfig.loadOrCreate(path);
+        var existing = current.backends().values().stream()
+                .filter(backend -> backend.name().equalsIgnoreCase(name))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Backend '" + name + "' is not configured for this proxy"));
+        String prefix = "backend." + existing.name() + ".";
+        String candidate = replaceProperty(original, prefix + "host", endpoint.host());
+        candidate = replaceProperty(candidate, prefix + "port", Integer.toString(endpoint.port()));
+        boolean primary = current.backend().name().equalsIgnoreCase(existing.name());
+        if (primary) {
+            candidate = replaceProperty(candidate, "backend.host", endpoint.host());
+            candidate = replaceProperty(candidate, "backend.port", Integer.toString(endpoint.port()));
+        }
+        installCandidate(original, candidate, ".dashboard.backend-update.tmp");
+
+        Map<String, Object> result = new LinkedHashMap<>(read());
+        result.put("updated", true);
+        result.put("backendName", existing.name());
+        result.put("backendEndpoint", displayEndpoint(endpoint.host(), endpoint.port()));
+        result.put("primaryBackend", current.backend().name());
+        result.put("primaryBackendAddress", primary
+                ? displayEndpoint(endpoint.host(), endpoint.port())
+                : displayEndpoint(current.backend().address().getHostString(), current.backend().address().getPort()));
+        result.put("restartRequired", true);
+        result.put("message", "Backend " + existing.name()
+                + " now points to " + displayEndpoint(endpoint.host(), endpoint.port()) + ".");
+        return Map.copyOf(result);
+    }
+
+    synchronized Map<String, Object> removeBackend(
+            String expectedRevision,
+            Map<String, String> fields
+    ) throws IOException {
+        String original = readConfig(path);
+        requireRevision(original, expectedRevision);
+        String name = backendName(fields.get("name"));
+        ProxyConfig current = ProxyConfig.loadOrCreate(path);
+        var removed = current.backends().values().stream()
+                .filter(backend -> backend.name().equalsIgnoreCase(name))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Backend '" + name + "' is not configured for this proxy"));
+        if (current.backends().size() == 1) {
+            throw new IllegalStateException("The last backend cannot be removed; add its replacement first");
+        }
+
+        boolean wasPrimary = current.backend().name().equalsIgnoreCase(removed.name());
+        boolean wasHub = current.hubBackendName().equalsIgnoreCase(removed.name());
+        String replacementName = fields.get("replacementBackend") == null
+                ? ""
+                : fields.get("replacementBackend").trim().toLowerCase(Locale.ROOT);
+        var replacement = current.backends().values().stream()
+                .filter(backend -> !backend.name().equalsIgnoreCase(removed.name()))
+                .filter(backend -> replacementName.isBlank()
+                        || backend.name().equalsIgnoreCase(replacementName))
+                .findFirst()
+                .orElse(null);
+        if ((wasPrimary || wasHub) && replacementName.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Choose the backend that should replace this route as the primary/hub server");
+        }
+        if (!replacementName.isBlank() && replacement == null) {
+            throw new IllegalArgumentException(
+                    "Replacement backend '" + replacementName + "' is not configured for this proxy");
+        }
+        if (replacement == null) {
+            replacement = current.backends().values().stream()
+                    .filter(backend -> !backend.name().equalsIgnoreCase(removed.name()))
+                    .findFirst().orElseThrow();
+        }
+
+        List<String> remaining = current.backends().values().stream()
+                .map(dev.onistone.onilink.config.BackendConfig::name)
+                .filter(backend -> !backend.equalsIgnoreCase(removed.name()))
+                .toList();
+        String candidate = removeBackendBlocks(original, removed.name(), replacement.name());
+        candidate = replaceProperty(candidate, "backends", String.join(",", remaining));
+        if (wasPrimary) {
+            candidate = replaceProperty(candidate, "backend.name", replacement.name());
+            candidate = replaceProperty(candidate, "backend.host", replacement.address().getHostString());
+            candidate = replaceProperty(candidate, "backend.port",
+                    Integer.toString(replacement.address().getPort()));
+        }
+        if (wasHub) candidate = replaceProperty(candidate, "hubBackend", replacement.name());
+        installCandidate(original, candidate, ".dashboard.backend-remove.tmp");
+
+        ProxyConfig saved = ProxyConfig.loadOrCreate(path);
+        Map<String, Object> result = new LinkedHashMap<>(read());
+        result.put("removed", true);
+        result.put("backendName", removed.name());
+        result.put("replacementBackend", replacement.name());
+        result.put("primaryBackend", saved.backend().name());
+        result.put("primaryBackendAddress", displayEndpoint(
+                saved.backend().address().getHostString(), saved.backend().address().getPort()));
+        result.put("hubBackend", saved.hubBackendName());
+        result.put("secretFilesRetained", true);
+        result.put("restartRequired", true);
+        result.put("message", "Backend " + removed.name() + " was removed. Its key files were retained for recovery.");
+        return Map.copyOf(result);
+    }
+
     synchronized Map<String, Object> routing() throws IOException {
         ProxyConfig config = ProxyConfig.loadOrCreate(path);
         List<Map<String, Object>> configuredBackends = new ArrayList<>();
@@ -282,13 +396,18 @@ final class DashboardConfigFile {
             configuredBackends.add(Map.of(
                     "name", backend.name(),
                     "address", displayEndpoint(
-                            backend.address().getHostString(), backend.address().getPort())));
+                            backend.address().getHostString(), backend.address().getPort()),
+                    "host", backend.address().getHostString(),
+                    "port", backend.address().getPort(),
+                    "primary", backend.name().equalsIgnoreCase(config.backend().name()),
+                    "hub", backend.name().equalsIgnoreCase(config.hubBackendName())));
         }
         return Map.of(
                 "primaryBackend", config.backend().name(),
                 "primaryBackendAddress", displayEndpoint(
                         config.backend().address().getHostString(), config.backend().address().getPort()),
-                "configuredBackends", List.copyOf(configuredBackends));
+                "configuredBackends", List.copyOf(configuredBackends),
+                "configurationRevision", revision(readConfig(path)));
     }
 
     synchronized Map<String, Object> setPrimaryBackend(
@@ -633,6 +752,82 @@ final class DashboardConfigFile {
         }
         if (!replaced) output.add(key + "=" + value);
         return String.join(System.lineSeparator(), output);
+    }
+
+    private static String removeBackendBlocks(String content, String removed, String replacement) {
+        String removedPrefix = "backend." + removed + ".";
+        Set<String> backendLists = Set.of(
+                "failover.fallbacks", "join.try", "protocolLab.allowedBackends");
+        Set<String> backendScalars = Set.of(
+                "continuity.limboBackend", "sentinel.quarantineBackend", "control.backendName");
+        List<String> output = new ArrayList<>();
+        for (LineBlock block : blocks(content)) {
+            ParsedLine parsed = block.parsed();
+            if (parsed == null) {
+                output.addAll(block.lines());
+                continue;
+            }
+            String key = parsed.key();
+            if (key.startsWith(removedPrefix)) continue;
+            boolean fallback = key.startsWith("backend.") && key.endsWith(".fallback");
+            if (backendLists.contains(key) || fallback) {
+                output.add(key + "=" + replaceBackendInList(parsed.value(), removed, replacement));
+                continue;
+            }
+            if ((key.startsWith("forcedHost.") || backendScalars.contains(key))
+                    && uncommented(parsed.value()).equalsIgnoreCase(removed)) {
+                output.add(key + "=" + replacement);
+                continue;
+            }
+            output.addAll(block.lines());
+        }
+        return String.join(System.lineSeparator(), output);
+    }
+
+    private static String replaceBackendInList(String raw, String removed, String replacement) {
+        LinkedHashSet<String> names = new LinkedHashSet<>();
+        for (String item : uncommented(raw).split(",")) {
+            String name = item.trim();
+            if (name.isEmpty()) continue;
+            names.add(name.equalsIgnoreCase(removed) ? replacement : name);
+        }
+        return String.join(",", names);
+    }
+
+    private static String uncommented(String raw) {
+        if (raw == null) return "";
+        int end = raw.length();
+        for (int index = 0; index < raw.length(); index++) {
+            char value = raw.charAt(index);
+            if (value == '#' || value == '!' || value == ';') {
+                end = index;
+                break;
+            }
+        }
+        return raw.substring(0, end).trim();
+    }
+
+    private static String backendName(String raw) {
+        String name = safeValue(raw, "Backend name").toLowerCase(Locale.ROOT);
+        if (!BACKEND_NAME.matcher(name).matches()) {
+            throw new IllegalArgumentException(
+                    "Backend name must start with a letter and contain only lowercase letters, numbers, _ or -");
+        }
+        return name;
+    }
+
+    private void installCandidate(String original, String candidate, String temporarySuffix) throws IOException {
+        Path temporary = path.resolveSibling(path.getFileName() + temporarySuffix);
+        Files.writeString(temporary, candidate, StandardCharsets.UTF_8);
+        try {
+            ProxyConfig.loadOrCreate(temporary);
+            Files.copy(path, backupPath, StandardCopyOption.REPLACE_EXISTING,
+                    StandardCopyOption.COPY_ATTRIBUTES);
+            replace(temporary, path);
+        } catch (RuntimeException | IOException exception) {
+            Files.deleteIfExists(temporary);
+            throw exception;
+        }
     }
 
     private static String onibridgeToml(

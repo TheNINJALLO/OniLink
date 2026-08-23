@@ -19,6 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -283,15 +284,42 @@ public final class OniLinkDashboard implements AutoCloseable {
                         Map.of("revision", result.get("revision")));
                 sendJson(exchange, 200, result);
             }
+            case "/api/config/routing" -> {
+                requireRole(principal, DashboardAccounts.Role.ADMIN);
+                requireMethod(exchange, "GET");
+                sendJson(exchange, 200, configFile.routing());
+            }
             case "/api/config/backends" -> {
+                requireRole(principal, DashboardAccounts.Role.ADMIN);
+                requireMutation(exchange, "POST", "PUT", "DELETE");
+                Map<String, String> form = form(exchange);
+                String method = exchange.getRequestMethod();
+                Map<String, Object> result = switch (method) {
+                    case "POST" -> configFile.addBackend(form.get("revision"), form);
+                    case "PUT" -> configFile.updateBackend(form.get("revision"), form);
+                    case "DELETE" -> configFile.removeBackend(form.get("revision"), form);
+                    default -> throw new HttpFailure(405, "Method not allowed");
+                };
+                String action = switch (method) {
+                    case "POST" -> "add";
+                    case "PUT" -> "update";
+                    default -> "remove";
+                };
+                audit(exchange, principal, "configuration.backend_" + action, "success", Map.of(
+                        "backend", result.get("backendName"),
+                        "restartRequired", result.get("restartRequired")));
+                sendJson(exchange, "POST".equals(method) ? 201 : 200, result);
+            }
+            case "/api/config/primary-backend" -> {
                 requireRole(principal, DashboardAccounts.Role.ADMIN);
                 requireMutation(exchange, "POST");
                 Map<String, String> form = form(exchange);
-                Map<String, Object> result = configFile.addBackend(form.get("revision"), form);
-                audit(exchange, principal, "configuration.backend_add", "success", Map.of(
-                        "backend", result.get("backendName"),
+                Map<String, Object> result = configFile.setPrimaryBackend(
+                        form.get("revision"), form.get("backend"));
+                audit(exchange, principal, "configuration.primary_backend_change", "success", Map.of(
+                        "backend", result.get("primaryBackend"),
                         "restartRequired", result.get("restartRequired")));
-                sendJson(exchange, 201, result);
+                sendJson(exchange, 200, result);
             }
             case "/api/users" -> handleUsers(exchange, principal);
             case "/api/tenancy" -> handleTenancyOverview(exchange, principal);
@@ -504,17 +532,33 @@ public final class OniLinkDashboard implements AutoCloseable {
             HttpExchange exchange,
             DashboardAccounts.Principal principal
     ) throws IOException {
-        requireMethod(exchange, "GET", "POST", "DELETE");
-        if (!"GET".equals(exchange.getRequestMethod())) requireMutation(exchange, "POST", "DELETE");
+        requireMethod(exchange, "GET", "POST", "PUT", "DELETE");
+        if (!"GET".equals(exchange.getRequestMethod())) requireMutation(exchange, "POST", "PUT", "DELETE");
         Map<String, String> values = "GET".equals(exchange.getRequestMethod()) ? query(exchange) : form(exchange);
+        if ("PUT".equals(exchange.getRequestMethod())) {
+            values.put("content", allowlistImportContent(values));
+        }
         String tenant = authorizedTenant(principal, values.get("tenant"));
         Map<String, Object> result = tenantHosting.allowlist(
                 tenant, values.get("proxy"), exchange.getRequestMethod(), values);
         if (!"GET".equals(exchange.getRequestMethod())) {
-            audit(exchange, principal, "tenancy.allowlist_"
-                            + ("DELETE".equals(exchange.getRequestMethod()) ? "remove" : "add"),
-                    "success", Map.of("tenant", tenant, "proxy", value(values.get("proxy")),
-                            "xuid", value(values.get("xuid"))));
+            String operation = switch (exchange.getRequestMethod()) {
+                case "DELETE" -> "remove";
+                case "PUT" -> "import";
+                default -> "add";
+            };
+            Map<String, Object> details = new LinkedHashMap<>();
+            details.put("tenant", tenant);
+            details.put("proxy", value(values.get("proxy")));
+            if ("PUT".equals(exchange.getRequestMethod())) {
+                details.put("mode", result.get("mode"));
+                details.put("added", result.get("added"));
+                details.put("updated", result.get("updated"));
+                details.put("rejected", result.get("rejected"));
+            } else {
+                details.put("xuid", value(values.get("xuid")));
+            }
+            audit(exchange, principal, "tenancy.allowlist_" + operation, "success", details);
         }
         sendJson(exchange, 200, result);
     }
@@ -523,16 +567,27 @@ public final class OniLinkDashboard implements AutoCloseable {
             HttpExchange exchange,
             DashboardAccounts.Principal principal
     ) throws IOException {
-        requireMutation(exchange, "POST");
+        requireMutation(exchange, "POST", "PUT", "DELETE");
         Map<String, String> values = form(exchange);
         String tenant = authorizedTenant(principal, values.get("tenant"));
         values.put("tenant", tenant);
-        Map<String, Object> result = tenantHosting.addBackend(values);
-        audit(exchange, principal, "tenancy.backend_add", "success", Map.of(
+        String method = exchange.getRequestMethod();
+        Map<String, Object> result = switch (method) {
+            case "POST" -> tenantHosting.addBackend(values);
+            case "PUT" -> tenantHosting.updateBackend(values);
+            case "DELETE" -> tenantHosting.removeBackend(values);
+            default -> throw new HttpFailure(405, "Method not allowed");
+        };
+        String action = switch (method) {
+            case "POST" -> "add";
+            case "PUT" -> "update";
+            default -> "remove";
+        };
+        audit(exchange, principal, "tenancy.backend_" + action, "success", Map.of(
                 "tenant", tenant,
                 "proxy", value(values.get("proxy")),
                 "backend", value(values.get("name"))));
-        sendJson(exchange, 201, result);
+        sendJson(exchange, "POST".equals(method) ? 201 : 200, result);
     }
 
     private void handleTenantProxyPrimaryBackend(
@@ -771,8 +826,18 @@ public final class OniLinkDashboard implements AutoCloseable {
             sendJson(exchange, 200, control.allowlist());
             return;
         }
-        requireMutation(exchange, "POST", "DELETE");
+        requireMutation(exchange, "POST", "PUT", "DELETE");
         Map<String, String> form = form(exchange);
+        if ("PUT".equals(exchange.getRequestMethod())) {
+            Map<String, Object> result = control.allowlistImport(allowlistImportContent(form), form.get("mode"));
+            audit(exchange, principal, "allowlist.import", "success", Map.of(
+                    "mode", result.get("mode"),
+                    "added", result.get("added"),
+                    "updated", result.get("updated"),
+                    "rejected", result.get("rejected")));
+            sendJson(exchange, 200, result);
+            return;
+        }
         String xuid = value(form.get("xuid"));
         DashboardControl.ActionResult result;
         String action;
@@ -1160,6 +1225,21 @@ public final class OniLinkDashboard implements AutoCloseable {
             values.put(key, value);
         }
         return values;
+    }
+
+    private static String allowlistImportContent(Map<String, String> form) {
+        String encoded = form.get("contentBase64");
+        if (encoded == null || encoded.isBlank()) return form.get("content");
+        final byte[] decoded;
+        try {
+            decoded = Base64.getDecoder().decode(encoded);
+        } catch (IllegalArgumentException failure) {
+            throw new IllegalArgumentException("Allowlist import encoding is invalid", failure);
+        }
+        if (decoded.length > 131_072) {
+            throw new IllegalArgumentException("Allowlist import exceeds the 128 KiB safety limit");
+        }
+        return new String(decoded, StandardCharsets.UTF_8);
     }
 
     static void requireMethod(HttpExchange exchange, String... allowed) {

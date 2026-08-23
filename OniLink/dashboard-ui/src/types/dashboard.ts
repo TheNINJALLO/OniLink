@@ -196,6 +196,18 @@ export interface Allowlist {
   entries: AllowlistEntry[];
 }
 
+export interface AllowlistImportResult extends ActionResult {
+  mode: "merge" | "replace";
+  received: number;
+  added: number;
+  updated: number;
+  unchanged: number;
+  removed: number;
+  rejected: number;
+  errors: string[];
+  count: number;
+}
+
 export interface Configuration {
   path: string;
   content: string;
@@ -224,6 +236,38 @@ export interface BackendSetup extends Configuration {
   setupBundleBase64: string;
   restartRequired: boolean;
   message: string;
+}
+
+export interface BackendMutation extends Configuration {
+  updated?: boolean;
+  removed?: boolean;
+  changed?: boolean;
+  backendName?: string;
+  backendEndpoint?: string;
+  replacementBackend?: string;
+  primaryBackend: string;
+  primaryBackendAddress: string;
+  hubBackend?: string;
+  secretFilesRetained?: boolean;
+  restartRequired: boolean;
+  message: string;
+  proxy?: TenantProxy;
+}
+
+export interface ConfiguredBackend {
+  name: string;
+  address: string;
+  host: string;
+  port: number;
+  primary: boolean;
+  hub: boolean;
+}
+
+export interface BackendRouting {
+  primaryBackend: string;
+  primaryBackendAddress: string;
+  configuredBackends: ConfiguredBackend[];
+  configurationRevision: string;
 }
 
 export interface ActionResult {
@@ -432,7 +476,7 @@ export interface TenantProxyDashboard {
   backends: Backend[];
   primaryBackend: string;
   primaryBackendAddress: string;
-  configuredBackends: Array<{ name: string; address: string }>;
+  configuredBackends: ConfiguredBackend[];
   allowlist: Allowlist;
   configurationRevision: string;
 }

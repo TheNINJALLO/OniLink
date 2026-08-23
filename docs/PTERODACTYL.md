@@ -220,6 +220,24 @@ Then set `ALLOWLIST_ENABLED=true` or edit the matching configuration key and res
 empty list blocks everyone. Use **Dashboard → Allowlist** for connected-player selection and normal
 management.
 
+### Import an existing allowlist
+
+Open **Dashboard → Allowlist → Import an existing allowlist**. Tenant owners use the equivalent
+section inside **My Proxies**. Choose one of these modes:
+
+- **Merge** keeps current XUIDs and adds or updates entries from the file.
+- **Replace** removes current entries that are absent from the file. OniLink requires confirmation
+  and refuses an empty or name-only replacement.
+
+Accepted inputs are OniLink JSON (`{"entries":[{"xuid":"...","name":"..."}]}`), OniLink
+`allowlist.properties` (`XUID=label`), CSV/TSV with an `xuid` column, or one numeric XUID per line.
+Imports are limited to 128 KiB and 5,000 unique XUIDs and are saved atomically. Merge mode reports
+rejected rows while keeping valid rows; replace mode refuses the whole file if any row is invalid.
+
+Vanilla BDS `allowlist.json` commonly contains gamertags without Xbox XUIDs. OniLink cannot securely
+authorize a mutable name, so those rows are reported as name-only. Add an authenticated XUID column
+or export from an OniLink proxy before importing.
+
 ## Startup order and validation
 
 1. Start each backend and confirm OniBridge loads the exact production profile.

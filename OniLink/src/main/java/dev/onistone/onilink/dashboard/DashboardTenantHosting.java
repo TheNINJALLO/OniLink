@@ -345,6 +345,7 @@ final class DashboardTenantHosting implements AutoCloseable {
         ProxyInstance proxy = existingProxy(rawTenant, rawProxy);
         DashboardControl control = runningControl(proxy);
         if ("GET".equals(method)) return control.allowlist();
+        if ("PUT".equals(method)) return control.allowlistImport(form.get("content"), form.get("mode"));
         DashboardControl.ActionResult result = "DELETE".equals(method)
                 ? control.allowlistRemove(form.get("xuid"))
                 : control.allowlistAdd(form.get("xuid"), form.get("name"));
@@ -369,6 +370,59 @@ final class DashboardTenantHosting implements AutoCloseable {
                         ? "Backend added and the proxy restarted."
                         : "Backend added and will load when the proxy starts.");
         return Map.copyOf(result);
+    }
+
+    synchronized Map<String, Object> updateBackend(Map<String, String> form) throws IOException {
+        ProxyInstance proxy = existingProxy(form.get("tenant"), form.get("proxy"));
+        DashboardConfigFile config = new DashboardConfigFile(configPath(proxy));
+        Map<String, Object> result = new LinkedHashMap<>(config.updateBackend(form.get("revision"), form));
+        boolean wasRunning = runtimes.containsKey(runtimeKey(proxy));
+        ProxyInstance updated = restartAfterBackendMutation(proxy, result);
+        result.put("proxy", proxyView(updated));
+        result.put("message", updated.status().equals("error")
+                ? "Backend saved, but the proxy could not restart: " + updated.lastError()
+                : wasRunning
+                        ? "Backend destination updated and the proxy restarted."
+                        : "Backend destination updated and will load when the proxy starts.");
+        return Map.copyOf(result);
+    }
+
+    synchronized Map<String, Object> removeBackend(Map<String, String> form) throws IOException {
+        ProxyInstance proxy = existingProxy(form.get("tenant"), form.get("proxy"));
+        DashboardConfigFile config = new DashboardConfigFile(configPath(proxy));
+        Map<String, Object> result = new LinkedHashMap<>(config.removeBackend(form.get("revision"), form));
+        boolean wasRunning = runtimes.containsKey(runtimeKey(proxy));
+        ProxyInstance updated = restartAfterBackendMutation(proxy, result);
+        result.put("proxy", proxyView(updated));
+        result.put("message", updated.status().equals("error")
+                ? "Backend removed, but the proxy could not restart: " + updated.lastError()
+                : wasRunning
+                        ? "Backend removed, routing references updated, and the proxy restarted. Key files were retained."
+                        : "Backend removed and routing references updated. Key files were retained.");
+        return Map.copyOf(result);
+    }
+
+    private ProxyInstance restartAfterBackendMutation(
+            ProxyInstance proxy,
+            Map<String, Object> result
+    ) throws IOException {
+        String primary = String.valueOf(result.get("primaryBackend"));
+        String primaryAddress = String.valueOf(result.get("primaryBackendAddress"));
+        ProxyInstance configured = proxy;
+        if (!primary.isBlank() && !primaryAddress.isBlank()
+                && (!primary.equalsIgnoreCase(proxy.primaryBackend())
+                        || !primaryAddress.equalsIgnoreCase(proxy.backendAddress()))) {
+            configured = proxy.withPrimaryBackend(primary, primaryAddress);
+            replaceProxy(configured);
+        }
+        boolean wasRunning = runtimes.containsKey(runtimeKey(proxy));
+        ProxyInstance updated = configured;
+        if (wasRunning) {
+            stopRuntime(proxy);
+            updated = startProxy(configured);
+        }
+        saveCatalog();
+        return updated;
     }
 
     synchronized Map<String, Object> setPrimaryBackend(Map<String, String> form) throws IOException {

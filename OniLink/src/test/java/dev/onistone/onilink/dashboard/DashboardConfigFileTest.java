@@ -18,6 +18,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -159,6 +160,55 @@ class DashboardConfigFileTest {
         assertTrue(String.valueOf(routing.get("configuredBackends")).contains("creative"));
         assertThrows(IllegalArgumentException.class, () -> editor.setPrimaryBackend(
                 String.valueOf(changed.get("revision")), "missing"));
+    }
+
+    @Test
+    void editsAndRemovesBackendsWhileRepairingRoutingReferences(@TempDir Path directory) throws Exception {
+        Path path = directory.resolve("config.properties");
+        ProxyConfig.loadOrCreate(path);
+        DashboardConfigFile editor = new DashboardConfigFile(path);
+        Map<String, Object> added = editor.addBackend(
+                String.valueOf(editor.read().get("revision")),
+                Map.of(
+                        "name", "creative",
+                        "address", "198.51.100.20:25571",
+                        "proxyPublicIp", "198.51.100.10"));
+
+        Map<String, Object> updated = editor.updateBackend(String.valueOf(added.get("revision")), Map.of(
+                "name", "creative", "host", "198.51.100.21", "port", "25572"));
+        assertEquals("198.51.100.21:25572", updated.get("backendEndpoint"));
+        assertEquals(25572, ProxyConfig.loadOrCreate(path).backends().get("creative").address().getPort());
+
+        Map<String, Object> primary = editor.setPrimaryBackend(
+                String.valueOf(updated.get("revision")), "creative");
+        String referenced = Files.readString(path)
+                + System.lineSeparator() + "forcedHost.play.example.com=creative"
+                + System.lineSeparator() + "join.try=creative,default"
+                + System.lineSeparator() + "failover.fallbacks=creative"
+                + System.lineSeparator() + "continuity.limboBackend=creative"
+                + System.lineSeparator() + "sentinel.quarantineBackend=creative"
+                + System.lineSeparator() + "protocolLab.allowedBackends=creative";
+        Files.writeString(path, referenced);
+
+        Map<String, Object> removed = editor.removeBackend(
+                String.valueOf(editor.read().get("revision")),
+                Map.of("name", "creative", "replacementBackend", "default"));
+
+        assertEquals(true, removed.get("removed"));
+        assertEquals("default", removed.get("primaryBackend"));
+        assertTrue(Files.isRegularFile(directory.resolve("secrets/creative.key")));
+        String saved = Files.readString(path);
+        assertFalse(saved.contains("backend.creative."));
+        assertTrue(saved.contains("forcedHost.play.example.com=default"));
+        assertTrue(saved.contains("join.try=default"));
+        assertTrue(saved.contains("failover.fallbacks=default"));
+        assertTrue(saved.contains("continuity.limboBackend=default"));
+        assertTrue(saved.contains("sentinel.quarantineBackend=default"));
+        assertTrue(saved.contains("protocolLab.allowedBackends=default"));
+        assertEquals(Set.of("default"), ProxyConfig.loadOrCreate(path).backends().keySet());
+        assertThrows(IllegalStateException.class, () -> editor.removeBackend(
+                String.valueOf(removed.get("revision")),
+                Map.of("name", "default", "replacementBackend", "missing")));
     }
 
     @Test

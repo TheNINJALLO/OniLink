@@ -8,6 +8,7 @@ import dev.onistone.onilink.config.BackendConfig;
 import dev.onistone.onilink.config.BackendForwardingConfig;
 import dev.onistone.onilink.config.ProxyConfig;
 import dev.onistone.onilink.allowlist.ProxyAllowlist;
+import dev.onistone.onilink.allowlist.AllowlistImporter;
 import dev.onistone.onilink.listener.BedrockProxyListener;
 
 import java.io.IOException;
@@ -273,6 +274,42 @@ final class ProxyDashboardControl implements DashboardControl {
                             listener.allowlist().config().kickMessage()));
         }
         return new ActionResult(true, "Removed XUID " + xuid.trim() + " from the allowlist");
+    }
+
+    @Override
+    public Map<String, Object> allowlistImport(String content, String rawMode) {
+        String mode = rawMode == null || rawMode.isBlank()
+                ? "merge"
+                : rawMode.trim().toLowerCase(java.util.Locale.ROOT);
+        if (!mode.equals("merge") && !mode.equals("replace")) {
+            throw new IllegalArgumentException("Allowlist import mode must be merge or replace");
+        }
+        AllowlistImporter.ParseResult parsed = AllowlistImporter.parse(content);
+        if (mode.equals("replace") && parsed.rejected() > 0) {
+            throw new IllegalArgumentException("Replace import refused because " + parsed.rejected()
+                    + " row(s) are invalid or missing XUIDs; fix the file or use merge mode");
+        }
+        try {
+            ProxyAllowlist.ImportSummary imported = listener.allowlist().importEntries(
+                    parsed.entries(), mode.equals("replace"));
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("success", true);
+            result.put("mode", mode);
+            result.put("received", imported.received());
+            result.put("added", imported.added());
+            result.put("updated", imported.updated());
+            result.put("unchanged", imported.unchanged());
+            result.put("removed", imported.removed());
+            result.put("rejected", parsed.rejected());
+            result.put("errors", parsed.errors());
+            result.put("count", imported.total());
+            result.put("message", "Allowlist " + mode + " import complete: "
+                    + imported.added() + " added, " + imported.updated() + " updated, "
+                    + parsed.rejected() + " rejected.");
+            return Map.copyOf(result);
+        } catch (IOException exception) {
+            throw new IllegalStateException("Could not save the allowlist: " + exception.getMessage(), exception);
+        }
     }
 
     @Override

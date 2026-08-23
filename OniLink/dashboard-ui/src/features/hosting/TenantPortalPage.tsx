@@ -1,5 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, Pause, Play, Plus, RefreshCw, RotateCw, Send, Trash2 } from "lucide-react";
+import {
+  Download,
+  Pause,
+  Pencil,
+  Play,
+  Plus,
+  RefreshCw,
+  RotateCw,
+  Save,
+  Send,
+  Trash2,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { downloadBase64 } from "../../api/client";
 import { dashboardApi } from "../../api/dashboard";
@@ -9,6 +20,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { ConnectionPath } from "../../components/ConnectionPath";
 import type { AllowlistEntry, BackendSetup, Player } from "../../types/dashboard";
 import { duration, endpoint, messageOf } from "../../utilities/format";
+import { AllowlistImportPanel } from "../allowlist/AllowlistImportPanel";
 
 type Selection = { tenant: string; proxy: string };
 type RuntimeSelection = { player: Player; action: "transfer" | "disconnect" | "trace" };
@@ -125,6 +137,13 @@ export function TenantPortalPage() {
     proxyPublicIp: "",
   });
   const [backendResult, setBackendResult] = useState<BackendSetup | null>(null);
+  const [backendEdit, setBackendEdit] = useState<{
+    name: string;
+    host: string;
+    port: string;
+  } | null>(null);
+  const [backendRemoval, setBackendRemoval] = useState<string | null>(null);
+  const [backendReplacement, setBackendReplacement] = useState("");
   const [runtime, setRuntime] = useState<RuntimeSelection | null>(null);
   const [primaryChoice, setPrimaryChoice] = useState<{ proxyKey: string; backend: string } | null>(
     null,
@@ -199,6 +218,37 @@ export function TenantPortalPage() {
       await refresh();
     },
   });
+  const updateBackend = useMutation({
+    mutationFn: () =>
+      dashboardApi.updateTenantBackend({
+        ...selection!,
+        name: backendEdit?.name ?? "",
+        host: backendEdit?.host ?? "",
+        port: backendEdit?.port ?? "",
+        revision: proxy.data?.configurationRevision ?? "",
+      }),
+    onSuccess: async (result) => {
+      setMessage(result.message);
+      setBackendEdit(null);
+      await refresh();
+    },
+  });
+  const deleteBackend = useMutation({
+    mutationFn: () =>
+      dashboardApi.removeTenantBackend({
+        ...selection!,
+        name: backendRemoval ?? "",
+        replacementBackend: backendReplacement,
+        revision: proxy.data?.configurationRevision ?? "",
+      }),
+    onSuccess: async (result) => {
+      setMessage(result.message);
+      setBackendRemoval(null);
+      setBackendReplacement("");
+      setPrimaryChoice(null);
+      await refresh();
+    },
+  });
   const activeError =
     tenancy.error ??
     proxy.error ??
@@ -207,7 +257,9 @@ export function TenantPortalPage() {
     allowDrop.error ??
     sendAlert.error ??
     addBackend.error ??
-    changePrimary.error;
+    changePrimary.error ??
+    updateBackend.error ??
+    deleteBackend.error;
   const state = proxy.data;
   const configuredBackends = useMemo(
     () => state?.configuredBackends ?? [],
@@ -239,6 +291,10 @@ export function TenantPortalPage() {
             onChange={(event) => {
               setKey(event.target.value);
               sessionStorage.setItem("onilink:selected-proxy", event.target.value);
+              setBackendEdit(null);
+              setBackendRemoval(null);
+              setBackendReplacement("");
+              setPrimaryChoice(null);
             }}
           >
             {available.map((item) => (
@@ -370,6 +426,166 @@ export function TenantPortalPage() {
             </form>
           </Card>
           <Card>
+            <div className="sectionTitle">
+              <div>
+                <p className="eyebrow">Destination management</p>
+                <h2>Edit or remove backend routes</h2>
+              </div>
+            </div>
+            <p>
+              Editing changes the BDS address without changing the route name or forwarding key.
+              Removing a route keeps its key files for recovery and restarts this proxy.
+            </p>
+            <div className="tableWrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Route</th>
+                    <th>Destination server</th>
+                    <th>Role</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {configuredBackends.map((item) => (
+                    <tr key={item.name}>
+                      <td>
+                        <strong>{item.name}</strong>
+                      </td>
+                      <td className="mono">{item.address}</td>
+                      <td>{item.primary ? "Primary" : item.hub ? "Hub" : "Route"}</td>
+                      <td>
+                        <div className="rowActions">
+                          <Button
+                            className="secondary compact"
+                            onClick={() => {
+                              setBackendEdit({
+                                name: item.name,
+                                host: item.host,
+                                port: String(item.port),
+                              });
+                              setBackendRemoval(null);
+                            }}
+                          >
+                            <Pencil aria-hidden="true" /> Edit
+                          </Button>
+                          <Button
+                            className="danger compact"
+                            disabled={configuredBackends.length <= 1}
+                            onClick={() => {
+                              setBackendRemoval(item.name);
+                              setBackendReplacement(
+                                configuredBackends.find((route) => route.name !== item.name)
+                                  ?.name ?? "",
+                              );
+                              setBackendEdit(null);
+                            }}
+                          >
+                            <Trash2 aria-hidden="true" /> Remove
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {backendEdit ? (
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  updateBackend.mutate();
+                }}
+              >
+                <h3>Edit {backendEdit.name}</h3>
+                <div className="formGrid">
+                  <label>
+                    Destination server IP or domain
+                    <input
+                      required
+                      value={backendEdit.host}
+                      onChange={(event) =>
+                        setBackendEdit({ ...backendEdit, host: event.target.value })
+                      }
+                    />
+                  </label>
+                  <label>
+                    Destination UDP port
+                    <input
+                      type="number"
+                      min="1"
+                      max="65535"
+                      required
+                      value={backendEdit.port}
+                      onChange={(event) =>
+                        setBackendEdit({ ...backendEdit, port: event.target.value })
+                      }
+                    />
+                  </label>
+                </div>
+                <div className="buttonRow">
+                  <Button disabled={updateBackend.isPending}>
+                    <Save aria-hidden="true" />
+                    {updateBackend.isPending ? "Saving…" : "Save and restart proxy"}
+                  </Button>
+                  <Button type="button" className="secondary" onClick={() => setBackendEdit(null)}>
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            ) : null}
+            {backendRemoval ? (
+              <div className="warningBox">
+                <strong>Remove {backendRemoval}?</strong>
+                <span>
+                  Select the route that should replace any primary, hub, failover, forced-host,
+                  limbo, or quarantine references.
+                </span>
+                <label>
+                  Replacement route
+                  <select
+                    value={backendReplacement}
+                    onChange={(event) => setBackendReplacement(event.target.value)}
+                  >
+                    {configuredBackends
+                      .filter((item) => item.name !== backendRemoval)
+                      .map((item) => (
+                        <option key={item.name} value={item.name}>
+                          {item.name} · {item.address}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+                <div className="buttonRow">
+                  <Button
+                    className="danger"
+                    disabled={deleteBackend.isPending || !backendReplacement}
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          `Remove ${backendRemoval} and restart this tenant proxy? Connected players will disconnect.`,
+                        )
+                      )
+                        deleteBackend.mutate();
+                    }}
+                  >
+                    <Trash2 aria-hidden="true" />
+                    {deleteBackend.isPending ? "Removing…" : "Remove and restart"}
+                  </Button>
+                  <Button
+                    className="secondary"
+                    onClick={() => {
+                      setBackendRemoval(null);
+                      setBackendReplacement("");
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </Card>
+          <Card>
             <h2>Connected players</h2>
             {proxy.isLoading ? (
               <Loading label="Loading proxy runtime" />
@@ -473,6 +689,17 @@ export function TenantPortalPage() {
                   </li>
                 ))}
               </ul>
+              {selection ? (
+                <AllowlistImportPanel
+                  submit={(content, mode) =>
+                    dashboardApi.importTenantAllowlist({ ...selection, content, mode })
+                  }
+                  complete={async (result) => {
+                    setMessage(result.message);
+                    await refresh();
+                  }}
+                />
+              ) : null}
             </Card>
             <Card>
               <h2>Broadcast alert</h2>

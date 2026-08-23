@@ -14,6 +14,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -158,11 +159,20 @@ class OniLinkDashboardTest {
                             "address", "45.143.196.161:25571",
                             "proxyPublicIp", "45.143.196.108"), bearer(tenantToken));
             assertEquals(201, tenantBackend.statusCode());
+            HttpResponse<String> tenantBackendUpdate = mutation(client,
+                    base.resolve("/api/tenancy/proxy/backends"), "PUT", Map.of(
+                            "tenant", "acme",
+                            "proxy", "survival",
+                            "revision", jsonString(tenantBackend.body(), "revision"),
+                            "name", "creative",
+                            "address", "45.143.196.161:25572"), bearer(tenantToken));
+            assertEquals(200, tenantBackendUpdate.statusCode());
+            assertTrue(tenantBackendUpdate.body().contains("45.143.196.161:25572"));
             HttpResponse<String> tenantPrimary = post(client,
                     base.resolve("/api/tenancy/proxy/primary-backend"), Map.of(
                             "tenant", "acme",
                             "proxy", "survival",
-                            "revision", jsonString(tenantBackend.body(), "revision"),
+                            "revision", jsonString(tenantBackendUpdate.body(), "revision"),
                             "backend", "creative"), bearer(tenantToken));
             assertEquals(200, tenantPrimary.statusCode());
             assertTrue(tenantPrimary.body().contains("\"primaryBackend\":\"creative\""));
@@ -179,6 +189,15 @@ class OniLinkDashboardTest {
                     "proxy", "survival",
                     "revision", jsonString(ownerPrimary.body(), "revision"),
                     "backend", "default"), bearer(tenantToken)).statusCode());
+            HttpResponse<String> tenantBackendRemove = mutation(client,
+                    base.resolve("/api/tenancy/proxy/backends"), "DELETE", Map.of(
+                            "tenant", "acme",
+                            "proxy", "survival",
+                            "revision", jsonString(ownerPrimary.body(), "revision"),
+                            "name", "creative",
+                            "replacementBackend", "default"), bearer(tenantToken));
+            assertEquals(200, tenantBackendRemove.statusCode());
+            assertTrue(tenantBackendRemove.body().contains("\"removed\":true"));
             assertEquals(403, get(client, base.resolve("/api/state"), tenantToken).statusCode());
             assertEquals(403, get(client,
                     base.resolve("/api/tenancy/proxy?tenant=other&proxy=survival"), tenantToken).statusCode());
@@ -195,6 +214,12 @@ class OniLinkDashboardTest {
             HttpResponse<String> allowlistAdd = post(client, base.resolve("/api/allowlist"), Map.of(
                     "xuid", "2533274790000001", "name", "ExamplePlayer"), bearer(ownerToken));
             assertEquals(200, allowlistAdd.statusCode());
+            HttpResponse<String> allowlistImport = mutation(client, base.resolve("/api/allowlist"), "PUT", Map.of(
+                    "contentBase64", Base64.getEncoder().encodeToString(
+                            "xuid,name\n2533274790000002,ImportedPlayer".getBytes(StandardCharsets.UTF_8)),
+                    "mode", "merge"), bearer(ownerToken));
+            assertEquals(200, allowlistImport.statusCode());
+            assertTrue(allowlistImport.body().contains("\"added\":1"));
 
             HttpResponse<String> config = get(client, base.resolve("/api/config"), ownerToken);
             Matcher revision = Pattern.compile("\\\"revision\\\":\\\"([^\\\"]+)\\\"").matcher(config.body());
@@ -207,6 +232,24 @@ class OniLinkDashboardTest {
             assertEquals(201, backend.statusCode());
             assertTrue(backend.body().contains("\"setupBundleBase64\""));
             assertTrue(Files.isRegularFile(directory.resolve("secrets/creative.key")));
+            HttpResponse<String> routing = get(client, base.resolve("/api/config/routing"), ownerToken);
+            assertEquals(200, routing.statusCode());
+            assertTrue(routing.body().contains("\"configurationRevision\""));
+            HttpResponse<String> backendUpdate = mutation(client, base.resolve("/api/config/backends"), "PUT", Map.of(
+                    "revision", jsonString(backend.body(), "revision"),
+                    "name", "creative",
+                    "address", "127.0.0.1:19136"), bearer(ownerToken));
+            assertEquals(200, backendUpdate.statusCode());
+            HttpResponse<String> providerPrimary = post(client, base.resolve("/api/config/primary-backend"), Map.of(
+                    "revision", jsonString(backendUpdate.body(), "revision"),
+                    "backend", "creative"), bearer(ownerToken));
+            assertEquals(200, providerPrimary.statusCode());
+            HttpResponse<String> backendRemove = mutation(client, base.resolve("/api/config/backends"), "DELETE", Map.of(
+                    "revision", jsonString(providerPrimary.body(), "revision"),
+                    "name", "creative",
+                    "replacementBackend", "default"), bearer(ownerToken));
+            assertEquals(200, backendRemove.statusCode());
+            assertTrue(backendRemove.body().contains("\"secretFilesRetained\":true"));
         }
     }
 
@@ -244,13 +287,23 @@ class OniLinkDashboardTest {
             Map<String, String> fields,
             Map<String, String> headers
     ) throws Exception {
+        return mutation(client, uri, "POST", fields, headers);
+    }
+
+    private static HttpResponse<String> mutation(
+            HttpClient client,
+            URI uri,
+            String method,
+            Map<String, String> fields,
+            Map<String, String> headers
+    ) throws Exception {
         String body = fields.entrySet().stream()
                 .map(entry -> URLEncoder.encode(entry.getKey(), StandardCharsets.UTF_8) + "="
                         + URLEncoder.encode(entry.getValue(), StandardCharsets.UTF_8))
                 .reduce((left, right) -> left + "&" + right).orElse("");
         HttpRequest.Builder request = HttpRequest.newBuilder(uri)
                 .header("Content-Type", "application/x-www-form-urlencoded")
-                .POST(HttpRequest.BodyPublishers.ofString(body));
+                .method(method, HttpRequest.BodyPublishers.ofString(body));
         headers.forEach(request::header);
         return client.send(request.build(), HttpResponse.BodyHandlers.ofString());
     }
@@ -322,6 +375,17 @@ class OniLinkDashboardTest {
         @Override
         public ActionResult allowlistRemove(String xuid) {
             return new ActionResult(true, "Removed " + xuid);
+        }
+
+        @Override
+        public Map<String, Object> allowlistImport(String content, String mode) {
+            return Map.of(
+                    "success", true,
+                    "message", "Imported",
+                    "mode", mode,
+                    "added", 1,
+                    "updated", 0,
+                    "rejected", 0);
         }
 
         @Override

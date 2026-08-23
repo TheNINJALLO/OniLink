@@ -34,9 +34,9 @@
 > [!IMPORTANT]
 > `v0.2.0` is the current stable release. The Linux BDS `1.26.44.3` + Endstone `0.11.9` profile is production-approved and remains fail closed. Full packet captures can include chat, XUIDs, endpoints, decoded fields, and incoming bytes; restrict dashboard access and inspect exports before sharing them.
 
-> `v0.3.0-beta.1` is the current operations beta. It adds the approved control, workflow,
-> continuity, quarantine, tracing, fleet, presence, roles, support, pack-scanning, PWA, and push
-> modules. Use the Pterodactyl `beta` channel for this prerelease; operational modules stay opt-in.
+> `v0.3.0-beta.2` is the current operations beta. It adds dashboard-based backend editing,
+> primary-route selection, safe removal, and bounded allowlist imports to the 0.3 operations
+> platform. Use the Pterodactyl `beta` channel for this prerelease; operational modules stay opt-in.
 
 ## The product family
 

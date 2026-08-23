@@ -567,7 +567,16 @@ describe("administrative features", () => {
       backends: [],
       primaryBackend: "default",
       primaryBackendAddress: "45.143.196.160:25570",
-      configuredBackends: [{ name: "default", address: "45.143.196.160:25570" }],
+      configuredBackends: [
+        {
+          name: "default",
+          address: "45.143.196.160:25570",
+          host: "45.143.196.160",
+          port: 25570,
+          primary: true,
+          hub: true,
+        },
+      ],
       allowlist: { enabled: false, count: 0, entries: [] },
       configurationRevision: "tenant-revision-1",
     });
@@ -646,8 +655,22 @@ describe("administrative features", () => {
       primaryBackend: "default",
       primaryBackendAddress: "45.143.196.160:25570",
       configuredBackends: [
-        { name: "default", address: "45.143.196.160:25570" },
-        { name: "creative", address: "45.143.196.161:25571" },
+        {
+          name: "default",
+          address: "45.143.196.160:25570",
+          host: "45.143.196.160",
+          port: 25570,
+          primary: true,
+          hub: true,
+        },
+        {
+          name: "creative",
+          address: "45.143.196.161:25571",
+          host: "45.143.196.161",
+          port: 25571,
+          primary: false,
+          hub: false,
+        },
       ],
       allowlist: { enabled: false, count: 0, entries: [] },
       configurationRevision: "tenant-revision-1",
@@ -707,6 +730,132 @@ describe("administrative features", () => {
     expect(screen.getByRole("dialog")).toHaveTextContent("may be disconnected immediately");
     await user.click(screen.getByRole("button", { name: "Remove entry" }));
     await waitFor(() => expect(remove).toHaveBeenCalledWith("123456789"));
+  });
+
+  it("imports allowlist files with an explicit merge mode", async () => {
+    vi.spyOn(dashboardApi, "allowlist").mockResolvedValue({
+      enabled: true,
+      count: 0,
+      entries: [],
+    });
+    vi.spyOn(dashboardApi, "players").mockResolvedValue({ players: [] });
+    const imported = vi.spyOn(dashboardApi, "importAllowlist").mockResolvedValue({
+      success: true,
+      message: "Allowlist merge import complete: 1 added, 0 updated, 0 rejected.",
+      mode: "merge",
+      received: 1,
+      added: 1,
+      updated: 0,
+      unchanged: 0,
+      removed: 0,
+      rejected: 0,
+      errors: [],
+      count: 1,
+    });
+    renderRoute("admin", "allowlist");
+    const user = userEvent.setup();
+    const file = new File(["xuid,name\n1000000000000001,Ninja"], "allowlist.csv", {
+      type: "text/csv",
+    });
+    await user.upload(await screen.findByLabelText("Allowlist file"), file);
+    await user.click(screen.getByRole("button", { name: /Import allowlist.csv/ }));
+    await waitFor(() =>
+      expect(imported).toHaveBeenCalledWith("xuid,name\n1000000000000001,Ninja", "merge"),
+    );
+  });
+
+  it("edits, removes, and changes the provider primary backend", async () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    vi.spyOn(dashboardApi, "backends").mockResolvedValue({ backends });
+    vi.spyOn(dashboardApi, "backendRouting").mockResolvedValue({
+      primaryBackend: "survival",
+      primaryBackendAddress: "10.0.0.2:19132",
+      configurationRevision: "routing-revision-1",
+      configuredBackends: [
+        {
+          name: "survival",
+          address: "10.0.0.2:19132",
+          host: "10.0.0.2",
+          port: 19132,
+          primary: true,
+          hub: true,
+        },
+        {
+          name: "creative",
+          address: "10.0.0.3:19132",
+          host: "10.0.0.3",
+          port: 19132,
+          primary: false,
+          hub: false,
+        },
+      ],
+    });
+    const baseMutation = {
+      path: "config.properties",
+      content: "",
+      revision: "routing-revision-2",
+      backupAvailable: true,
+      redactedPlaceholder: "<redacted>",
+      primaryBackend: "creative",
+      primaryBackendAddress: "10.0.0.3:19132",
+      restartRequired: true,
+      message: "Saved",
+    };
+    const primary = vi.spyOn(dashboardApi, "setPrimaryBackend").mockResolvedValue({
+      ...baseMutation,
+      changed: true,
+    });
+    const update = vi.spyOn(dashboardApi, "updateBackend").mockResolvedValue({
+      ...baseMutation,
+      updated: true,
+      backendName: "creative",
+      backendEndpoint: "10.0.0.30:19140",
+    });
+    const remove = vi.spyOn(dashboardApi, "removeBackend").mockResolvedValue({
+      ...baseMutation,
+      removed: true,
+      backendName: "creative",
+      replacementBackend: "survival",
+      primaryBackend: "survival",
+      primaryBackendAddress: "10.0.0.2:19132",
+    });
+
+    renderRoute("admin", "backends");
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Set primary" }));
+    await waitFor(() =>
+      expect(primary).toHaveBeenCalledWith({
+        backend: "creative",
+        revision: "routing-revision-1",
+      }),
+    );
+
+    await user.click(screen.getAllByRole("button", { name: "Edit" })[1]!);
+    const host = screen.getByLabelText("Destination server IP or domain");
+    const port = screen.getByLabelText("Destination UDP port");
+    await user.clear(host);
+    await user.type(host, "10.0.0.30");
+    await user.clear(port);
+    await user.type(port, "19140");
+    await user.click(screen.getByRole("button", { name: "Save destination" }));
+    await waitFor(() =>
+      expect(update).toHaveBeenCalledWith({
+        name: "creative",
+        host: "10.0.0.30",
+        port: "19140",
+        revision: "routing-revision-1",
+      }),
+    );
+
+    await user.click(screen.getAllByRole("button", { name: "Remove" })[1]!);
+    await user.click(screen.getByRole("button", { name: "Remove backend route" }));
+    await waitFor(() =>
+      expect(remove).toHaveBeenCalledWith({
+        name: "creative",
+        replacementBackend: "survival",
+        revision: "routing-revision-1",
+      }),
+    );
   });
 
   it("saves configuration, identifies 409 conflicts, and confirms rollback", async () => {

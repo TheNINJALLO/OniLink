@@ -2,7 +2,10 @@ import { download, request } from "./client";
 import type {
   ActionResult,
   Allowlist,
+  AllowlistImportResult,
   Backend,
+  BackendMutation,
+  BackendRouting,
   BackendSetup,
   Configuration,
   DashboardUser,
@@ -25,6 +28,15 @@ import type {
   TenancyOverview,
   TenantProxyDashboard,
 } from "../types/dashboard";
+
+function textBase64(content: string): string {
+  const bytes = new TextEncoder().encode(content);
+  let binary = "";
+  for (let offset = 0; offset < bytes.length; offset += 16_384) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 16_384));
+  }
+  return btoa(binary);
+}
 
 export const dashboardApi = {
   platformGet: <T>(path: string, params: Record<string, string> = {}, signal?: AbortSignal) => {
@@ -123,12 +135,25 @@ export const dashboardApi = {
     request<ActionResult>("/api/allowlist", { method: "POST", body }),
   removeAllowlist: (xuid: string) =>
     request<ActionResult>("/api/allowlist", { method: "DELETE", body: { xuid } }),
+  importAllowlist: (content: string, mode: "merge" | "replace") =>
+    request<AllowlistImportResult>("/api/allowlist", {
+      method: "PUT",
+      body: { contentBase64: textBase64(content), mode },
+    }),
   config: (signal?: AbortSignal) => request<Configuration>("/api/config", { signal }),
   saveConfig: (revision: string, content: string) =>
     request<Configuration>("/api/config", { method: "POST", body: { revision, content } }),
   rollbackConfig: () => request<Configuration>("/api/config/rollback", { method: "POST" }),
+  backendRouting: (signal?: AbortSignal) =>
+    request<BackendRouting>("/api/config/routing", { signal }),
   addBackend: (body: Record<string, string>) =>
     request<BackendSetup>("/api/config/backends", { method: "POST", body }),
+  updateBackend: (body: Record<string, string>) =>
+    request<BackendMutation>("/api/config/backends", { method: "PUT", body }),
+  removeBackend: (body: Record<string, string>) =>
+    request<BackendMutation>("/api/config/backends", { method: "DELETE", body }),
+  setPrimaryBackend: (body: Record<string, string>) =>
+    request<BackendMutation>("/api/config/primary-backend", { method: "POST", body }),
   logs: (limit: number, signal?: AbortSignal) =>
     request<{ lines: string[] }>(`/api/logs?limit=${limit}`, { signal }),
   audit: (limit: number, signal?: AbortSignal) =>
@@ -198,11 +223,22 @@ export const dashboardApi = {
     request<ActionResult>("/api/tenancy/proxy/allowlist", { method: "POST", body }),
   removeTenantAllowlist: (body: Record<string, string>) =>
     request<ActionResult>("/api/tenancy/proxy/allowlist", { method: "DELETE", body }),
+  importTenantAllowlist: (body: Record<string, string> & { mode: "merge" | "replace" }) => {
+    const { content, ...fields } = body;
+    return request<AllowlistImportResult>("/api/tenancy/proxy/allowlist", {
+      method: "PUT",
+      body: { ...fields, contentBase64: textBase64(content ?? "") },
+    });
+  },
   addTenantBackend: (body: Record<string, string>) =>
     request<BackendSetup & { message: string }>("/api/tenancy/proxy/backends", {
       method: "POST",
       body,
     }),
+  updateTenantBackend: (body: Record<string, string>) =>
+    request<BackendMutation>("/api/tenancy/proxy/backends", { method: "PUT", body }),
+  removeTenantBackend: (body: Record<string, string>) =>
+    request<BackendMutation>("/api/tenancy/proxy/backends", { method: "DELETE", body }),
   setTenantPrimaryBackend: (body: Record<string, string>) =>
     request<{
       message: string;

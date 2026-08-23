@@ -251,10 +251,29 @@ For deeper diagnostics, see [Troubleshooting](TROUBLESHOOTING.md) and [Configura
 
 ## Removing a backend
 
-1. Transfer active players away from the backend.
-2. Remove its name from `backends=`, `join.try`, and failover lists.
-3. Remove every `backend.<name>.*` property.
-4. Restart OniLink and verify the route is absent.
-5. After confirming rollback is not needed, remove the matching OniLink and Endstone key files.
+Admins and owners can manage provider routes from **Dashboard → Backends**. Tenant owners use the
+same controls under **My Proxies → Edit or remove backend routes**.
+
+To change an existing destination, select **Edit**, update the BDS IP/domain and UDP port, and save.
+The route name, bridge identity, and forwarding key do not change. Provider-proxy changes require an
+OniLink restart; an in-container tenant proxy restarts automatically.
+
+To change where new players land, select **Set primary** on the provider Backends page or choose
+**Primary destination server** under My Proxies. The primary route is selected by its name—not its
+list position—and remains in effect after restart.
+
+To remove a route:
+
+1. Transfer active players away when practical.
+2. Select **Remove** and choose a remaining replacement route.
+3. Confirm the operation. OniLink removes the backend block and replaces references in the primary,
+   hub, join/failover, forced-host, limbo, quarantine, and Protocol Lab settings.
+4. Restart the provider proxy when prompted; tenant proxies restart automatically and disconnect
+   their current players.
+5. Verify `/server <removed-name>` is absent. After confirming rollback is unnecessary, manually
+   remove the retained OniLink and Endstone key files.
+
+The last backend cannot be removed. Add its replacement first. All mutations are revision-checked,
+validated as a complete `ProxyConfig`, and backed up before atomic replacement.
 
 Do not delete a key before removing its enabled route; OniLink will fail configuration or token creation for that backend.

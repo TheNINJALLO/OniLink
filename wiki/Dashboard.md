@@ -78,6 +78,14 @@ Use the egg's **Enable operations dashboard** variable to turn the listener off;
 
 Admins and owners can open the dedicated **Add Backend** page to append a validated route without manually synchronizing two configurations. It is also linked from **Backends** and **Configuration**. The wizard creates OniLink's protected `secrets/<backend>.key`, updates `backends=`, shows the saved proxy properties, and returns the matching key plus complete `onibridge.toml` for `/home/container/plugins/onibridge/` on Endstone. Download both files immediately, start Endstone first, and restart OniLink. See [[Adding Backends]] for the full walkthrough.
 
+The **Backends** page also edits destination addresses, sets the primary server, and removes routes
+with an explicit replacement. Removal repairs known routing references and retains key files. Tenant
+owners receive the same scoped controls under **My Proxies**.
+
+The **Allowlist** page imports merge or replacement files in OniLink JSON/properties, CSV/TSV, or
+one-XUID-per-line format. Name-only vanilla BDS rows are rejected because OniLink authorizes stable
+authenticated XUIDs rather than mutable gamertags.
+
 The editor redacts protected values, rejects stale revisions, restores secrets from the server-side original, parses the complete proposed configuration, and creates `config.properties.dashboard.bak` before replacement. A restart is required to apply saved settings.
 
 Support bundles also redact configuration secrets, but can contain player names and operational history. Inspect them before sharing.

@@ -18,6 +18,7 @@ import {
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import type { AllowlistEntry } from "../../types/dashboard";
 import { messageOf } from "../../utilities/format";
+import { AllowlistImportPanel } from "./AllowlistImportPanel";
 
 const schema = z.object({
   xuid: z.string().regex(/^\d{5,20}$/, "Enter a numeric XUID"),
@@ -186,6 +187,15 @@ export function AllowlistPage() {
           )}
         </Card>
       </div>
+      <Card>
+        <AllowlistImportPanel
+          submit={(content, mode) => dashboardApi.importAllowlist(content, mode)}
+          complete={async (result) => {
+            setMessage(result.message);
+            await refresh();
+          }}
+        />
+      </Card>
       <ConfirmDialog
         open={Boolean(remove)}
         title="Remove allowlist entry?"

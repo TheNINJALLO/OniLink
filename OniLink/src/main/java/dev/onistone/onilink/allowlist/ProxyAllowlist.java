@@ -11,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -132,6 +133,48 @@ public final class ProxyAllowlist {
         return true;
     }
 
+    /** Applies a validated import in one durable write. */
+    public synchronized ImportSummary importEntries(Collection<Entry> imported, boolean replace) throws IOException {
+        if (imported == null || imported.isEmpty()) {
+            throw new IllegalArgumentException("The import does not contain any valid XUID entries");
+        }
+        Map<String, String> before = new TreeMap<>(entries);
+        Map<String, String> next = replace ? new TreeMap<>() : new TreeMap<>(entries);
+        int received = 0;
+        for (Entry entry : imported) {
+            if (entry == null) continue;
+            received++;
+            next.put(requireXuid(entry.xuid()), cleanLabel(entry.name()));
+        }
+        if (next.size() > 5_000) {
+            throw new IllegalArgumentException("Allowlist imports are limited to 5,000 unique XUIDs");
+        }
+
+        int added = 0;
+        int updated = 0;
+        int unchanged = 0;
+        for (Map.Entry<String, String> entry : next.entrySet()) {
+            if (!before.containsKey(entry.getKey())) added++;
+            else if (!before.get(entry.getKey()).equals(entry.getValue())) updated++;
+            else unchanged++;
+        }
+        int removed = replace
+                ? (int) before.keySet().stream().filter(xuid -> !next.containsKey(xuid)).count()
+                : 0;
+        if (!next.equals(before)) {
+            entries.clear();
+            entries.putAll(next);
+            try {
+                save();
+            } catch (IOException exception) {
+                entries.clear();
+                entries.putAll(before);
+                throw exception;
+            }
+        }
+        return new ImportSummary(received, added, updated, unchanged, removed, entries.size());
+    }
+
     private void restore(String key, String previous) {
         if (previous == null) entries.remove(key);
         else entries.put(key, previous);
@@ -183,5 +226,15 @@ public final class ProxyAllowlist {
     }
 
     public record Entry(String xuid, String name) {
+    }
+
+    public record ImportSummary(
+            int received,
+            int added,
+            int updated,
+            int unchanged,
+            int removed,
+            int total
+    ) {
     }
 }

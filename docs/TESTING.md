@@ -24,7 +24,7 @@ The repository operator approved the complete Linux acceptance result for the ex
 
 ## Operations beta verification performed on 2026-08-21
 
-The `0.3.0-beta.1` release gate ran the complete Java 21 suite from a clean temporary checkout:
+The `0.3.0-beta.2` release gate ran the complete Java 21 suite from a clean temporary checkout:
 456 tests passed with no failures or skips, the embedded dashboard production bundle compiled, the
 standalone JAR was assembled, and both OniForge compatibility report formats were generated. The
 dashboard also passed Prettier, ESLint, TypeScript, all 35 Vitest tests, and a separate production

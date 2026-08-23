@@ -120,6 +120,10 @@ interface DashboardControl extends AutoCloseable {
         return new ActionResult(false, "Allowlist management is unavailable");
     }
 
+    default Map<String, Object> allowlistImport(String content, String mode) {
+        throw new IllegalStateException("Allowlist importing is unavailable");
+    }
+
     ActionResult transfer(String player, String backend);
 
     default ActionResult messagePlayer(String xuid, String message) {

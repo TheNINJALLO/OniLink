@@ -49,6 +49,19 @@ OniLink has already created its own `secrets/creative.key` and updated `config.p
 
 Adding the backend does not change the hub. Use the raw configuration editor only when you deliberately want to update `hubBackend`, `join.try`, or failover settings.
 
+## Manage existing routes
+
+Open **Backends** as an admin or owner. Every route has three direct actions:
+
+- **Set primary** chooses the named server new players receive after the next restart.
+- **Edit** changes the destination BDS IP/domain and UDP port without rotating the forwarding key or
+  changing the OniBridge identity.
+- **Remove** asks for a replacement route, repairs routing references, and retains key files for
+  recovery. The last backend cannot be removed.
+
+Tenant owners have the same controls in **My Proxies → Edit or remove backend routes**. Tenant proxy
+changes restart that scoped listener automatically; provider changes show a restart-required notice.
+
 OniLink itself needs one primary allocation. Bedrock uses UDP and the dashboard uses TCP on that same
 number. Every backend keeps its own BDS UDP allocation; adding a backend does not require another
 OniLink port.
