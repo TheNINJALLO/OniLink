@@ -33,7 +33,9 @@ Relevant paths:
 - `src/main/java/org/endstone/proxy`: 106 application classes covering startup, Xbox login validation, forged backend login, routing, lifecycle, switching, failover, reconnect routing, packet relay, commands, permissions, resource packs, registries, rate limits, diagnostics, addons, and the legacy verification endpoint.
 - `src/test`: 79 test classes across the application and vendored codecs, with 409 `@Test` methods.
 - `network/transport-raknet`: 72 RakNet transport classes plus tests; `network/transport-nethernet`: 24 optional transport classes.
-- `protocol/bedrock-codec`: 1,278 Java files containing packet models, serializers, codecs, and the locally maintained 898/944/975/1001/2168 protocol work.
+- `protocol/bedrock-codec`: vendored packet models, serializers, codecs, and the locally maintained
+  898/924/944/975/1001/2168/2192 protocol work. Protocol 2192 was reviewed against the pinned
+  EndstoneMC Endweave and bedrock-protocol sources recorded in `NOTICE`.
 - `protocol/bedrock-connection`, `protocol/common`, and `protocol/adventure`: session, batch, compression, utility, and text integration.
 - `build.gradle.kts`, `settings.gradle.kts`, `.github/workflows/build.yml`, `config.example.properties`, `README.md`, `SECURITY.md`, `NOTICE`, and all nested build/license files.
 

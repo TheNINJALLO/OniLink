@@ -553,7 +553,10 @@ public final class BackendConnector {
             BackendProtocol backendProtocol
     ) {
         int clientProtocol = connection.client().clientCodec().getProtocolVersion();
-        return protocolRegistry.findBinding(clientProtocol, backendProtocol.protocolVersion())
+        return protocolRegistry.findBinding(
+                        clientProtocol,
+                        backendProtocol.protocolVersion(),
+                        backendProtocol.minecraftVersion())
                 .orElseThrow(() -> new UnsupportedVersionPairException(
                         "This client and backend version pair is not supported: client "
                                 + versionName(connection.client().clientCodec().getMinecraftVersion(), clientProtocol)

@@ -34,9 +34,10 @@ These are vendored rather than depended on because this repository's copies
 differ substantially from upstream. As required by section 4(b) of the Apache
 License, the modifications carried here are:
 
-  * Added hand-written Bedrock codecs for protocol versions 944 (1.26.10),
-    975 (1.26.20), 1001 (1.26.30) and 2168 (1.26.40), each with the packet
-    serializers those releases changed. Upstream did not cover these versions.
+  * Added hand-written Bedrock codecs for protocol versions 924 (1.26.0),
+    944 (1.26.10), 975 (1.26.20), 1001 (1.26.30), 2168
+    (1.26.40/1.26.44), and 2192 (1.26.50), each with the packet serializers
+    those releases changed. Upstream did not cover these versions.
 
   * Corrected serializers where a version's wire format was wrong or absent,
     including StartGame, LevelChunk, SubChunk, PlayerAuthInput, CraftingData,
@@ -46,6 +47,17 @@ License, the modifications carried here are:
     slice that was never released, leaking 256 bytes per sub-chunk carrying one.
 
   * Removed upstream modules and sources this project does not use.
+
+Protocol 2192 and the protocol-2168 1.26.44 dialect were independently
+implemented after reviewing these Apache-2.0-licensed protocol references:
+
+  EndstoneMC/bedrock-protocol
+  https://github.com/EndstoneMC/bedrock-protocol
+  Reviewed commit: 208db02e15518522ff367b51faa281ecdbf964ee
+
+  EndstoneMC/endweave
+  https://github.com/EndstoneMC/endweave
+  Reviewed develop commit: b5974fd4570d3e627423ed8a71fcb93dc015cb0f
 
 The complete Apache License, Version 2.0 is in LICENSE. Additional nested license
 and notice files remain with the source they cover.

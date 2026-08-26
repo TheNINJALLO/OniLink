@@ -29,6 +29,12 @@ public class InventoryTransactionPacket implements BedrockPacket {
     private Vector3i blockPosition;
     private int blockFace;
     private int hotbarSlot;
+    /**
+     * The hand carrying the item-use action.
+     *
+     * @since v2192
+     */
+    private HandSlot handSlot = HandSlot.MAIN_HAND;
     private ItemData itemInHand;
     private Vector3f playerPosition;
     private Vector3f clickPosition;
@@ -68,6 +74,11 @@ public class InventoryTransactionPacket implements BedrockPacket {
 
     public BedrockPacketType getPacketType() {
         return BedrockPacketType.INVENTORY_TRANSACTION;
+    }
+
+    public enum HandSlot {
+        MAIN_HAND,
+        OFF_HAND
     }
 
     @Override

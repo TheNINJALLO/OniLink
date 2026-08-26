@@ -216,6 +216,64 @@ describe("monitoring features", () => {
     await waitFor(() => expect(scopedPlayers).toHaveBeenCalledWith("survival", expect.anything()));
   });
 
+  it("lets a provider owner configure modules without editing properties", async () => {
+    const response = {
+      modules: [
+        {
+          id: "shared-platform",
+          version: "1",
+          enabled: true,
+          configurable: false,
+          configuredEnabled: true,
+          defaultEnabled: true,
+          configKey: "",
+          pendingRestart: false,
+          health: "HEALTHY",
+          message: "Ready",
+          dependencies: [],
+        },
+        {
+          id: "flow",
+          version: "1",
+          enabled: false,
+          configurable: true,
+          configuredEnabled: false,
+          defaultEnabled: false,
+          configKey: "modules.flow.enabled",
+          pendingRestart: false,
+          health: "DISABLED",
+          message: "Disabled by configuration",
+          dependencies: ["shared-platform"],
+        },
+      ],
+      eventBus: { accepted: 12, dropped: 0 },
+      actions: [],
+      configurationRevision: "module-revision-1",
+      restartRequired: false,
+    };
+    vi.spyOn(dashboardApi, "platformGet").mockResolvedValue(response);
+    const configure = vi.spyOn(dashboardApi, "platformMutation").mockResolvedValue({
+      ...response,
+      message: "OniFlow will be enabled after OniLink restarts.",
+    });
+
+    renderRoute("owner", "platform");
+    const user = userEvent.setup();
+    expect(await screen.findByRole("heading", { name: "OniLink platform" })).toBeInTheDocument();
+    const flow = (await screen.findByRole("heading", { name: "OniFlow" })).closest("section");
+    expect(flow).not.toBeNull();
+    await user.click(within(flow!).getByRole("button", { name: "Enable" }));
+
+    await waitFor(() =>
+      expect(configure).toHaveBeenCalledWith("/api/modules", "PUT", {
+        revision: "module-revision-1",
+        module: "flow",
+        enabled: true,
+      }),
+    );
+    expect(await screen.findByText(/will be enabled after OniLink restarts/i)).toBeInTheDocument();
+  });
+
   it("shows live packet matches and the cross-version codec catalog", async () => {
     const snapshot: PacketMonitorSnapshot = {
       enabled: true,

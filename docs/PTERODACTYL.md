@@ -197,6 +197,15 @@ Use the dashboard allocation through a TLS reverse proxy or a network access lay
 plain HTTP to the open Internet. Enable TOTP for privileged accounts and protect `dashboard/` in
 backups because it contains password hashes, sessions, audit data, and tenant definitions.
 
+### Enable or disable operations modules
+
+Sign in as the provider owner and open **Dashboard -> Platform -> Modules**. Use the button on an
+optional module card, then restart the OniLink server from Pterodactyl when the dashboard reports
+**restart pending**. The dashboard writes and validates the matching `modules.*.enabled` property;
+you do not need to edit `config.properties`. Shared Platform and OniForge remain permanently on,
+and dependency checks require OniPulse before OniFleet. Tenant accounts can view module status but
+cannot change provider-wide availability.
+
 ## Tenant hosting in the same panel
 
 Tenant hosting does not create new Pterodactyl panels, eggs, or servers. The owner creates tenant

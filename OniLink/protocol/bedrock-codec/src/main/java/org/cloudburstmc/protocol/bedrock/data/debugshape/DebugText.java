@@ -22,6 +22,10 @@ public class DebugText extends DebugShape {
     @Nullable
     Color backgroundColor;
     /**
+     * @since v2192
+     */
+    float lineGapHeight;
+    /**
      * @since v975
      */
     boolean depthTest;

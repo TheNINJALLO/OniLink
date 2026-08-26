@@ -86,6 +86,12 @@ The **Allowlist** page imports merge or replacement files in OniLink JSON/proper
 one-XUID-per-line format. Name-only vanilla BDS rows are rejected because OniLink authorizes stable
 authenticated XUIDs rather than mutable gamertags.
 
+The provider owner can open **Platform -> Modules** to enable or disable optional operations modules
+without editing the configuration file. Cards show both the running state and the saved state for
+the next start. Restart OniLink when a card reports **restart pending**. Shared Platform and
+OniForge are fixed on, OniFleet requires OniPulse, and tenant accounts cannot change provider-wide
+module availability.
+
 The editor redacts protected values, rejects stale revisions, restores secrets from the server-side original, parses the complete proposed configuration, and creates `config.properties.dashboard.bak` before replacement. A restart is required to apply saved settings.
 
 Support bundles also redact configuration secrets, but can contain player names and operational history. Inspect them before sharing.

@@ -102,6 +102,23 @@ class OniLinkDashboardTest {
             assertEquals(403, get(client, base.resolve("/api/users"), adminToken).statusCode());
             assertEquals(200, get(client, base.resolve("/api/users"), ownerToken).statusCode());
 
+            HttpResponse<String> modules = get(client, base.resolve("/api/modules"), ownerToken);
+            assertEquals(200, modules.statusCode());
+            String moduleRevision = jsonString(modules.body(), "configurationRevision");
+            assertEquals(403, mutation(client, base.resolve("/api/modules"), "PUT", Map.of(
+                    "revision", moduleRevision,
+                    "module", "flow",
+                    "enabled", "true"), bearer(adminToken)).statusCode());
+            HttpResponse<String> moduleChange = mutation(
+                    client, base.resolve("/api/modules"), "PUT", Map.of(
+                            "revision", moduleRevision,
+                            "module", "flow",
+                            "enabled", "true"), bearer(ownerToken));
+            assertEquals(200, moduleChange.statusCode());
+            assertTrue(moduleChange.body().contains("\"restartRequired\":true"));
+            assertTrue(moduleChange.body().contains("\"pendingRestart\":true"));
+            assertTrue(Files.readString(proxyConfig).contains("modules.flow.enabled=true"));
+
             HttpResponse<String> state = get(client, base.resolve("/api/state"), ownerToken);
             assertEquals(200, state.statusCode());
             assertTrue(state.body().contains("\"players\":2"));

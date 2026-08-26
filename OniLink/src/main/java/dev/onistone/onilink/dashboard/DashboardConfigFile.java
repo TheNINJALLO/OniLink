@@ -1,6 +1,7 @@
 package dev.onistone.onilink.dashboard;
 
 import dev.onistone.onilink.config.ProxyConfig;
+import dev.onistone.onilink.platform.modules.ExpansionSettings;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -38,6 +39,9 @@ final class DashboardConfigFile {
     private static final Pattern BACKEND_NAME = Pattern.compile("[a-z][a-z0-9_-]{0,31}");
     private static final Pattern IDENTIFIER = Pattern.compile("[A-Za-z0-9._-]{1,64}");
     private static final Pattern HOST = Pattern.compile("[A-Za-z0-9._:-]{1,253}");
+    private static final List<String> CONFIGURABLE_MODULES = List.of(
+            "control", "flow", "continuity", "sentinel", "pulse",
+            "fleet", "connect", "packs", "notifications");
     private static final SecureRandom RANDOM = new SecureRandom();
     private final Path path;
     private final Path backupPath;
@@ -465,6 +469,63 @@ final class DashboardConfigFile {
         return Map.copyOf(result);
     }
 
+    synchronized Map<String, Object> moduleConfiguration() throws IOException {
+        String original = readConfig(path);
+        Properties properties = new Properties();
+        properties.load(new StringReader(original));
+        List<Map<String, Object>> modules = new ArrayList<>();
+        for (String module : CONFIGURABLE_MODULES) {
+            modules.add(Map.of(
+                    "id", module,
+                    "configKey", moduleProperty(module),
+                    "configuredEnabled", moduleEnabled(properties, module),
+                    "defaultEnabled", moduleDefaultEnabled(module)));
+        }
+        return Map.of(
+                "configurationRevision", revision(original),
+                "modules", List.copyOf(modules));
+    }
+
+    synchronized Map<String, Object> setModuleEnabled(
+            String expectedRevision,
+            String requestedModule,
+            String requestedEnabled
+    ) throws IOException {
+        String original = readConfig(path);
+        requireRevision(original, expectedRevision);
+        String module = safeValue(requestedModule, "Module").toLowerCase(Locale.ROOT);
+        if (!CONFIGURABLE_MODULES.contains(module)) {
+            throw new IllegalArgumentException(
+                    "Module must be one of " + String.join(", ", CONFIGURABLE_MODULES));
+        }
+        boolean enabled = strictBoolean(requestedEnabled, "Enabled");
+        Properties properties = new Properties();
+        properties.load(new StringReader(original));
+        boolean current = moduleEnabled(properties, module);
+        validateModuleDependencies(properties, module, enabled);
+        if (current == enabled) {
+            Map<String, Object> result = new LinkedHashMap<>(moduleConfiguration());
+            result.put("changed", false);
+            result.put("module", module);
+            result.put("configuredEnabled", enabled);
+            result.put("restartRequired", false);
+            result.put("message", moduleDisplayName(module) + " is already configured "
+                    + (enabled ? "on." : "off."));
+            return Map.copyOf(result);
+        }
+
+        String candidate = replaceProperty(original, moduleProperty(module), Boolean.toString(enabled));
+        installModuleCandidate(original, candidate);
+        Map<String, Object> result = new LinkedHashMap<>(moduleConfiguration());
+        result.put("changed", true);
+        result.put("module", module);
+        result.put("configuredEnabled", enabled);
+        result.put("restartRequired", true);
+        result.put("message", moduleDisplayName(module) + " will be "
+                + (enabled ? "enabled" : "disabled") + " after OniLink restarts.");
+        return Map.copyOf(result);
+    }
+
     synchronized Map<String, Object> rollback() throws IOException {
         if (!Files.isRegularFile(backupPath)) throw new IllegalStateException("No dashboard backup is available");
         Path validation = path.resolveSibling(path.getFileName() + ".dashboard.rollback.tmp");
@@ -710,6 +771,13 @@ final class DashboardConfigFile {
         return parsed;
     }
 
+    private static boolean strictBoolean(String value, String label) {
+        String normalized = value == null ? "" : value.trim();
+        if ("true".equalsIgnoreCase(normalized)) return true;
+        if ("false".equalsIgnoreCase(normalized)) return false;
+        throw new IllegalArgumentException(label + " must be true or false");
+    }
+
     private static String optionalIdentifier(String value, String fallback, String label) {
         String result = value == null || value.isBlank() ? fallback : value.trim();
         if (!IDENTIFIER.matcher(result).matches()) {
@@ -828,6 +896,77 @@ final class DashboardConfigFile {
             Files.deleteIfExists(temporary);
             throw exception;
         }
+    }
+
+    private void installModuleCandidate(String original, String candidate) throws IOException {
+        Path temporary = path.resolveSibling(path.getFileName() + ".dashboard.module.tmp");
+        Files.writeString(temporary, candidate, StandardCharsets.UTF_8);
+        try {
+            ProxyConfig.loadOrCreate(temporary);
+            ExpansionSettings.load(temporary);
+            Files.copy(path, backupPath, StandardCopyOption.REPLACE_EXISTING,
+                    StandardCopyOption.COPY_ATTRIBUTES);
+            replace(temporary, path);
+        } catch (RuntimeException | IOException exception) {
+            Files.deleteIfExists(temporary);
+            throw exception;
+        }
+    }
+
+    private static void validateModuleDependencies(Properties properties, String module, boolean enabled) {
+        if (enabled) {
+            for (String dependency : moduleDependencies(module)) {
+                if (!moduleEnabled(properties, dependency)) {
+                    throw new IllegalStateException(
+                            moduleDisplayName(module) + " requires " + moduleDisplayName(dependency)
+                                    + ". Enable " + moduleDisplayName(dependency) + " first.");
+                }
+            }
+            return;
+        }
+        for (String dependent : CONFIGURABLE_MODULES) {
+            if (moduleDependencies(dependent).contains(module) && moduleEnabled(properties, dependent)) {
+                throw new IllegalStateException(
+                        moduleDisplayName(module) + " cannot be disabled while "
+                                + moduleDisplayName(dependent) + " is enabled. Disable "
+                                + moduleDisplayName(dependent) + " first.");
+            }
+        }
+    }
+
+    private static boolean moduleEnabled(Properties properties, String module) {
+        String key = moduleProperty(module);
+        String configured = properties.getProperty(key);
+        return configured == null || configured.isBlank()
+                ? moduleDefaultEnabled(module)
+                : strictBoolean(configured, key);
+    }
+
+    private static String moduleProperty(String module) {
+        return "modules." + ("packs".equals(module) ? "packs.scanner" : module) + ".enabled";
+    }
+
+    private static boolean moduleDefaultEnabled(String module) {
+        return "pulse".equals(module) || "packs".equals(module);
+    }
+
+    private static List<String> moduleDependencies(String module) {
+        return "fleet".equals(module) ? List.of("pulse") : List.of();
+    }
+
+    private static String moduleDisplayName(String module) {
+        return switch (module) {
+            case "control" -> "OniControl integration";
+            case "flow" -> "OniFlow";
+            case "continuity" -> "Continuity";
+            case "sentinel" -> "OniSentinel";
+            case "pulse" -> "OniPulse";
+            case "fleet" -> "OniFleet";
+            case "connect" -> "OniConnect";
+            case "packs" -> "Pack scanner";
+            case "notifications" -> "Notifications";
+            default -> module;
+        };
     }
 
     private static String onibridgeToml(

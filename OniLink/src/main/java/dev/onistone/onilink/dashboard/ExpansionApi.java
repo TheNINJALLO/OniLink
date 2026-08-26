@@ -16,11 +16,18 @@ import java.util.Map;
 /** Authenticated, tenant-scoped HTTP adapter for the expansion platform. */
 final class ExpansionApi {
     private final ExpansionRuntime runtime;
+    private final DashboardConfigFile configFile;
     private final int maxRequestBytes;
     private final DashboardAuditLog audit;
 
-    ExpansionApi(ExpansionRuntime runtime, int maxRequestBytes, DashboardAuditLog audit) {
+    ExpansionApi(
+            ExpansionRuntime runtime,
+            DashboardConfigFile configFile,
+            int maxRequestBytes,
+            DashboardAuditLog audit
+    ) {
         this.runtime = runtime;
+        this.configFile = configFile;
         this.maxRequestBytes = maxRequestBytes;
         this.audit = audit;
     }
@@ -32,9 +39,24 @@ final class ExpansionApi {
 
         if ("/api/modules".equals(path)) {
             require(principal, DashboardAccounts.Role.VIEWER);
-            OniLinkDashboard.requireMethod(exchange, "GET");
-            send(exchange, Map.of("modules", runtime.modules(), "eventBus", runtime.eventMetrics(),
-                    "actions", runtime.actionDescriptors()));
+            if ("GET".equals(exchange.getRequestMethod())) {
+                send(exchange, moduleSnapshot());
+            } else {
+                require(principal, DashboardAccounts.Role.OWNER);
+                OniLinkDashboard.requireMutation(exchange, "PUT");
+                Map<String, String> form = form(exchange);
+                Map<String, Object> changed = configFile.setModuleEnabled(
+                        form.get("revision"), required(form, "module"), required(form, "enabled"));
+                mutationAudit(exchange, principal, PlatformDatabase.Scope.of("provider", "main"),
+                        "platform.module_configuration", Map.of(
+                                "module", changed.get("module"),
+                                "enabled", changed.get("configuredEnabled"),
+                                "changed", changed.get("changed")));
+                Map<String, Object> response = new LinkedHashMap<>(moduleSnapshot());
+                response.put("changed", changed.get("changed"));
+                response.put("message", changed.get("message"));
+                send(exchange, Map.copyOf(response));
+            }
             return true;
         }
         if ("/api/platform/actions".equals(path)) {
@@ -560,6 +582,42 @@ final class ExpansionApi {
 
     private void requireEnabled(String module) {
         if (!runtime.enabled(module)) throw new OniLinkDashboard.HttpFailure(409, module + " module is disabled");
+    }
+
+    private Map<String, Object> moduleSnapshot() throws IOException {
+        Map<String, Object> configuration = configFile.moduleConfiguration();
+        Map<String, Map<String, Object>> configured = new LinkedHashMap<>();
+        for (Object value : (List<?>) configuration.get("modules")) {
+            if (!(value instanceof Map<?, ?> raw)) continue;
+            Map<String, Object> item = new LinkedHashMap<>();
+            raw.forEach((key, entry) -> item.put(String.valueOf(key), entry));
+            configured.put(String.valueOf(item.get("id")), Map.copyOf(item));
+        }
+
+        boolean restartRequired = false;
+        List<Map<String, Object>> result = new java.util.ArrayList<>();
+        for (Map<String, Object> running : runtime.modules()) {
+            Map<String, Object> item = new LinkedHashMap<>(running);
+            Map<String, Object> desired = configured.get(String.valueOf(running.get("id")));
+            boolean runningEnabled = Boolean.TRUE.equals(running.get("enabled"));
+            boolean configuredEnabled = desired == null
+                    ? runningEnabled
+                    : Boolean.TRUE.equals(desired.get("configuredEnabled"));
+            boolean pendingRestart = runningEnabled != configuredEnabled;
+            item.put("configurable", desired != null);
+            item.put("configuredEnabled", configuredEnabled);
+            item.put("defaultEnabled", desired == null || Boolean.TRUE.equals(desired.get("defaultEnabled")));
+            item.put("configKey", desired == null ? "" : desired.get("configKey"));
+            item.put("pendingRestart", pendingRestart);
+            restartRequired |= pendingRestart;
+            result.add(Map.copyOf(item));
+        }
+        return Map.of(
+                "modules", List.copyOf(result),
+                "eventBus", runtime.eventMetrics(),
+                "actions", runtime.actionDescriptors(),
+                "configurationRevision", configuration.get("configurationRevision"),
+                "restartRequired", restartRequired);
     }
 
     private static void require(DashboardAccounts.Principal principal, DashboardAccounts.Role role) {

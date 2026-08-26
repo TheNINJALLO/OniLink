@@ -23,6 +23,11 @@ interface ModuleView {
   id: string;
   version: string;
   enabled: boolean;
+  configurable: boolean;
+  configuredEnabled: boolean;
+  defaultEnabled: boolean;
+  configKey: string;
+  pendingRestart: boolean;
   health: string;
   message: string;
   dependencies: string[];
@@ -32,8 +37,58 @@ interface ModulesResponse {
   modules: ModuleView[];
   eventBus: Record<string, number>;
   actions: Array<Record<string, unknown>>;
+  configurationRevision: string;
+  restartRequired: boolean;
+  message?: string;
   cachedAt?: string;
 }
+
+const moduleDetails: Record<string, { name: string; description: string }> = {
+  "shared-platform": {
+    name: "Shared platform",
+    description: "Required event, action, persistence, tenancy, and audit foundation.",
+  },
+  control: {
+    name: "OniControl integration",
+    description: "Makes reviewed control capabilities available to platform actions.",
+  },
+  flow: {
+    name: "OniFlow",
+    description: "Runs validated, tenant-scoped automation workflows and approvals.",
+  },
+  continuity: {
+    name: "Continuity",
+    description: "Coordinates draining, limbo reservations, and safe player returns.",
+  },
+  sentinel: {
+    name: "OniSentinel",
+    description: "Provides quarantine-first routing and reviewed release controls.",
+  },
+  pulse: {
+    name: "OniPulse",
+    description: "Collects privacy-aware player journey and connection-stage timing.",
+  },
+  forge: {
+    name: "OniForge compatibility",
+    description: "Serves checked protocol differences and compatibility evidence.",
+  },
+  fleet: {
+    name: "OniFleet",
+    description: "Manages dynamic backends, canaries, and blue-green deployments.",
+  },
+  connect: {
+    name: "OniConnect",
+    description: "Provides presence, global roles, and tenant-scoped support tickets.",
+  },
+  packs: {
+    name: "Pack scanner",
+    description: "Inspects uploaded pack archives without activating them.",
+  },
+  notifications: {
+    name: "Notifications",
+    description: "Manages bounded Web Push subscriptions and test notifications.",
+  },
+};
 
 type Section =
   | "platform"
@@ -181,6 +236,26 @@ export function PlatformPage() {
       setError(failure.message);
     },
   });
+  const configureModule = useMutation({
+    mutationFn: ({ module, enabled }: { module: string; enabled: boolean }) => {
+      const revision = modules.data?.configurationRevision;
+      if (!revision) throw new Error("Reload the module registry before changing a module.");
+      return dashboardApi.platformMutation<ModulesResponse>("/api/modules", "PUT", {
+        revision,
+        module,
+        enabled,
+      });
+    },
+    onSuccess: async (result) => {
+      setError("");
+      setMessage(result.message ?? "Module configuration saved. Restart OniLink to apply it.");
+      await client.invalidateQueries({ queryKey: ["platform-modules"] });
+    },
+    onError: (failure: Error) => {
+      setMessage("");
+      setError(failure.message);
+    },
+  });
   const canManage =
     principal?.role === "tenant" || (principal ? hasRole(principal.role, "admin") : false);
 
@@ -225,6 +300,9 @@ export function PlatformPage() {
       ) : null}
       <Notice message={message} />
       <Notice message={error} error />
+      {modules.data?.restartRequired ? (
+        <Notice message="One or more module changes are saved and waiting. Restart OniLink once to apply them." />
+      ) : null}
       {!online ? (
         <Notice
           message={
@@ -259,12 +337,29 @@ export function PlatformPage() {
       </nav>
       {modules.isLoading ? <Loading label="Loading module registry" /> : null}
       {modules.isError ? <Notice message={modules.error.message} error /> : null}
-      {section === "platform" && modules.data ? <ModuleGrid data={modules.data} /> : null}
+      {section === "platform" && modules.data ? (
+        <ModuleGrid
+          data={modules.data}
+          canConfigure={principal?.role === "owner" && online && !modules.data.cachedAt}
+          busy={configureModule.isPending}
+          onConfigure={(moduleId, enabled) => {
+            if (
+              !enabled &&
+              !window.confirm(
+                `Disable ${moduleDetails[moduleId]?.name ?? moduleId} after the next OniLink restart?`,
+              )
+            ) {
+              return;
+            }
+            configureModule.mutate({ module: moduleId, enabled });
+          }}
+        />
+      ) : null}
       {section !== "platform" && module && !module.enabled ? (
         <Card>
           <Empty
             title={`${selected.label} is disabled`}
-            detail={`Set modules.${selected.module === "packs" ? "packs.scanner" : selected.module}.enabled=true, then restart OniLink.`}
+            detail="Open Modules, enable this feature, and restart OniLink once to apply the saved change."
           />
         </Card>
       ) : null}
@@ -283,7 +378,17 @@ export function PlatformPage() {
   );
 }
 
-function ModuleGrid({ data }: { data: ModulesResponse }) {
+function ModuleGrid({
+  data,
+  canConfigure,
+  busy,
+  onConfigure,
+}: {
+  data: ModulesResponse;
+  canConfigure: boolean;
+  busy: boolean;
+  onConfigure: (module: string, enabled: boolean) => void;
+}) {
   return (
     <>
       <div className="metricGrid platformMetrics">
@@ -304,25 +409,78 @@ function ModuleGrid({ data }: { data: ModulesResponse }) {
         </Card>
       </div>
       <div className="moduleGrid">
-        {data.modules.map((module) => (
-          <Card key={module.id}>
-            <div className="moduleHeading">
-              <div>
-                <h2>{module.id}</h2>
-                <small>Module API v{module.version}</small>
+        {data.modules.map((module) => {
+          const details = moduleDetails[module.id] ?? {
+            name: friendly(module.id),
+            description: module.message,
+          };
+          const requiredBy = data.modules.filter(
+            (candidate) =>
+              candidate.configuredEnabled && candidate.dependencies.includes(module.id),
+          );
+          const missingDependencies = module.dependencies.filter(
+            (dependency) =>
+              !data.modules.find((candidate) => candidate.id === dependency)?.configuredEnabled,
+          );
+          const dependencyBlocked = module.configuredEnabled
+            ? requiredBy.length > 0
+            : missingDependencies.length > 0;
+          return (
+            <Card key={module.id}>
+              <div className="moduleHeading">
+                <div>
+                  <h2>{details.name}</h2>
+                  <small>Module API v{module.version}</small>
+                </div>
+                <Status
+                  state={
+                    module.pendingRestart
+                      ? "warning"
+                      : module.health === "HEALTHY"
+                        ? "ok"
+                        : module.enabled
+                          ? "danger"
+                          : "neutral"
+                  }
+                >
+                  {module.pendingRestart ? "restart pending" : module.health.toLowerCase()}
+                </Status>
               </div>
-              <Status
-                state={module.health === "HEALTHY" ? "ok" : module.enabled ? "danger" : "neutral"}
-              >
-                {module.health.toLowerCase()}
-              </Status>
-            </div>
-            <p>{module.message}</p>
-            <small className="fieldHelp">
-              Dependencies: {module.dependencies.join(", ") || "none"}
-            </small>
-          </Card>
-        ))}
+              <p>{details.description}</p>
+              <p className="fieldHelp">Runtime: {module.message}</p>
+              <small className="fieldHelp">
+                Dependencies: {module.dependencies.join(", ") || "none"}
+              </small>
+              {module.configurable ? (
+                <div className="moduleControl">
+                  <strong>
+                    Configured after restart: {module.configuredEnabled ? "On" : "Off"}
+                  </strong>
+                  {canConfigure ? (
+                    <Button
+                      className={module.configuredEnabled ? "danger" : "secondary"}
+                      disabled={busy || dependencyBlocked}
+                      title={
+                        module.configuredEnabled && requiredBy.length
+                          ? `Disable ${requiredBy.map((item) => moduleDetails[item.id]?.name ?? item.id).join(", ")} first.`
+                          : missingDependencies.length
+                            ? `Enable ${missingDependencies.map((item) => moduleDetails[item]?.name ?? item).join(", ")} first.`
+                            : undefined
+                      }
+                      onClick={() => onConfigure(module.id, !module.configuredEnabled)}
+                    >
+                      {module.configuredEnabled ? "Disable" : "Enable"}
+                    </Button>
+                  ) : (
+                    <small className="fieldHelp">Provider owners can change this setting.</small>
+                  )}
+                </div>
+              ) : (
+                <small className="fieldHelp">Required platform component; always enabled.</small>
+              )}
+            </Card>
+          );
+        })}
       </div>
     </>
   );
@@ -962,7 +1120,13 @@ async function loadModuleHealth(signal: AbortSignal): Promise<ModulesResponse> {
   try {
     const live = await dashboardApi.platformGet<ModulesResponse>("/api/modules", {}, signal);
     if ("caches" in window) {
-      const safe: ModulesResponse = { modules: live.modules, eventBus: live.eventBus, actions: [] };
+      const safe: ModulesResponse = {
+        modules: live.modules,
+        eventBus: live.eventBus,
+        actions: [],
+        configurationRevision: live.configurationRevision,
+        restartRequired: live.restartRequired,
+      };
       const cache = await caches.open(cacheName);
       await cache.put(
         cacheKey,

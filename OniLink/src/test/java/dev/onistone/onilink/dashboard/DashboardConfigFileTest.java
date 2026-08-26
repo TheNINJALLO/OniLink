@@ -212,6 +212,35 @@ class DashboardConfigFileTest {
     }
 
     @Test
+    void configuresModulesWithRevisionAndDependencyProtection(@TempDir Path directory) throws Exception {
+        Path path = directory.resolve("config.properties");
+        ProxyConfig.loadOrCreate(path);
+        DashboardConfigFile editor = new DashboardConfigFile(path);
+
+        Map<String, Object> initial = editor.moduleConfiguration();
+        assertTrue(String.valueOf(initial.get("modules")).contains("configuredEnabled=true"));
+        Map<String, Object> pulseOff = editor.setModuleEnabled(
+                String.valueOf(initial.get("configurationRevision")), "pulse", "false");
+        assertEquals(true, pulseOff.get("changed"));
+        assertTrue(Files.readString(path).contains("modules.pulse.enabled=false"));
+        assertThrows(IllegalStateException.class, () -> editor.setModuleEnabled(
+                String.valueOf(pulseOff.get("configurationRevision")), "fleet", "true"));
+
+        Map<String, Object> pulseOn = editor.setModuleEnabled(
+                String.valueOf(pulseOff.get("configurationRevision")), "pulse", "true");
+        Map<String, Object> fleetOn = editor.setModuleEnabled(
+                String.valueOf(pulseOn.get("configurationRevision")), "fleet", "true");
+        assertThrows(IllegalStateException.class, () -> editor.setModuleEnabled(
+                String.valueOf(fleetOn.get("configurationRevision")), "pulse", "false"));
+        assertThrows(IllegalStateException.class, () -> editor.setModuleEnabled(
+                String.valueOf(initial.get("configurationRevision")), "flow", "true"));
+        assertThrows(IllegalArgumentException.class, () -> editor.setModuleEnabled(
+                String.valueOf(fleetOn.get("configurationRevision")), "unknown", "true"));
+        assertTrue(Files.isRegularFile(editor.backupPath()));
+        ProxyConfig.loadOrCreate(path);
+    }
+
+    @Test
     void guidedBackendSetupRejectsPropertyInjection(@TempDir Path directory) throws Exception {
         Path path = directory.resolve("config.properties");
         ProxyConfig.loadOrCreate(path);

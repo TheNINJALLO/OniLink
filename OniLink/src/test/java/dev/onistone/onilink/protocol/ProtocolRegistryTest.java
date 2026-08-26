@@ -4,8 +4,13 @@ import org.cloudburstmc.protocol.bedrock.codec.v898.Bedrock_v898;
 import org.cloudburstmc.protocol.bedrock.codec.v924.Bedrock_v924;
 import org.cloudburstmc.protocol.bedrock.codec.v944.Bedrock_v944;
 import org.cloudburstmc.protocol.bedrock.codec.v975.Bedrock_v975;
+import org.cloudburstmc.protocol.bedrock.codec.v2168.Bedrock_v2168;
+import org.cloudburstmc.protocol.bedrock.codec.v2168.Bedrock_v2168_hotfix4;
+import org.cloudburstmc.protocol.bedrock.codec.v2192.Bedrock_v2192;
 import org.cloudburstmc.protocol.bedrock.packet.PlayStatusPacket;
 import org.junit.jupiter.api.Test;
+
+import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -22,9 +27,14 @@ class ProtocolRegistryTest {
         assertTrue(registry.findClientCodec(975).isPresent());
         assertTrue(registry.findClientCodec(1001).isPresent());
         assertTrue(registry.findClientCodec(2168).isPresent());
+        assertTrue(registry.findClientCodec(2192).isPresent());
         assertTrue(registry.findClientCodec(897).isEmpty());
         assertTrue(registry.findClientCodec(976).isEmpty());
-        assertEquals(CanonicalProtocol.values().length, registry.supportedClients().size());
+        long distinctWireProtocols = Arrays.stream(CanonicalProtocol.values())
+                .mapToInt(CanonicalProtocol::protocolVersion)
+                .distinct()
+                .count();
+        assertEquals(distinctWireProtocols, registry.supportedClients().size());
     }
 
     @Test
@@ -57,10 +67,39 @@ class ProtocolRegistryTest {
         assertSame(Bedrock_v924.CODEC, CanonicalProtocol.V1_26_0.codec());
         assertSame(Bedrock_v944.CODEC, CanonicalProtocol.V1_26_10.codec());
         assertSame(Bedrock_v975.CODEC, CanonicalProtocol.V1_26_20.codec());
+        assertSame(Bedrock_v2168.CODEC, CanonicalProtocol.V1_26_40.codec());
+        assertSame(Bedrock_v2168_hotfix4.CODEC, CanonicalProtocol.V1_26_44.codec());
+        assertSame(Bedrock_v2192.CODEC, CanonicalProtocol.V1_26_50.codec());
         // Derived, not hardcoded: this assertion existed to catch a registry that forgot the newest
         // codec, and pinning a literal made it fail on every release instead.
         assertEquals(CanonicalProtocol.newest().protocolVersion(),
                 ProtocolRegistry.createDefault().advertisedClientCodec().getProtocolVersion());
+    }
+
+    @Test
+    void resolves2192ToThe2168HotfixDialect() {
+        ProtocolRegistry registry = ProtocolRegistry.createDefault();
+
+        ProtocolBinding hotfix = registry.findBinding(2192, 2168, "1.26.44.3").orElseThrow();
+        assertSame(Bedrock_v2192.CODEC, hotfix.clientCodec());
+        assertSame(Bedrock_v2168_hotfix4.CODEC, hotfix.backendCodec());
+        assertSame(ModernClientTo2168Translator.INSTANCE, hotfix.translator());
+
+        ProtocolBinding original = registry.findBinding(2192, 2168, "1.26.40").orElseThrow();
+        assertSame(Bedrock_v2168.CODEC, original.backendCodec());
+
+        assertSame(CanonicalProtocol.V1_26_44, CanonicalProtocol.fromConfig("2168"));
+        assertSame(CanonicalProtocol.V1_26_40, CanonicalProtocol.fromConfig("1.26.40"));
+    }
+
+    @Test
+    void chains2192ClientsToEveryOlderSupportedBackend() {
+        ProtocolRegistry registry = ProtocolRegistry.createDefault();
+
+        assertEquals(1, registry.findPath(2192, 2168).orElseThrow().size());
+        assertEquals(2, registry.findPath(2192, 1001).orElseThrow().size());
+        assertTrue(registry.findBinding(2192, 898).orElseThrow().translator()
+                instanceof ChainedPacketTranslator);
     }
 
     @Test

@@ -89,7 +89,8 @@ public final class OniLinkDashboard implements AutoCloseable {
                 if ("provider".equals(scope.tenantId()) && "main".equals(scope.proxyId())) return control;
                 return tenantHosting.runtimeControl(scope.tenantId(), scope.proxyId());
             });
-            expansionHandler = new ExpansionApi(expansionRuntime, config.maxRequestBytes(), audit);
+            expansionHandler = new ExpansionApi(
+                    expansionRuntime, configFile, config.maxRequestBytes(), audit);
         } catch (IOException | RuntimeException failure) {
             System.err.printf("OniLink expansion modules are unavailable; core proxy and dashboard remain active: %s%n",
                     failure.getMessage());

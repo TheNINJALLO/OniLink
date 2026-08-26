@@ -33,6 +33,10 @@ public class MoveEntityDeltaPacket implements BedrockPacket {
     private boolean forceMove;
     private boolean forceMoveLocalEntity;
     private boolean forceCompletion;
+    /**
+     * @since v2192
+     */
+    private long tick;
 
     @Override
     public final PacketSignal handle(BedrockPacketHandler handler) {

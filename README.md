@@ -11,7 +11,7 @@
 
 <p align="center">
   <img alt="Version 0.2.0" src="https://img.shields.io/badge/Release-v0.2.0-52b7a8?style=flat-square">
-  <img alt="Beta 0.3.0 beta 1" src="https://img.shields.io/badge/Beta-v0.3.0--beta.1-ffb347?style=flat-square">
+  <img alt="Beta 0.3.0 beta 3" src="https://img.shields.io/badge/Beta-v0.3.0--beta.3-ffb347?style=flat-square">
   <img alt="Endstone 0.11.9" src="https://img.shields.io/badge/Endstone-0.11.9-52b7a8?style=flat-square">
   <img alt="BDS 1.26.44.3" src="https://img.shields.io/badge/BDS-1.26.44.3-63b8ff?style=flat-square">
   <img alt="Java 21" src="https://img.shields.io/badge/Java-21-ED8B00?style=flat-square&amp;logo=openjdk&amp;logoColor=white">
@@ -34,9 +34,10 @@
 > [!IMPORTANT]
 > `v0.2.0` is the current stable release. The Linux BDS `1.26.44.3` + Endstone `0.11.9` profile is production-approved and remains fail closed. Full packet captures can include chat, XUIDs, endpoints, decoded fields, and incoming bytes; restrict dashboard access and inspect exports before sharing them.
 
-> `v0.3.0-beta.2` is the current operations beta. It adds dashboard-based backend editing,
-> primary-route selection, safe removal, and bounded allowlist imports to the 0.3 operations
-> platform. Use the Pterodactyl `beta` channel for this prerelease; operational modules stay opt-in.
+> `v0.3.0-beta.3` is the current preview beta. One running OniLink instance negotiates
+> 1.26.44/2168 and 1.26.50/2192 independently for each player while BDS and OniBridge stay on the
+> exact 1.26.44.3 backend profile. It also adds dashboard module controls. Use the Pterodactyl
+> `beta` channel for this prerelease; operational modules stay opt-in.
 
 ## The product family
 
@@ -124,10 +125,16 @@ verified.
 | --- | --- |
 | Linux x86-64, BDS `1.26.44.3`, Endstone `0.11.9` | Production-approved exact profile |
 | Windows x86-64, BDS `1.26.44.3`, Endstone `0.11.9` | Candidate; live client acceptance remains |
+| Bedrock `1.26.50` client (protocol `2192`) -> BDS `1.26.44.3` | Implemented preview; release-client live acceptance remains |
 
 Use `onibridge-0.2.0-bds-1.26.44.3-linux-x86_64.so` only with the exact approved target. Unknown
 executables, layouts, hook bytes, profiles, and Endstone builds remain blocked. Exact hashes and
 remaining gates are in [Compatibility](docs/COMPATIBILITY.md).
+
+The unreleased tree can accept protocol `2192` clients and translate them to protocol `2168`.
+Leave backend detection on `auto`; OniLink recognizes BDS `1.26.44.x` as the protocol-2168 hotfix
+dialect even though Mojang did not change its protocol number. See the
+[1.26.50 cross-version guide](docs/CROSS_VERSION_1_26_50.md) before testing a Preview client.
 
 ## Documentation
 
@@ -138,6 +145,7 @@ remaining gates are in [Compatibility](docs/COMPATIBILITY.md).
 | [Deployment example](examples/single-bds/) | [Add a backend](docs/ADDING_BACKEND.md) | [OniForward protocol](docs/ONIFORWARD_PROTOCOL.md) |
 | [Troubleshooting](docs/TROUBLESHOOTING.md) | [Dashboard](docs/DASHBOARD.md) | [Compatibility](docs/COMPATIBILITY.md) |
 | [Packet monitor](docs/PACKET_MONITOR.md) | [Pterodactyl](docs/PTERODACTYL.md) | [Building](docs/BUILDING.md) |
+| [1.26.50 cross-version preview](docs/CROSS_VERSION_1_26_50.md) | [Migration](docs/MIGRATION.md) | [Protocol Lab](docs/PROTOCOL_LAB.md) |
 | [OniControl](docs/ONICONTROL.md) | [OniControl on Pterodactyl](docs/ONICONTROL_PTERODACTYL.md) | [OniControl security](docs/ONICONTROL_SECURITY.md) |
 | [0.3 operations modules](docs/EXPANSION_MODULES.md) | [Protocol Lab](docs/PROTOCOL_LAB.md) | [Compatibility evidence](docs/COMPATIBILITY.md) |
 | [Migration](docs/MIGRATION.md) | [Tenant hosting](docs/TENANT_HOSTING.md) | [Source audit](docs/SOURCE_AUDIT.md) |

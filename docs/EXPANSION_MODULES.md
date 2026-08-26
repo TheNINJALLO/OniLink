@@ -7,9 +7,19 @@ proxy, schema checked, revision checked, and written to the local SQLite platfor
 
 ## Safe rollout
 
-Only OniPulse journey summaries and OniPack scanning are enabled by default. Begin with the
-following minimal block, restart OniLink, and confirm **Platform -> Modules** before enabling an
-operational module:
+Only OniPulse journey summaries and OniPack scanning are enabled by default. A provider owner can
+open **Platform -> Modules** and use **Enable** or **Disable** without editing this block manually.
+OniLink revision-checks and validates the complete file, creates the normal dashboard backup,
+records an audit event, and shows the saved setting separately from the currently running state.
+Restart OniLink once when the page shows **restart pending**.
+
+Shared Platform and OniForge are required read-only components and cannot be disabled. OniFleet
+requires OniPulse; the dashboard will not enable OniFleet first or disable OniPulse while OniFleet
+is configured on. Module settings are provider-wide, so tenant accounts can see availability but
+cannot change it. Enabling the OniControl integration module does not create transport secrets or
+backend control routes; complete the OniControl backend setup before enabling it.
+
+The equivalent manual configuration remains available for recovery and unattended deployment:
 
 ```properties
 modules.control.enabled=false
@@ -36,6 +46,10 @@ modules.notifications.enabled=false
 | OniConnect | Off | Viewer/Admin by operation | Backend role synchronization reports `UNSUPPORTED` when no reviewed bridge action exists. |
 | OniPack Scanner | On | Admin | Scans never activate packs or reload the live catalog. |
 | Notifications | Off | Signed-in user; Admin test | Push failure never blocks the event producer or proxy. |
+
+The module-manager API is `GET /api/modules` and owner-only `PUT /api/modules`. Mutations require
+the returned `configurationRevision`, a module ID, and `enabled=true|false`; stale revisions are
+rejected rather than overwriting another configuration change.
 
 All retained queues and histories are bounded. Platform records live in
 `dashboard/platform/onilink-platform.db`; back up the entire `dashboard/` directory while OniLink is

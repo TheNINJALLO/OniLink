@@ -2,6 +2,7 @@ package dev.onistone.onilink.protocol;
 
 import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
 import org.cloudburstmc.protocol.bedrock.packet.PlayStatusPacket;
+import org.cloudburstmc.protocol.bedrock.codec.v2168.Bedrock_v2168_hotfix4;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -64,7 +65,9 @@ public final class ProtocolRegistry {
                 .codec(CanonicalProtocol.V1_26_20)
                 .codec(CanonicalProtocol.V1_26_30)
                 .codec(CanonicalProtocol.V1_26_40)
+                .codec(CanonicalProtocol.V1_26_50)
                 // Directed adjacent translators (newer -> older). Longer gaps are auto-chained.
+                .edge(CanonicalProtocol.V1_26_50, CanonicalProtocol.V1_26_40, ModernClientTo2168Translator.INSTANCE)
                 .edge(CanonicalProtocol.V1_26_40, CanonicalProtocol.V1_26_30, ModernClientTo1001Translator.INSTANCE)
                 .edge(CanonicalProtocol.V1_26_30, CanonicalProtocol.V1_26_20, ModernClientTo975Translator.INSTANCE)
                 .edge(CanonicalProtocol.V1_26_20, CanonicalProtocol.V1_26_10, ModernClientTo944Translator.INSTANCE)
@@ -162,6 +165,48 @@ public final class ProtocolRegistry {
         return Collections.unmodifiableCollection(codecs.values().stream()
                 .map(codec -> new ProtocolBinding(codec, codec, codec, IdentityTranslator898.INSTANCE))
                 .toList());
+    }
+
+    /**
+     * Resolves a binding while preserving wire dialects that share a protocol number.
+     *
+     * <p>1.26.40 and 1.26.44 both announce 2168. The backend's pong/login version is therefore the
+     * only way to choose the correct SetScore serializer.</p>
+     */
+    public Optional<ProtocolBinding> findBinding(
+            int clientProtocolVersion,
+            int backendProtocolVersion,
+            String backendMinecraftVersion
+    ) {
+        return findBinding(clientProtocolVersion, backendProtocolVersion).map(binding -> {
+            if (backendProtocolVersion != 2168 || !atLeast12644(backendMinecraftVersion)) {
+                return binding;
+            }
+            return new ProtocolBinding(
+                    binding.clientCodec(),
+                    Bedrock_v2168_hotfix4.CODEC,
+                    Bedrock_v2168_hotfix4.CODEC,
+                    binding.translator()
+            );
+        });
+    }
+
+    private static boolean atLeast12644(String version) {
+        if (version == null || version.isBlank()) {
+            return false;
+        }
+        String[] raw = version.trim().split("\\.");
+        int offset = raw.length > 0 && "1".equals(raw[0]) ? 1 : 0;
+        if (raw.length < offset + 2) {
+            return false;
+        }
+        try {
+            int minor = Integer.parseInt(raw[offset]);
+            int patch = Integer.parseInt(raw[offset + 1]);
+            return minor > 26 || minor == 26 && patch >= 44;
+        } catch (NumberFormatException ignored) {
+            return false;
+        }
     }
 
     /** All registered codecs in protocol order for diagnostics and compatibility tooling. */

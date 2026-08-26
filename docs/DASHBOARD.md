@@ -15,6 +15,7 @@ The dashboard is built into `OniLink.jar`; there is no second service, database,
 | Backends | Population, routing flags, forwarding state, endpoint visibility by role, and live health |
 | Allowlist | Authenticated XUID membership, connected-player enrollment, manual enrollment, and immediate removal |
 | Configuration | Guided BDS backend setup, protected secret creation, redacted editor, optimistic revision check, parser validation, automatic backup, and rollback |
+| Platform | Module health plus owner-only enable/disable controls with dependency and restart safeguards |
 | Operations | Network alert, bounded log tail, redacted support bundle, and graceful shutdown |
 | Security | First-run owner claim, PBKDF2 password hashes, expiring bearer sessions, roles, optional TOTP, login throttling, and append-only audit records |
 | Integration | Prometheus-format `/metrics` for authenticated viewers and JSON APIs used by the bundled UI |
@@ -187,6 +188,19 @@ select which named backend receives new players. OniLink validates the selected 
 proxy's backend list, saves it with an optimistic revision check, and restarts only the selected
 proxy. Connected players on that listener must reconnect. This changes the initial join destination;
 it does not change the separately configured `/hub` destination or another tenant's proxy.
+
+### Enable or disable platform modules
+
+Open **Platform -> Modules** as the provider owner. Each card explains the module, its dependencies,
+the state running now, and the state configured for the next start. Select **Enable** or **Disable**;
+OniLink validates the request, rejects stale revisions and invalid dependency combinations, writes
+the property atomically, creates `config.properties.dashboard.bak`, and records the change in the
+audit log. Restart OniLink when the card shows **restart pending**.
+
+Shared Platform and OniForge are required and have no toggle. OniFleet requires OniPulse. Module
+settings affect the shared operations platform, so tenant users can view availability but only the
+provider owner can change it. OniControl transport keys and backend capabilities still need to be
+configured separately; its module toggle does not generate or expose secrets.
 
 ### Edit configuration safely
 

@@ -106,6 +106,19 @@ To add a native BDS route automatically, use the dashboard's dedicated **Add Bac
 
 Use `backend.protocol=auto` unless you have a deliberate, tested reason to pin. A stale version pin is harder to diagnose than a failed probe.
 
+The unreleased cross-version preview accepts Minecraft `1.26.50` protocol `2192` clients while a
+backend remains on `1.26.44` protocol `2168`. Configure the version BDS actually runs:
+
+```properties
+backend.protocol=auto
+# Or, only if probing is unavailable:
+backend.survival.protocol=1.26.44
+```
+
+Do not set the backend to `1.26.50` unless that backend itself has upgraded. Because `1.26.40` and
+`1.26.44` both announce `2168`, a numeric `2168` pin selects the newer `1.26.44` dialect; spell
+`1.26.40` explicitly for an older backend. See [1.26.50 cross-version support](CROSS_VERSION_1_26_50.md).
+
 For a tenant proxy, the provider owner or tenant can change `backend.name` through **My Proxies →
 Choose the primary server**. The control plane also synchronizes the compatibility `backend.host`
 and `backend.port` values and restarts only that proxy. `hubBackend` remains independent.

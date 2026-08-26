@@ -7,8 +7,8 @@ Current completed results:
 | `bdsctl` | 27 passed | unit test |
 | `sdkgen` | 17 passed | unit test |
 | packaging, egg, ABI, and checked-profile Python suite | 28 passed, 3 skipped | unit/platform fixture |
-| OniLink Java 21 | 456 passed, 0 failed, 0 skipped | unit/integration fixture |
-| Dashboard UI | 35 passed, 0 failed | component/integration fixture |
+| OniLink Java 21 | 475 passed, 0 failed, 0 skipped | unit/integration fixture |
+| Dashboard UI | 38 passed, 0 failed | component/integration fixture |
 | OniBridge Windows CTest | 2 passed | native unit + synthetic executable hook harness |
 | Windows BDS 1.26.44.3 + Endstone 0.11.9 | server start, DLL load/enable, exact hook install, disable/uninstall, exit 0 | partial live lifecycle; offline mode, no client |
 | OniBridge Linux CTest | 2 passed on GitHub Ubuntu 22.04 | native unit + synthetic executable hook harness |
@@ -21,6 +21,25 @@ The acquisition suite covers official metadata, stable/preview separation, redir
 The hook harness uses executable synthetic code rather than a mocked method name. It checks the direct call replacement, original destination, correct XUID substitution, rejection without a verified login, prior-call chaining, double-install prevention, safe rollback, and final identity registration.
 
 The repository operator approved the complete Linux acceptance result for the exact BDS `1.26.44.3` + Endstone `0.11.9` target, including the human-review and live-test gates. The Linux profile is therefore production-approved. Windows has proven plugin load/hook lifecycle offline but no live client join and remains a candidate.
+
+## 1.26.50 preview beta verification performed on 2026-08-26
+
+The `0.3.0-beta.3` pre-release gate ran the complete Java 21 suite from a clean temporary copy:
+475 tests passed with no failures or skips, the embedded dashboard production bundle compiled,
+the standalone JAR was assembled, and both OniForge compatibility report formats were generated.
+The dashboard separately passed Prettier, ESLint, TypeScript, all 38 Vitest tests, and its
+production build.
+
+The new protocol coverage verifies 2192 codec metadata and packet layouts, the 1.26.44 SetScore
+hotfix, fail-closed 2192-to-2168 translation, every older supported downgrade path, backend-pong
+dialect selection, and mixed 2168/2192/2168 negotiations without a global runtime switch. Module
+manager tests cover owner authorization, revision conflicts, dependencies, fixed modules, atomic
+configuration writes, and running/configured/restart-pending dashboard state.
+
+The same clean copy passed all 27 `bdsctl` tests, all 17 `sdkgen` tests, and 28 packaging,
+Pterodactyl egg, ABI, and checked-profile tests; 3 POSIX-only updater fixtures remain delegated to
+Linux CI. Native Linux and Windows builds, CTest, updater integration, and the Linux GLIBC ceiling
+remain mandatory workflow gates for the published artifacts.
 
 ## Operations beta verification performed on 2026-08-21
 

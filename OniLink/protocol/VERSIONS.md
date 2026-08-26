@@ -62,3 +62,11 @@ This library supports multiple versions of the Bedrock protocol. Below is a list
 | Bedrock_v859 | 1.21.120 - 1.21.123 |
 | Bedrock_v860 |      1.21.124       |
 | Bedrock_v897 |      1.21.130       |
+| Bedrock_v898 |      1.21.130       |
+| Bedrock_v924 |       1.26.0        |
+| Bedrock_v944 |       1.26.10       |
+| Bedrock_v975 |       1.26.20       |
+| Bedrock_v1001 |      1.26.30       |
+| Bedrock_v2168 |      1.26.40       |
+| Bedrock_v2168_hotfix4 | 1.26.44    |
+| Bedrock_v2192 |      1.26.50       |

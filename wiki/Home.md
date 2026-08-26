@@ -30,6 +30,7 @@ OniLink is a standalone Bedrock edge system. The supported runtime family has tw
 | Deploy in Pterodactyl | [[Pterodactyl Setup]] |
 | Operate the dashboard | [[Operations Dashboard|Dashboard]] |
 | Inspect cross-version packets | [[Packet Monitor]] |
+| Test a 1.26.50 client on a 1.26.44 backend | [[Cross-Version-1.26.50]] |
 | Configure typed player and backend actions | [[OniControl]] |
 | Understand the trust model | [[Architecture and Security]] |
 | Check compatibility gates | [[Compatibility and Testing]] |

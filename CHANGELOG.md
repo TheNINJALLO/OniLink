@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 0.3.0-beta.3 - 2026-08-26
+
+- Added preview support for Minecraft Bedrock `1.26.50` protocol `2192`, including its changed
+  packet layouts and a fail-closed downgrade edge to `1.26.40`/`1.26.44` protocol `2168` backends.
+- Added an explicit `1.26.44` dialect for the unversioned SetScore hotfix, backend-pong dialect
+  selection, and regression coverage derived from pinned Endstone Endweave/bedrock-protocol data.
+- Kept protocol selection local to each player session, allowing 2168 and 2192 clients to use the
+  same running listener without a global mode change or backend restart.
+- Added an owner-only module manager to **Platform -> Modules** with revision-checked atomic
+  persistence, audit events, dependency safeguards, fixed-module protection, and explicit
+  running/configured/restart-pending states.
+
 ## 0.3.0-beta.2 - 2026-08-23
 
 - Added revision-checked backend destination editing, primary-route selection, and safe backend
