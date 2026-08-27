@@ -30,7 +30,7 @@
 #include <vector>
 
 #ifndef ONIBRIDGE_VERSION
-#define ONIBRIDGE_VERSION "0.3.0-beta.3"
+#define ONIBRIDGE_VERSION "0.3.0-beta.4"
 #endif
 #ifndef ONIBRIDGE_BDS_VERSION
 #define ONIBRIDGE_BDS_VERSION "profile-bound"
@@ -507,6 +507,9 @@ class OniBridgePlugin : public endstone::Plugin {
         if (!envelope) {
             rejected_envelopes_.fetch_add(1);
             last_envelope_error_ = envelope.error;
+            getLogger().warning("Rejected OniForward Login envelope from {}: {}",
+                                event.getAddress().getHostname(),
+                                envelope.error);
             return;
         }
         const auto address = event.getAddress();
@@ -520,6 +523,10 @@ class OniBridgePlugin : public endstone::Plugin {
         if (!decision) {
             rejected_envelopes_.fetch_add(1);
             last_envelope_error_ = decision.error;
+            getLogger().warning("Rejected OniForward Login for {} from {}: {}",
+                                envelope.envelope->player_name,
+                                address.getHostname(),
+                                decision.error);
             return;
         }
         staged_envelopes_.fetch_add(1);

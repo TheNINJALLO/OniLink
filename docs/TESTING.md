@@ -7,7 +7,7 @@ Current completed results:
 | `bdsctl` | 27 passed | unit test |
 | `sdkgen` | 17 passed | unit test |
 | packaging, egg, ABI, and checked-profile Python suite | 28 passed, 3 skipped | unit/platform fixture |
-| OniLink Java 21 | 475 passed, 0 failed, 0 skipped | unit/integration fixture |
+| OniLink Java 21 | 476 passed, 0 failed, 0 skipped | unit/integration fixture |
 | Dashboard UI | 38 passed, 0 failed | component/integration fixture |
 | OniBridge Windows CTest | 2 passed | native unit + synthetic executable hook harness |
 | Windows BDS 1.26.44.3 + Endstone 0.11.9 | server start, DLL load/enable, exact hook install, disable/uninstall, exit 0 | partial live lifecycle; offline mode, no client |
@@ -23,6 +23,18 @@ The hook harness uses executable synthetic code rather than a mocked method name
 The repository operator approved the complete Linux acceptance result for the exact BDS `1.26.44.3` + Endstone `0.11.9` target, including the human-review and live-test gates. The Linux profile is therefore production-approved. Windows has proven plugin load/hook lifecycle offline but no live client join and remains a candidate.
 
 ## 1.26.50 preview beta verification performed on 2026-08-26
+
+The `0.3.0-beta.4` regression gate reproduced the backend Login envelope from a protocol-2192
+client with no `ThirdPartyName`, then verified that the protocol-2168 JWT contains the
+Mojang-authenticated display name, `ThirdPartyNameOnly=false`, the exact backend game version, and
+the OniForward claim. The complete 476-test OniLink Gradle suite and embedded dashboard production
+build passed from a clean temporary tree. The full Windows OniBridge plugin compiled against its
+pinned Endstone source, and both native CTest targets passed.
+
+Beta 4 follows a live beta.3 isolation result: the same player and deployment joined normally on
+1.26.44 while 1.26.50/2192 stalled before the BDS encryption handshake. That establishes the
+backend, native profile, listener, and forwarding secret as working controls. Live beta.4 Preview
+acceptance remains required after installation.
 
 The `0.3.0-beta.3` pre-release gate ran the complete Java 21 suite from a clean temporary copy:
 475 tests passed with no failures or skips, the embedded dashboard production bundle compiled,

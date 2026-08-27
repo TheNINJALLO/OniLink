@@ -36,6 +36,7 @@ public final class BackendInitialPacketHandler implements BedrockPacketHandler {
     private final String backendName;
     private final PendingJoinRegistry pendingJoinRegistry;
     private final boolean legacyVerificationEnabled;
+    private final boolean oniForwardEnabled;
     private final BackendCommandRouter commandRouter;
     private final ProxyCommandRegistry commandRegistry;
     private final BackendDirectory backendDirectory;
@@ -58,6 +59,7 @@ public final class BackendInitialPacketHandler implements BedrockPacketHandler {
             String backendName,
             PendingJoinRegistry pendingJoinRegistry,
             boolean legacyVerificationEnabled,
+            boolean oniForwardEnabled,
             BackendCommandRouter commandRouter,
             ProxyCommandRegistry commandRegistry,
             BackendDirectory backendDirectory,
@@ -75,6 +77,7 @@ public final class BackendInitialPacketHandler implements BedrockPacketHandler {
         this.backendName = backendName;
         this.pendingJoinRegistry = pendingJoinRegistry;
         this.legacyVerificationEnabled = legacyVerificationEnabled;
+        this.oniForwardEnabled = oniForwardEnabled;
         this.commandRouter = commandRouter;
         this.commandRegistry = commandRegistry;
         this.backendDirectory = backendDirectory;
@@ -112,9 +115,9 @@ public final class BackendInitialPacketHandler implements BedrockPacketHandler {
                         pendingJoin.expiresAtMillis()
                 );
             }
-        } else {
+        } else if (!oniForwardEnabled) {
             System.out.printf(
-                    "WARNING: Backend verification is disabled; backend %s direct joins are not protected by the proxy verifier.%n",
+                    "WARNING: OniForward is disabled for backend %s; direct joins are not protected by OniBridge.%n",
                     backendName
             );
         }

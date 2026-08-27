@@ -1,6 +1,6 @@
 # Minecraft 1.26.50 cross-version preview
 
-OniLink `0.3.0-beta.3` can accept a Minecraft Bedrock `1.26.50` client using network protocol
+OniLink `0.3.0-beta.4` can accept a Minecraft Bedrock `1.26.50` client using network protocol
 `2192` and relay it to a BDS `1.26.40` or `1.26.44` backend using protocol `2168`. OniBridge remains
 the backend authentication component; you do not install Endweave beside OniLink.
 
@@ -30,6 +30,12 @@ the normal one-time OniLink restart.
 The backend pong supplies both its protocol and version. That matters because `1.26.40` and
 `1.26.44` both report protocol `2168`, while `1.26.44` has a different SetScore removal layout.
 OniLink selects that hotfix codec from version `1.26.44.x`.
+
+Beta 4 also normalizes the backend Login identity envelope. A Preview client is not required to
+provide the untrusted `ThirdPartyName` skin field: OniLink writes it from the Mojang-authenticated
+Xbox display name and clears `ThirdPartyNameOnly` before signing the protocol-2168 backend JWT.
+This lets OniBridge bind the raw Login packet to the signed OniForward identity without trusting
+client-supplied naming data.
 
 ## Configuration
 

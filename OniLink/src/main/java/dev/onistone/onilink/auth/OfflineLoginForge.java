@@ -279,6 +279,14 @@ public final class OfflineLoginForge {
     ) {
         JSONObject backendSkinData = new JSONObject();
         backendSkinData.putAll(skinData);
+
+        // The backend identity envelope must not depend on an optional, client-controlled skin
+        // field. Preview clients may omit ThirdPartyName, while OniBridge deliberately requires
+        // it so the raw Login envelope can be bound to the authenticated OniForward name before
+        // BDS selects player storage. Always replace it with the Mojang-authenticated display name
+        // and clear the unauthenticated third-party-only marker.
+        backendSkinData.put("ThirdPartyName", authData.displayName());
+        backendSkinData.put("ThirdPartyNameOnly", false);
         if (oniForward != null && !oniForward.isBlank()) {
             backendSkinData.put("OniForward", oniForward);
         }

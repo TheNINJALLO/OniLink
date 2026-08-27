@@ -216,6 +216,32 @@ class OfflineLoginForgeTest {
         assertEquals("signed.oniforward.token", skinData(packet).get("OniForward"));
     }
 
+    @Test
+    void normalizesPreviewIdentityForTheProtocol2168OniBridgeEnvelope() throws Exception {
+        KeyPair keyPair = BedrockCrypto.createKeyPair();
+        JSONObject previewSkinData = new JSONObject();
+        previewSkinData.put("GameVersion", "1.26.50");
+        previewSkinData.put("ThirdPartyNameOnly", true);
+        AuthData authData = new AuthData("TheN1NJ4LL0", UUID.randomUUID(), "2535438695543476");
+        ClientLogin clientLogin = new ClientLogin(authData, previewSkinData, keyPair.getPublic());
+
+        LoginPacket packet = new OfflineLoginForge().forgeOidcLogin(
+                keyPair,
+                clientLogin,
+                2168,
+                "1.26.44.3",
+                "45.143.196.160:25570",
+                "signed.oniforward.token"
+        );
+
+        JSONObject backendSkinData = skinData(packet);
+        assertEquals(2168, packet.getProtocolVersion());
+        assertEquals("1.26.44.3", backendSkinData.get("GameVersion"));
+        assertEquals("TheN1NJ4LL0", backendSkinData.get("ThirdPartyName"));
+        assertEquals(false, backendSkinData.get("ThirdPartyNameOnly"));
+        assertEquals("signed.oniforward.token", backendSkinData.get("OniForward"));
+    }
+
     private static JSONObject skinData(LoginPacket packet) throws Exception {
         JsonWebSignature clientJwt = new JsonWebSignature();
         clientJwt.setCompactSerialization(packet.getClientJwt());

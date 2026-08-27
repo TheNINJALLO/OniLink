@@ -501,6 +501,7 @@ public final class BackendConnector {
                                 backendConfig.name(),
                                 pendingJoinRegistry,
                                 legacyVerificationEnabled,
+                                backendConfig.forwarding().enabled(),
                                 new BackendCommandRouter(
                                         backendDirectory,
                                         switcher,

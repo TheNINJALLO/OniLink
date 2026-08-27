@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 0.3.0-beta.4 - 2026-08-26
+
+- Fixed Preview `1.26.50`/protocol `2192` joins to `1.26.44` backends by rebuilding the
+  backend-facing `ThirdPartyName` from the Mojang-authenticated identity and clearing the
+  unauthenticated third-party-only marker before OniBridge validation.
+- Added a regression fixture for a 2192 client that omits `ThirdPartyName`, covering the complete
+  protocol-2168 backend Login JWT and OniForward envelope construction.
+- Replaced the obsolete legacy-verifier warning with an accurate warning only when OniForward is
+  actually disabled for a backend.
+- Added token-safe OniBridge rejection logging with the player and source context needed to
+  diagnose malformed or rejected Login envelopes.
+
 ## 0.3.0-beta.3 - 2026-08-26
 
 - Added preview support for Minecraft Bedrock `1.26.50` protocol `2192`, including its changed
