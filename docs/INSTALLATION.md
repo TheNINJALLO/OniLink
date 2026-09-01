@@ -9,9 +9,9 @@ shows how to add more BDS servers safely. For a shorter first pass, use [Quick s
 > version is a different binary target and must not reuse this plugin/profile pair.
 
 > [!NOTE]
-> Beta 5 testers upgrading to BDS `1.26.45.1` must also install Endstone `0.11.10` and the exact
-> beta 5 profile-specific OniBridge artifact. Follow the
-> [beta 5 upgrade gate](releases/v0.3.0-beta.5.md); the new profile is not production-approved yet.
+> Beta 6 testers upgrading to BDS `1.26.45.1` must also install Endstone `0.11.10` and the exact
+> beta 6 profile-specific OniBridge artifact. Follow the
+> [beta 6 upgrade gate](releases/v0.3.0-beta.6.md); the new profile is not production-approved yet.
 
 ## 1. Plan the deployment
 
@@ -206,6 +206,7 @@ previous_secret_file = ""
 maximum_token_size = 4096
 maximum_lifetime_ms = 10000
 allowed_clock_skew_ms = 2000
+proxy_clock_offset_ms = 0
 replay_cache_max_entries = 10000
 
 [identity]

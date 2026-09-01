@@ -40,6 +40,22 @@ openssl rand -base64 32
 
 OniLink defaults to a 5-second token lifetime. Validators cap lifetime at 10 seconds and allow only the configured clock skew. Keep proxy and backend clocks synchronized. Increasing the lifetime expands the replay window and should not be used to hide clock or network problems.
 
+When OniLink and OniBridge run on different providers and one host clock cannot be repaired,
+`forwarding.proxy_clock_offset_ms` translates between their clock domains without extending the
+token lifetime or replay retention. The value is signed **proxy time minus backend time**. Keep
+`allowed_clock_skew_ms=2000`, attempt one login, and copy the measured offset from OniBridge's
+token rejection into `proxy_clock_offset_ms`. For example, an observed offset of `24750 ms` uses:
+
+```toml
+[forwarding]
+allowed_clock_skew_ms = 2000
+proxy_clock_offset_ms = 24750
+```
+
+Negative values mean the proxy clock is behind the backend. The offset is bounded to five minutes
+in either direction, requires an OniBridge restart, and emits a startup warning while active. It is
+an explicit compensation for an inaccessible host, not a replacement for provider-managed NTP.
+
 ## Key rotation
 
 1. Generate a new secret and key ID.
@@ -275,6 +291,7 @@ Raise a limit only after logs prove a legitimate client is hitting it. Do not di
 | `forwarding.maximum_token_size` | `4096` | Allowed `256..65536` |
 | `forwarding.maximum_lifetime_ms` | `10000` | Allowed `1..10000` |
 | `forwarding.allowed_clock_skew_ms` | `2000` | Allowed `0..10000` |
+| `forwarding.proxy_clock_offset_ms` | `0` | Signed proxy-minus-backend offset; allowed `-300000..300000` |
 | `forwarding.replay_cache_max_entries` | `10000` | Allowed `1..1000000` |
 | `identity.uuid_mode` | `preserve_backend` | `proxy_experimental` is not validated |
 | `identity.verify_post_login_xuid` | `true` | Keep enabled |

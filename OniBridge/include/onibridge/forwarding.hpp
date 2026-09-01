@@ -52,6 +52,9 @@ struct ForwardingValidation {
     std::int64_t now_ms{};
     std::int64_t maximum_lifetime_ms{10'000};
     std::int64_t allowed_clock_skew_ms{2'000};
+    // Signed proxy clock minus backend clock. This translates between the two wall-clock
+    // domains without widening the token lifetime or replay window.
+    std::int64_t proxy_clock_offset_ms{};
     std::size_t maximum_token_size{4'096};
 };
 

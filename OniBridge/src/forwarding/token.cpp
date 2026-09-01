@@ -137,6 +137,33 @@ ForwardingResult fail(std::string value) {
     return {std::nullopt, std::move(value)};
 }
 
+std::int64_t saturating_add(std::int64_t value, std::int64_t adjustment) {
+    if (adjustment > 0 && value > std::numeric_limits<std::int64_t>::max() - adjustment)
+        return std::numeric_limits<std::int64_t>::max();
+    if (adjustment < 0 && value < std::numeric_limits<std::int64_t>::min() - adjustment)
+        return std::numeric_limits<std::int64_t>::min();
+    return value + adjustment;
+}
+
+std::string signed_difference(std::int64_t left, std::int64_t right) {
+    if (left >= right) {
+        const auto distance = static_cast<std::uint64_t>(left) - static_cast<std::uint64_t>(right);
+        return std::to_string(distance);
+    }
+    const auto distance = static_cast<std::uint64_t>(right) - static_cast<std::uint64_t>(left);
+    return "-" + std::to_string(distance);
+}
+
+std::string clock_error(std::string_view reason,
+                        const ForwardingClaims& claims,
+                        const ForwardingValidation& validation) {
+    return std::string(reason) + " (observed proxy-minus-backend clock offset " +
+           signed_difference(claims.issued_at_ms, validation.now_ms) +
+           " ms; configured proxy_clock_offset_ms=" +
+           std::to_string(validation.proxy_clock_offset_ms) +
+           ", allowed_clock_skew_ms=" + std::to_string(validation.allowed_clock_skew_ms) + ")";
+}
+
 ForwardingResult decode_payload(std::span<const std::byte> payload) {
     if (payload.size() < 6 || !std::equal(magic.begin(), magic.end(), payload.begin())) {
         return fail("invalid payload magic");
@@ -270,11 +297,15 @@ ForwardingResult verify_forwarding_token(std::string_view token,
         claims.expires_at_ms - claims.issued_at_ms > validation.maximum_lifetime_ms) {
         return fail("token lifetime exceeds policy");
     }
-    if (claims.issued_at_ms > validation.now_ms + validation.allowed_clock_skew_ms) {
-        return fail("token was issued in the future");
+    const auto expected_proxy_now =
+        saturating_add(validation.now_ms, validation.proxy_clock_offset_ms);
+    if (claims.issued_at_ms >
+        saturating_add(expected_proxy_now, validation.allowed_clock_skew_ms)) {
+        return fail(clock_error("token was issued in the future", claims, validation));
     }
-    if (claims.expires_at_ms < validation.now_ms - validation.allowed_clock_skew_ms) {
-        return fail("token is expired");
+    if (claims.expires_at_ms <
+        saturating_add(expected_proxy_now, -validation.allowed_clock_skew_ms)) {
+        return fail(clock_error("token is expired", claims, validation));
     }
     TrustedProxyMatcher address_validator;
     try {

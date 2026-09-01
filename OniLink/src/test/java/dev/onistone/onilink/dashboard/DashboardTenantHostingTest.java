@@ -70,6 +70,8 @@ class DashboardTenantHostingTest {
             assertTrue(handoff.get("CUSTOMER-START-HERE.txt").contains("existing OniLink container"));
             assertTrue(handoff.get("backend/onibridge.toml")
                     .contains("trusted_proxy_cidrs = [\"45.143.196.108/32\"]"));
+            assertTrue(handoff.get("backend/onibridge.toml")
+                    .contains("proxy_clock_offset_ms = 0"));
 
             Map<String, Object> tenantView = hosting.overview("acme");
             assertEquals("single-container", tenantView.get("mode"));

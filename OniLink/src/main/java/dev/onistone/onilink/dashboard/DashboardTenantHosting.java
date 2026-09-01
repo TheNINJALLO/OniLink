@@ -738,6 +738,7 @@ final class DashboardTenantHosting implements AutoCloseable {
                 maximum_token_size = 4096
                 maximum_lifetime_ms = 10000
                 allowed_clock_skew_ms = 2000
+                proxy_clock_offset_ms = 0
                 replay_cache_max_entries = 10000
 
                 [identity]

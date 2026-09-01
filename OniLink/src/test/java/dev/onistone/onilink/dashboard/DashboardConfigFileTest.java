@@ -103,6 +103,7 @@ class DashboardConfigFileTest {
         assertTrue(toml.contains(
                 "required_profile = \"bds-1.26.44.3-linux-x86_64-06effdd00067f1ae\""));
         assertTrue(toml.contains("allow_unreviewed_profile = false"));
+        assertTrue(toml.contains("proxy_clock_offset_ms = 0"));
         assertEquals("198.51.100.20:25571", result.get("backendEndpoint"));
         assertEquals("198.51.100.10/32", result.get("trustedProxyCidr"));
         assertEquals("creative-onibridge-setup.zip", result.get("setupBundleFileName"));

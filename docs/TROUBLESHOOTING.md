@@ -49,6 +49,15 @@ Compare these values character-for-character on OniLink and the backend validato
 
 A Java properties value with an inline `# comment` includes the comment text. Put comments on their own lines.
 
+### `token was issued in the future` or `token is expired`
+
+Beta 6 reports `observed proxy-minus-backend clock offset` after the token signature and forwarding
+context have already passed. Synchronize both host clocks with NTP whenever possible. If one
+provider-managed host is inaccessible, keep `allowed_clock_skew_ms=2000`, set
+`forwarding.proxy_clock_offset_ms` to the reported signed value, and fully restart OniBridge. The
+accepted range is `-300000..300000` ms. This translation preserves the original token lifetime and
+replay-cache expiration; do not increase the general skew window to compensate for a fixed offset.
+
 ## Direct backend joins succeed
 
 Treat this as a security failure:

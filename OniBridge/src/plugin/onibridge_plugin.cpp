@@ -30,7 +30,7 @@
 #include <vector>
 
 #ifndef ONIBRIDGE_VERSION
-#define ONIBRIDGE_VERSION "0.3.0-beta.5"
+#define ONIBRIDGE_VERSION "0.3.0-beta.6"
 #endif
 #ifndef ONIBRIDGE_BDS_VERSION
 #define ONIBRIDGE_BDS_VERSION "profile-bound"
@@ -330,7 +330,8 @@ class OniBridgePlugin : public endstone::Plugin {
                           "[forwarding]\nprotocol = 2\nactive_key_id = \"key-1\"\n"
                           "active_secret_env = \"ONIBRIDGE_FORWARDING_SECRET\"\n"
                           "maximum_token_size = 4096\nmaximum_lifetime_ms = 10000\n"
-                          "allowed_clock_skew_ms = 2000\nreplay_cache_max_entries = 10000\n\n"
+                          "allowed_clock_skew_ms = 2000\nproxy_clock_offset_ms = 0\n"
+                          "replay_cache_max_entries = 10000\n\n"
                           "[identity]\nuuid_mode = \"preserve_backend\"\nverify_post_login_xuid = "
                           "true\n"
                           "store_verified_identities = "
@@ -371,7 +372,15 @@ class OniBridgePlugin : public endstone::Plugin {
                                                    config_.replay_cache_max_entries,
                                                    config_.maximum_token_size,
                                                    config_.maximum_lifetime_ms,
-                                                   config_.allowed_clock_skew_ms);
+                                                   config_.allowed_clock_skew_ms,
+                                                   config_.proxy_clock_offset_ms);
+
+            if (config_.proxy_clock_offset_ms != 0) {
+                getLogger().warning(
+                    "OniForward proxy clock compensation is active at {} ms; keep the normal "
+                    "clock-skew tolerance and have the host provider repair NTP.",
+                    config_.proxy_clock_offset_ms);
+            }
 
             registerEvent(
                 &OniBridgePlugin::onPacketReceive, *this, endstone::EventPriority::Monitor);
@@ -455,6 +464,9 @@ class OniBridgePlugin : public endstone::Plugin {
         const auto& action = args[0];
         if (action == "status") {
             sender.sendMessage("OniBridge hook active: {}", hook_active_ ? "true" : "false");
+            sender.sendMessage("Proxy clock offset: {} ms; allowed skew: {} ms",
+                               config_.proxy_clock_offset_ms,
+                               config_.allowed_clock_skew_ms);
             if (!hook_error_.empty())
                 sender.sendErrorMessage("Compatibility: {}", hook_error_);
         } else if (action == "version") {

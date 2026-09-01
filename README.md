@@ -11,7 +11,7 @@
 
 <p align="center">
   <img alt="Version 0.2.0" src="https://img.shields.io/badge/Release-v0.2.0-52b7a8?style=flat-square">
-  <img alt="Beta 0.3.0 beta 5" src="https://img.shields.io/badge/Beta-v0.3.0--beta.5-ffb347?style=flat-square">
+  <img alt="Beta 0.3.0 beta 6" src="https://img.shields.io/badge/Beta-v0.3.0--beta.6-ffb347?style=flat-square">
   <img alt="Endstone 0.11.10" src="https://img.shields.io/badge/Endstone-0.11.10-52b7a8?style=flat-square">
   <img alt="BDS 1.26.45.1" src="https://img.shields.io/badge/BDS-1.26.45.1-63b8ff?style=flat-square">
   <img alt="Java 21" src="https://img.shields.io/badge/Java-21-ED8B00?style=flat-square&amp;logo=openjdk&amp;logoColor=white">
@@ -34,9 +34,10 @@
 > [!IMPORTANT]
 > `v0.2.0` is the current stable release. The Linux BDS `1.26.44.3` + Endstone `0.11.9` profile is production-approved and remains fail closed. Full packet captures can include chat, XUIDs, endpoints, decoded fields, and incoming bytes; restrict dashboard access and inspect exports before sharing them.
 
-> `v0.3.0-beta.5` is the next preview beta. One running OniLink instance negotiates
-> 1.26.44/2168, 1.26.45/2169, and 1.26.50/2192 independently for each player. Beta 5 pins
-> Endstone 0.11.10 and adds exact BDS 1.26.45.1 native profile candidates. Keep using the
+> `v0.3.0-beta.6` is the next preview beta. One running OniLink instance negotiates
+> 1.26.44/2168, 1.26.45/2169, and 1.26.50/2192 independently for each player. Beta 6 pins
+> Endstone 0.11.10, adds exact BDS 1.26.45.1 native profile candidates, and supports a bounded
+> clock-domain offset when proxy and backend hosts cannot share NTP. Keep using the
 > production-approved 1.26.44.3 profile until the new platform-specific live gates pass.
 
 ## The product family

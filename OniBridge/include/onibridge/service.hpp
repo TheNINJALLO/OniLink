@@ -28,7 +28,8 @@ class OniBridgeService final {
                      std::size_t replay_maximum = 10'000,
                      std::size_t maximum_token_size = 4'096,
                      std::int64_t maximum_lifetime_ms = 10'000,
-                     std::int64_t allowed_clock_skew_ms = 2'000);
+                     std::int64_t allowed_clock_skew_ms = 2'000,
+                     std::int64_t proxy_clock_offset_ms = 0);
 
     [[nodiscard]] IdentityDecision verify_forwarded_login(std::string_view token,
                                                           std::string_view actual_socket_source,
@@ -68,6 +69,7 @@ class OniBridgeService final {
     std::size_t maximum_token_size_;
     std::int64_t maximum_lifetime_ms_;
     std::int64_t allowed_clock_skew_ms_;
+    std::int64_t proxy_clock_offset_ms_;
 };
 
 } // namespace onistone::onibridge

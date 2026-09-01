@@ -31,5 +31,9 @@ The backend has one unique secret, selected by `key_id`. OniBridge accepts the a
 
 OniBridge bounds the token, decodes the canonical envelope, chooses a configured key, verifies HMAC, validates every claim and time bound, confirms the actual peer socket against `trusted_proxy_cidrs`, then atomically consumes `bridge_id + session_id + nonce`. Only after all checks pass may `real_ip` or the forwarded XUID be trusted. The default lifetime is 5 seconds, maximum lifetime 10 seconds, clock skew 2 seconds, token size 4096 bytes, and replay capacity 10,000.
 
-The shared positive vector is [test-vectors.json](../OniBridge/protocol/test-vectors.json). Java and C++ unit tests assert its exact token. Negative suites cover signature changes, context mismatch, expiration, future issuance, rotation, replay, invalid addresses, and CIDR boundaries.
+`proxy_clock_offset_ms` is a local verifier policy and is not carried on the wire. It declares the
+signed proxy-minus-backend clock difference, translates validation into the proxy clock domain,
+and translates replay/pending expiration back into backend time. Consequently a configured offset
+does not change the signed lifetime, normal skew tolerance, or replay-retention duration.
 
+The shared positive vector is [test-vectors.json](../OniBridge/protocol/test-vectors.json). Java and C++ unit tests assert its exact token. Negative suites cover signature changes, context mismatch, expiration, future issuance, rotation, replay, invalid addresses, and CIDR boundaries.

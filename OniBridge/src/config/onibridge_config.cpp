@@ -239,6 +239,9 @@ std::optional<std::string> OniBridgeConfig::validate() const {
     if (allowed_clock_skew_ms < 0 || allowed_clock_skew_ms > 10'000) {
         return "clock skew is outside safe limits";
     }
+    if (proxy_clock_offset_ms < -300'000 || proxy_clock_offset_ms > 300'000) {
+        return "proxy clock offset must be between -300000 and 300000 ms";
+    }
     if (replay_cache_max_entries == 0 || replay_cache_max_entries > 1'000'000) {
         return "replay cache limit is outside safe limits";
     }
@@ -412,6 +415,7 @@ OniBridgeConfig load_config(const std::filesystem::path& path) {
         "forwarding.allowed_clock_skew_ms",
         "forwarding.maximum_lifetime_ms",
         "forwarding.maximum_token_size",
+        "forwarding.proxy_clock_offset_ms",
         "forwarding.previous_key_id",
         "forwarding.previous_secret_env",
         "forwarding.previous_secret_file",
@@ -452,6 +456,7 @@ OniBridgeConfig load_config(const std::filesystem::path& path) {
         static_cast<std::size_t>(int_value(values, "forwarding.maximum_token_size", 4'096));
     config.maximum_lifetime_ms = int_value(values, "forwarding.maximum_lifetime_ms", 10'000);
     config.allowed_clock_skew_ms = int_value(values, "forwarding.allowed_clock_skew_ms", 2'000);
+    config.proxy_clock_offset_ms = int_value(values, "forwarding.proxy_clock_offset_ms", 0);
     config.replay_cache_max_entries =
         static_cast<std::size_t>(int_value(values, "forwarding.replay_cache_max_entries", 10'000));
     const auto uuid_mode = string_value(values, "identity.uuid_mode", "preserve_backend");

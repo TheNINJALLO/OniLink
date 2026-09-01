@@ -85,6 +85,7 @@ previous_secret_file = ""
 maximum_token_size = 4096
 maximum_lifetime_ms = 10000
 allowed_clock_skew_ms = 2000
+proxy_clock_offset_ms = 0
 replay_cache_max_entries = 10000
 
 [identity]
@@ -110,6 +111,11 @@ enabled = false
 `trusted_proxy_cidrs` must contain the source address BDS actually observes. With Docker or panel networking this may be a bridge/NAT address rather than the public proxy address. Use the narrowest correct range, normally an IPv4 `/32` or IPv6 `/128`.
 
 The parser rejects unknown or duplicate options. Configure exactly one active secret source: `active_secret_env` or `active_secret_file`, never both. A secret file must be accessible only to the BDS service account.
+
+Keep `proxy_clock_offset_ms = 0` when both hosts have working NTP. If a separately managed host
+cannot be corrected, beta 6 reports the signed proxy-minus-backend offset after a rejected login.
+Copy that value into `proxy_clock_offset_ms`, keep `allowed_clock_skew_ms = 2000`, and restart
+OniBridge. Compensation is bounded to five minutes and does not extend token or replay lifetime.
 
 ## 5. Configure OniLink
 

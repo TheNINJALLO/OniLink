@@ -147,8 +147,27 @@ void token_tests() {
 
     auto future = validation();
     future.now_ms = fixture().issued_at_ms - future.allowed_clock_skew_ms - 1;
-    check(!verify_forwarding_token(token, {key(), std::nullopt}, future),
-          "future token is rejected");
+    const auto future_result = verify_forwarding_token(token, {key(), std::nullopt}, future);
+    check(!future_result, "future token is rejected");
+    check(future_result.error.find("observed proxy-minus-backend clock offset 2001 ms") !=
+              std::string::npos,
+          "future-token rejection reports the measured clock offset without token contents");
+
+    auto proxy_ahead = validation();
+    proxy_ahead.now_ms = fixture().issued_at_ms - 30'000;
+    check(!verify_forwarding_token(token, {key(), std::nullopt}, proxy_ahead),
+          "a proxy clock beyond the normal skew fails without explicit compensation");
+    proxy_ahead.proxy_clock_offset_ms = 30'000;
+    check(static_cast<bool>(verify_forwarding_token(token, {key(), std::nullopt}, proxy_ahead)),
+          "an explicit positive proxy clock offset preserves the normal skew window");
+
+    auto proxy_behind = validation();
+    proxy_behind.now_ms = fixture().issued_at_ms + 30'000;
+    check(!verify_forwarding_token(token, {key(), std::nullopt}, proxy_behind),
+          "a proxy clock behind the backend expires without compensation");
+    proxy_behind.proxy_clock_offset_ms = -30'000;
+    check(static_cast<bool>(verify_forwarding_token(token, {key(), std::nullopt}, proxy_behind)),
+          "an explicit negative proxy clock offset preserves the token lifetime");
 
     auto previous = key();
     auto active = key();
@@ -237,6 +256,27 @@ void control_config_tests() {
     check(configured.control.secret.environment_variable == "ONIBRIDGE_CONTROL_SECRET",
           "OniControl keeps a separate secret source");
 
+    auto write_offset = [&](std::int64_t offset) {
+        std::ofstream output(path, std::ios::binary | std::ios::trunc);
+        output << "bridge_id = \"survival-main\"\nbackend_name = \"survival\"\n"
+                  "trusted_proxy_cidrs = [\"127.0.0.1/32\"]\n"
+                  "[forwarding]\nactive_key_id = \"key-1\"\n"
+                  "active_secret_env = \"ONIBRIDGE_FORWARDING_SECRET\"\n"
+                  "proxy_clock_offset_ms = "
+               << offset << "\n[compatibility]\nrequired_profile = \"reviewed-profile\"\n";
+    };
+    write_offset(30'000);
+    check(load_config(path).proxy_clock_offset_ms == 30'000,
+          "bounded proxy clock compensation loads as a signed value");
+    bool offset_rejected = false;
+    try {
+        write_offset(300'001);
+        (void)load_config(path);
+    } catch (const std::exception&) {
+        offset_rejected = true;
+    }
+    check(offset_rejected, "proxy clock compensation outside five minutes fails closed");
+
     bool rejected = false;
     try {
         write("[control]\nenabled = true\nlisten_host = \"0.0.0.0\"\nlisten_port = 19132\n"
@@ -298,6 +338,22 @@ void service_tests() {
     check(!untrusted.verify_forwarded_login(
               token, "10.5.4.3", "Alex", "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", 1'800'000'001'000),
           "valid token from an untrusted socket source is rejected");
+
+    OniBridgeService offset_service("kingdom-main",
+                                    "kingdom",
+                                    {key(), std::nullopt},
+                                    TrustedProxyMatcher({"10.0.0.0/8"}),
+                                    10'000,
+                                    4'096,
+                                    10'000,
+                                    2'000,
+                                    30'000);
+    const auto offset_now = fixture().issued_at_ms - 29'000;
+    check(static_cast<bool>(offset_service.verify_forwarded_login(
+              token, "10.5.4.3", "Alex", "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", offset_now)),
+          "service translates replay and pending expiries into backend clock time");
+    check(!offset_service.verify_forwarded_login(token, "10.5.4.3", "Alex", "uuid", offset_now + 1),
+          "clock compensation does not weaken single-use replay enforcement");
 }
 
 void login_envelope_tests() {
