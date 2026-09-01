@@ -239,8 +239,8 @@ std::optional<std::string> OniBridgeConfig::validate() const {
     if (allowed_clock_skew_ms < 0 || allowed_clock_skew_ms > 10'000) {
         return "clock skew is outside safe limits";
     }
-    if (proxy_clock_offset_ms < -300'000 || proxy_clock_offset_ms > 300'000) {
-        return "proxy clock offset must be between -300000 and 300000 ms";
+    if (proxy_clock_offset_ms < -86'400'000 || proxy_clock_offset_ms > 86'400'000) {
+        return "proxy clock offset must be between -86400000 and 86400000 ms";
     }
     if (replay_cache_max_entries == 0 || replay_cache_max_entries > 1'000'000) {
         return "replay cache limit is outside safe limits";

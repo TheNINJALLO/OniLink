@@ -3,7 +3,8 @@
 ## Unreleased
 
 - Added bounded `proxy_clock_offset_ms` compensation for separately hosted OniLink and OniBridge
-  systems when a provider-managed host clock cannot be repaired. Token lifetime, normal skew, and
+  systems when a provider-managed host clock cannot be repaired. Beta 7 accepts a fixed offset of
+  up to 24 hours, including the live-observed `9922992 ms` case. Token lifetime, normal skew, and
   replay retention remain unchanged, and rejection logs report the measured signed offset.
 - Added exact Minecraft Bedrock `1.26.45` protocol `2169` support and preserved the distinct
   `1.26.44`/protocol-2168 SetScore dialect after authenticated client version discovery.

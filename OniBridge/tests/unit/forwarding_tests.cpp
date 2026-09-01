@@ -154,12 +154,12 @@ void token_tests() {
           "future-token rejection reports the measured clock offset without token contents");
 
     auto proxy_ahead = validation();
-    proxy_ahead.now_ms = fixture().issued_at_ms - 30'000;
+    proxy_ahead.now_ms = fixture().issued_at_ms - 9'922'992;
     check(!verify_forwarding_token(token, {key(), std::nullopt}, proxy_ahead),
           "a proxy clock beyond the normal skew fails without explicit compensation");
-    proxy_ahead.proxy_clock_offset_ms = 30'000;
+    proxy_ahead.proxy_clock_offset_ms = 9'922'992;
     check(static_cast<bool>(verify_forwarding_token(token, {key(), std::nullopt}, proxy_ahead)),
-          "an explicit positive proxy clock offset preserves the normal skew window");
+          "the observed multi-hour positive offset preserves the normal skew window");
 
     auto proxy_behind = validation();
     proxy_behind.now_ms = fixture().issued_at_ms + 30'000;
@@ -265,17 +265,17 @@ void control_config_tests() {
                   "proxy_clock_offset_ms = "
                << offset << "\n[compatibility]\nrequired_profile = \"reviewed-profile\"\n";
     };
-    write_offset(30'000);
-    check(load_config(path).proxy_clock_offset_ms == 30'000,
-          "bounded proxy clock compensation loads as a signed value");
+    write_offset(9'922'992);
+    check(load_config(path).proxy_clock_offset_ms == 9'922'992,
+          "the observed multi-hour proxy clock compensation loads as a signed value");
     bool offset_rejected = false;
     try {
-        write_offset(300'001);
+        write_offset(86'400'001);
         (void)load_config(path);
     } catch (const std::exception&) {
         offset_rejected = true;
     }
-    check(offset_rejected, "proxy clock compensation outside five minutes fails closed");
+    check(offset_rejected, "proxy clock compensation outside 24 hours fails closed");
 
     bool rejected = false;
     try {
@@ -347,8 +347,8 @@ void service_tests() {
                                     4'096,
                                     10'000,
                                     2'000,
-                                    30'000);
-    const auto offset_now = fixture().issued_at_ms - 29'000;
+                                    9'922'992);
+    const auto offset_now = fixture().issued_at_ms - 9'921'992;
     check(static_cast<bool>(offset_service.verify_forwarded_login(
               token, "10.5.4.3", "Alex", "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", offset_now)),
           "service translates replay and pending expiries into backend clock time");

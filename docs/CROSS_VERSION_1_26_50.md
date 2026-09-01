@@ -1,6 +1,6 @@
 # Minecraft 1.26.50 cross-version preview
 
-OniLink `0.3.0-beta.6` can accept a Minecraft Bedrock `1.26.50` client using network protocol
+OniLink `0.3.0-beta.7` can accept a Minecraft Bedrock `1.26.50` client using network protocol
 `2192` and relay it to BDS `1.26.45.1` using protocol `2169`, or to an older supported backend.
 OniBridge remains the backend authentication component; you do not install Endweave beside OniLink.
 

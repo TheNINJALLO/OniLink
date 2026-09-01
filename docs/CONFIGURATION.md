@@ -52,9 +52,9 @@ allowed_clock_skew_ms = 2000
 proxy_clock_offset_ms = 24750
 ```
 
-Negative values mean the proxy clock is behind the backend. The offset is bounded to five minutes
-in either direction, requires an OniBridge restart, and emits a startup warning while active. It is
-an explicit compensation for an inaccessible host, not a replacement for provider-managed NTP.
+Negative values mean the proxy clock is behind the backend. The offset is bounded to 24 hours in
+either direction, requires an OniBridge restart, and emits a startup warning while active. It is an
+explicit compensation for an inaccessible host, not a replacement for provider-managed NTP.
 
 ## Key rotation
 
@@ -291,7 +291,7 @@ Raise a limit only after logs prove a legitimate client is hitting it. Do not di
 | `forwarding.maximum_token_size` | `4096` | Allowed `256..65536` |
 | `forwarding.maximum_lifetime_ms` | `10000` | Allowed `1..10000` |
 | `forwarding.allowed_clock_skew_ms` | `2000` | Allowed `0..10000` |
-| `forwarding.proxy_clock_offset_ms` | `0` | Signed proxy-minus-backend offset; allowed `-300000..300000` |
+| `forwarding.proxy_clock_offset_ms` | `0` | Signed proxy-minus-backend offset; allowed `-86400000..86400000` |
 | `forwarding.replay_cache_max_entries` | `10000` | Allowed `1..1000000` |
 | `identity.uuid_mode` | `preserve_backend` | `proxy_experimental` is not validated |
 | `identity.verify_post_login_xuid` | `true` | Keep enabled |

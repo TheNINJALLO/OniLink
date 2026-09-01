@@ -22,6 +22,20 @@ The hook harness uses executable synthetic code rather than a mocked method name
 
 The repository operator approved the complete Linux acceptance result for the exact BDS `1.26.44.3` + Endstone `0.11.9` target, including the human-review and live-test gates. The Linux profile is therefore production-approved. Windows has proven plugin load/hook lifecycle offline but no live client join and remains a candidate.
 
+## Multi-hour host-clock compensation verification performed on 2026-09-01
+
+The `0.3.0-beta.7` corrective gate reproduces the live-observed `9922992 ms`
+proxy-minus-backend difference through token validation, configuration loading, replay consumption,
+and pending-login expiration. It accepts the explicit live value, rejects an unconfigured fixed
+offset, and fails closed beyond the new 24-hour configuration bound without widening the normal
+two-second skew or signed token lifetime.
+
+The exact Windows BDS 1.26.45.1 plugin compiled against Endstone 0.11.10 and both CTest targets
+passed. All 480 Java tests, the standalone JAR, and the dashboard production build passed on Java
+21. Prettier, ESLint, TypeScript, all 38 dashboard tests, all 73 Python tests with 3 expected Windows
+platform skips, the checked-profile validator, pinned C++ formatting, and diff validation also
+passed. The exact beta 7 Linux build, ABI ceiling, and release package remain GitHub workflow gates.
+
 ## Separate-host clock compensation verification performed on 2026-09-01
 
 The `0.3.0-beta.6` local gate adds explicit, bounded translation between OniLink's clock and the
