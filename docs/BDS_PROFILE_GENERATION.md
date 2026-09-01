@@ -4,15 +4,17 @@
 
 Current generated roots:
 
+- `OniBridge/generated/bds/1.26.45.1/linux-x86_64/`
+- `OniBridge/generated/bds/1.26.45.1/windows-x86_64/`
 - `OniBridge/generated/bds/1.26.44.3/linux-x86_64/`
 - `OniBridge/generated/bds/1.26.44.3/windows-x86_64/`
 
-Each contains `abi.json`, `symbols.json`, `signatures.json`, `profile.json`, `report.md`, `adapter.cpp`, and `include/onibridge/bds_abi.hpp`. Candidate profiles are copied to `OniBridge/profiles/1.26.44.3/` and can be checked against the exact cached executables with:
+Each contains `abi.json`, `symbols.json`, `signatures.json`, `profile.json`, `report.md`, `adapter.cpp`, and `include/onibridge/bds_abi.hpp`. BDS `1.26.45.1` candidates are copied to `OniBridge/profiles/1.26.45.1/` and can be checked against the exact cached executables with:
 
 ```powershell
 cd OniBridge/tools/sdkgen
-python -m sdkgen validate-profile ../../profiles/1.26.44.3/linux-x86_64.json ../../../.cache/bds/1.26.44.3/linux-x86_64/extracted/bedrock_server --allow-candidate
-python -m sdkgen validate-profile ../../profiles/1.26.44.3/windows-x86_64.json ../../../.cache/bds/1.26.44.3/windows-x86_64/extracted/bedrock_server.exe --allow-candidate
+python -m sdkgen validate-profile ../../profiles/1.26.45.1/linux-x86_64.json ../../../.cache/bds/1.26.45.1/linux-x86_64/extracted/bedrock_server --allow-candidate
+python -m sdkgen validate-profile ../../profiles/1.26.45.1/windows-x86_64.json ../../../.cache/bds/1.26.45.1/windows-x86_64/extracted/bedrock_server.exe --allow-candidate
 ```
 
 A unique signature is necessary but insufficient. Production promotion still requires a platform-executed hook harness, human review, and live BDS acceptance. Unknown hashes, sizes, bytes, destinations, architectures, Endstone versions, or profile IDs fail closed.

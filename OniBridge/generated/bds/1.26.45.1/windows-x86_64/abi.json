@@ -1,0 +1,39 @@
+{
+  "alignments": {
+    "PlayerAuthenticationInfo": 8
+  },
+  "bds_version": "1.26.45.1",
+  "binary_evidence": {
+    "authenticated_uuid_offset": 360,
+    "instruction_count": 109,
+    "is_host_offset": 376,
+    "is_local_offset": 377,
+    "optional_engaged_offset": 384,
+    "permissions_offset": 320,
+    "public_key_offset": 328,
+    "string_count": 10,
+    "string_size": 32
+  },
+  "compiler_abi": "microsoft-x64",
+  "executable_sha256": "92d09c7b74ac6a9805bafc166d8e0a13ac9e5db73dbbb0819e5a14093699d44f",
+  "generation_time_utc": "2026-09-01T03:02:29.436268Z",
+  "generator_version": "0.1.0",
+  "offsets": {
+    "PlayerAuthenticationInfo.authenticated_uuid": 360,
+    "PlayerAuthenticationInfo.best_display_name": 288,
+    "PlayerAuthenticationInfo.is_host": 376,
+    "PlayerAuthenticationInfo.is_local": 377,
+    "PlayerAuthenticationInfo.permissions": 320,
+    "PlayerAuthenticationInfo.public_key": 328,
+    "PlayerAuthenticationInfo.xbox_live_name": 192,
+    "PlayerAuthenticationInfo.xuid": 0,
+    "optional<PlayerAuthenticationInfo>.engaged": 384
+  },
+  "platform": "windows-x86_64",
+  "schema": 1,
+  "sizes": {
+    "PlayerAuthenticationInfo": 384,
+    "std::string": 32
+  },
+  "status": "verified"
+}

@@ -102,17 +102,17 @@ To add a native BDS route automatically, use the dashboard's dedicated **Add Bac
 | `backend.protocol` | `auto` | Global backend protocol probe/pin policy |
 | `backend.<name>.host` | `10.10.0.20` | Named backend address |
 | `backend.<name>.port` | `19133` | Named backend UDP port |
-| `backend.<name>.protocol` | `1.26.44` | Optional per-backend protocol override |
+| `backend.<name>.protocol` | `1.26.45` | Optional per-backend protocol override |
 
 Use `backend.protocol=auto` unless you have a deliberate, tested reason to pin. A stale version pin is harder to diagnose than a failed probe.
 
-The unreleased cross-version preview accepts Minecraft `1.26.50` protocol `2192` clients while a
-backend remains on `1.26.44` protocol `2168`. Configure the version BDS actually runs:
+The cross-version preview accepts Minecraft `1.26.50` protocol `2192` clients while a backend runs
+`1.26.45` protocol `2169` or an earlier supported version. Configure the version BDS actually runs:
 
 ```properties
 backend.protocol=auto
 # Or, only if probing is unavailable:
-backend.survival.protocol=1.26.44
+backend.survival.protocol=1.26.45
 ```
 
 Do not set the backend to `1.26.50` unless that backend itself has upgraded. Because `1.26.40` and

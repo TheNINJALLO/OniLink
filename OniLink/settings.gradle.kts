@@ -21,7 +21,7 @@ plugins {
 rootProject.name = "onilink"
 
 // The Bedrock codecs, vendored under protocol/ (which in turn includes network/ beside it). They are
-// a fork of Kas-tle/Protocol carrying the hand-written v944, v975, v1001 and v2168 codecs this proxy
+// a fork of Kas-tle/Protocol carrying the hand-written v944, v975, v1001, v2168, v2169, and v2192 codecs this proxy
 // depends on, so they live here rather than being fetched: without them there is no protocol support
 // to build. Apache 2.0, see protocol/LICENSE and NOTICE.
 includeBuild("protocol")

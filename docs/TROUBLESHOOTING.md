@@ -12,7 +12,7 @@ Read the first OniBridge critical message.
 | Unknown TOML key | Remove the typo or unsupported key; native configuration is strict |
 | Empty/wrong profile | Set the exact profile ID from [Compatibility](COMPATIBILITY.md) |
 | BDS hash mismatch | Stop; use the exact supported executable or generate/review a new profile |
-| Endstone mismatch | Install the exact required Endstone build |
+| Endstone mismatch | Match Endstone to the plugin: 0.11.9 for BDS 1.26.44.3 or 0.11.10 for BDS 1.26.45.1 |
 | Expected-byte/call mismatch | Stop; do not copy an offset or RVA from another build or OS |
 | Unreviewed profile blocked | Install the current production Linux artifact and keep `allow_unreviewed_profile=false`; use the override only for a separately documented candidate test |
 | Missing generated adapter | Build a profile-specific plugin; generic native plugins are forbidden |

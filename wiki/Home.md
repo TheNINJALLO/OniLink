@@ -30,7 +30,7 @@ OniLink is a standalone Bedrock edge system. The supported runtime family has tw
 | Deploy in Pterodactyl | [[Pterodactyl Setup]] |
 | Operate the dashboard | [[Operations Dashboard|Dashboard]] |
 | Inspect cross-version packets | [[Packet Monitor]] |
-| Test a 1.26.50 client on a 1.26.44 backend | [[Cross-Version-1.26.50]] |
+| Test a 1.26.50 client on a 1.26.45 backend | [[Cross-Version-1.26.50]] |
 | Configure typed player and backend actions | [[OniControl]] |
 | Understand the trust model | [[Architecture and Security]] |
 | Check compatibility gates | [[Compatibility and Testing]] |
@@ -42,10 +42,11 @@ OniLink is a standalone Bedrock edge system. The supported runtime family has tw
 | Item | Value |
 | --- | --- |
 | Application | [`v0.2.0`](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.2.0) (stable) |
-| BDS | `1.26.44.3` |
-| Endstone | `0.11.9` |
-| Linux profile | x86-64, production-approved |
-| Windows profile | x86-64, candidate |
+| Preview | `v0.3.0-beta.5` preparation |
+| BDS | `1.26.44.3` stable profile; `1.26.45.1` candidate profiles |
+| Endstone | `0.11.9` stable profile; `0.11.10` candidate profiles |
+| Linux profile | 1.26.44.3 production-approved; 1.26.45.1 candidate |
+| Windows profile | Candidate |
 
 The repository [documentation hub](https://github.com/TheNINJALLO/OniLink/blob/main/docs/README.md)
 is canonical for engineering detail. This Wiki focuses on operator tasks.

@@ -225,6 +225,16 @@ public final class InitialClientPacketHandler implements BedrockPacketHandler {
             }
 
             ClientLogin clientLogin = authenticator.authenticate(packet);
+            String clientGameVersion = String.valueOf(
+                    clientLogin.skinData().getOrDefault("GameVersion", "")
+            );
+            org.cloudburstmc.protocol.bedrock.codec.BedrockCodec refinedClientCodec =
+                    CanonicalProtocol.clientCodec(session.clientCodec(), clientGameVersion);
+            if (refinedClientCodec != session.clientCodec()) {
+                session.setClientCodec(refinedClientCodec);
+                session.setCodec(refinedClientCodec);
+                CodecDefinitionState.installFallbacks(session);
+            }
             String xuid = clientLogin.authData().xuid();
             if (!allowlist.allows(xuid)) {
                 System.out.printf(

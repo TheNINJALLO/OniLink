@@ -65,9 +65,14 @@ public final class ProtocolRegistry {
                 .codec(CanonicalProtocol.V1_26_20)
                 .codec(CanonicalProtocol.V1_26_30)
                 .codec(CanonicalProtocol.V1_26_40)
+                .codec(CanonicalProtocol.V1_26_45)
                 .codec(CanonicalProtocol.V1_26_50)
                 // Directed adjacent translators (newer -> older). Longer gaps are auto-chained.
+                .edge(CanonicalProtocol.V1_26_50, CanonicalProtocol.V1_26_45, ModernClientTo2168Translator.INSTANCE)
                 .edge(CanonicalProtocol.V1_26_50, CanonicalProtocol.V1_26_40, ModernClientTo2168Translator.INSTANCE)
+                .edge(CanonicalProtocol.V1_26_45, CanonicalProtocol.V1_26_40, IdentityTranslator898.INSTANCE)
+                // Endstone 0.11.10 accepts wire-compatible 2168 clients on a 2169 backend.
+                .upgradeEdge(CanonicalProtocol.V1_26_40, CanonicalProtocol.V1_26_45, IdentityTranslator898.INSTANCE)
                 .edge(CanonicalProtocol.V1_26_40, CanonicalProtocol.V1_26_30, ModernClientTo1001Translator.INSTANCE)
                 .edge(CanonicalProtocol.V1_26_30, CanonicalProtocol.V1_26_20, ModernClientTo975Translator.INSTANCE)
                 .edge(CanonicalProtocol.V1_26_20, CanonicalProtocol.V1_26_10, ModernClientTo944Translator.INSTANCE)
@@ -189,6 +194,27 @@ public final class ProtocolRegistry {
                     binding.translator()
             );
         });
+    }
+
+    /** Preserves a login-refined client dialect when two releases share one protocol number. */
+    public Optional<ProtocolBinding> findBinding(
+            BedrockCodec clientCodec,
+            int backendProtocolVersion,
+            String backendMinecraftVersion
+    ) {
+        if (clientCodec == null) {
+            throw new IllegalArgumentException("clientCodec cannot be null");
+        }
+        return findBinding(
+                clientCodec.getProtocolVersion(),
+                backendProtocolVersion,
+                backendMinecraftVersion
+        ).map(binding -> new ProtocolBinding(
+                clientCodec,
+                binding.canonicalCodec(),
+                binding.backendCodec(),
+                binding.translator()
+        ));
     }
 
     private static boolean atLeast12644(String version) {

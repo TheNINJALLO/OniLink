@@ -1,8 +1,8 @@
 # Minecraft 1.26.50 cross-version preview
 
-OniLink `0.3.0-beta.4` can accept a Minecraft Bedrock `1.26.50` client using network protocol
-`2192` and relay it to a BDS `1.26.40` or `1.26.44` backend using protocol `2168`. OniBridge remains
-the backend authentication component; you do not install Endweave beside OniLink.
+OniLink `0.3.0-beta.5` can accept a Minecraft Bedrock `1.26.50` client using network protocol
+`2192` and relay it to BDS `1.26.45.1` using protocol `2169`, or to an older supported backend.
+OniBridge remains the backend authentication component; you do not install Endweave beside OniLink.
 
 > [!CAUTION]
 > `1.26.50` has not reached its final release. This implementation follows the current Preview
@@ -13,12 +13,12 @@ the backend authentication component; you do not install Endweave beside OniLink
 ## What happens automatically
 
 ```text
-Bedrock 1.26.50 client       OniLink                  BDS 1.26.44.3
-protocol 2192          ->    decode + translate  ->  protocol 2168 hotfix dialect
+Bedrock 1.26.50 client       OniLink                  BDS 1.26.45.1
+protocol 2192          ->    decode + translate  ->  protocol 2169
 ```
 
 OniLink negotiates each side independently. Changed fields are decoded with the 2192 codec and
-re-encoded with the backend codec. Fields that do not exist on 2168 are omitted by that encoder.
+re-encoded with the backend codec. Fields that do not exist on 2169 are omitted by that encoder.
 The two new 2192-only packets and the new string-list resource-pack setting are dropped because
 inventing an older representation would be unsafe.
 
@@ -27,13 +27,14 @@ the same running listener at the same time; a 2192 join does not change the code
 sessions, restart OniLink, or restart the backend. Installing the beta JAR itself still requires
 the normal one-time OniLink restart.
 
-The backend pong supplies both its protocol and version. That matters because `1.26.40` and
-`1.26.44` both report protocol `2168`, while `1.26.44` has a different SetScore removal layout.
-OniLink selects that hotfix codec from version `1.26.44.x`.
+The backend pong supplies both its protocol and version. BDS `1.26.45.1` reports protocol `2169`.
+That still matters for older servers because `1.26.40` and `1.26.44` both report protocol `2168`,
+while `1.26.44` has a different SetScore removal layout. OniLink selects that hotfix codec from
+version `1.26.44.x`.
 
-Beta 4 also normalizes the backend Login identity envelope. A Preview client is not required to
+The proxy also normalizes the backend Login identity envelope. A Preview client is not required to
 provide the untrusted `ThirdPartyName` skin field: OniLink writes it from the Mojang-authenticated
-Xbox display name and clears `ThirdPartyNameOnly` before signing the protocol-2168 backend JWT.
+Xbox display name and clears `ThirdPartyNameOnly` before signing the backend JWT.
 This lets OniBridge bind the raw Login packet to the signed OniForward identity without trusting
 client-supplied naming data.
 
@@ -51,16 +52,18 @@ For a named backend whose ping cannot be read, pin the version BDS actually runs
 backends=survival
 backend.survival.host=45.143.196.160
 backend.survival.port=25570
-backend.survival.protocol=1.26.44
+backend.survival.protocol=1.26.45
 ```
 
-Do **not** put `1.26.50` in the backend field while BDS remains on `1.26.44`. `1.26.50` describes
-the player-facing connection. A raw `2168` pin selects the newest known 2168 dialect (`1.26.44`);
-use the exact text `1.26.40` only for a backend still running that release.
+Do **not** put `1.26.50` in the backend field while BDS remains on `1.26.45`. `1.26.50` describes
+the player-facing connection. Use `2169` or `1.26.45` only for BDS `1.26.45.x`. A raw `2168` pin
+selects the newest known 2168 dialect (`1.26.44`); use the exact text `1.26.40` only for a backend
+still running that release.
 
-No OniBridge configuration or key changes are needed for the protocol translation. Continue using
-the exact OniBridge build/profile for BDS `1.26.44.3`; protocol support does not make a native plugin
-compatible with a different BDS executable.
+No OniBridge key changes are needed for protocol translation. BDS `1.26.45.1` requires the exact
+matching OniBridge build/profile and Endstone `0.11.10`; protocol support does not make a native
+plugin compatible with a different BDS executable. The new profile remains a candidate until its
+live acceptance gate is complete.
 
 ## Required live acceptance
 

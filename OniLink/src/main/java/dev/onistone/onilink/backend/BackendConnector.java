@@ -553,14 +553,15 @@ public final class BackendConnector {
             BackendConfig backendConfig,
             BackendProtocol backendProtocol
     ) {
-        int clientProtocol = connection.client().clientCodec().getProtocolVersion();
         return protocolRegistry.findBinding(
-                        clientProtocol,
+                        connection.client().clientCodec(),
                         backendProtocol.protocolVersion(),
                         backendProtocol.minecraftVersion())
                 .orElseThrow(() -> new UnsupportedVersionPairException(
                         "This client and backend version pair is not supported: client "
-                                + versionName(connection.client().clientCodec().getMinecraftVersion(), clientProtocol)
+                                + versionName(
+                                connection.client().clientCodec().getMinecraftVersion(),
+                                connection.client().clientCodec().getProtocolVersion())
                                 + " cannot connect to backend "
                                 + versionName(backendProtocol.minecraftVersion(), backendProtocol.protocolVersion())
                                 + "."

@@ -4,7 +4,7 @@
 
 <p align="center">
   <img alt="C++20" src="https://img.shields.io/badge/C%2B%2B-20-00599C?style=flat-square&amp;logo=cplusplus&amp;logoColor=white">
-  <img alt="Endstone 0.11.9" src="https://img.shields.io/badge/Endstone-0.11.9-52b7a8?style=flat-square">
+  <img alt="Endstone 0.11.10" src="https://img.shields.io/badge/Endstone-0.11.10-52b7a8?style=flat-square">
   <img alt="Exact profile" src="https://img.shields.io/badge/Compatibility-Exact%20Profile-8b7dff?style=flat-square">
 </p>
 
@@ -24,6 +24,10 @@ OniBridge is the C++20 Endstone validator for `OniForward`. It restores the veri
 ## Compatibility contract
 
 An exact BDS profile and generated native login adapter are mandatory. Candidate profiles require the explicit acceptance-test-only `allow_unreviewed_profile` switch. Production promotion requires every documented review, harness, lifecycle, and live acceptance gate.
+
+BDS `1.26.45.1` uses Endstone `0.11.10` and its matching platform-specific candidate adapter.
+The production-approved Linux BDS `1.26.44.3` profile remains available with Endstone `0.11.9`;
+neither plugin may be reused, renamed, or mixed with the other executable.
 
 The plugin intentionally shuts BDS down when its configuration, secret, adapter, runtime, or hook evidence is absent or mismatched.
 

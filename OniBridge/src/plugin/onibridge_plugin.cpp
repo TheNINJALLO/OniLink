@@ -30,7 +30,7 @@
 #include <vector>
 
 #ifndef ONIBRIDGE_VERSION
-#define ONIBRIDGE_VERSION "0.3.0-beta.4"
+#define ONIBRIDGE_VERSION "0.3.0-beta.5"
 #endif
 #ifndef ONIBRIDGE_BDS_VERSION
 #define ONIBRIDGE_BDS_VERSION "profile-bound"
@@ -379,8 +379,8 @@ class OniBridgePlugin : public endstone::Plugin {
             registerEvent(&OniBridgePlugin::onPlayerLogin, *this, endstone::EventPriority::Highest);
             registerEvent(&OniBridgePlugin::onPlayerQuit, *this, endstone::EventPriority::Monitor);
 
-            if (getServer().getName() != "Endstone" || getServer().getVersion() != "0.11.9") {
-                hook_error_ = "this adapter requires exact Endstone 0.11.9; unknown native "
+            if (getServer().getName() != "Endstone" || getServer().getVersion() != "0.11.10") {
+                hook_error_ = "this adapter requires exact Endstone 0.11.10; unknown native "
                               "runtimes fail closed";
             } else if (config_.required_profile.empty()) {
                 hook_error_ = "no required production hook profile is configured";

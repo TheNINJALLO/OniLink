@@ -12,7 +12,11 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 from .errors import SecurityError, ValidationError
 
 
-USER_AGENT = "OniBridge-bdsctl/0.1 (+https://github.com/Onistone)"
+USER_AGENT = (
+    "Mozilla/5.0 (compatible; OniLink-BDS-Profile/1.0; "
+    "+https://github.com/TheNINJALLO/OniLink)"
+)
+DOWNLOAD_REFERER = "https://www.minecraft.net/en-us/download/server/bedrock/"
 TRANSIENT_HTTP = {408, 429, 500, 502, 503, 504}
 APPROVED_HOSTS = {
     "net-secondary.web.minecraft-services.net",
@@ -75,7 +79,9 @@ class HttpTransport:
         validate_url(url)
         headers = {
             "User-Agent": USER_AGENT,
-            "Accept": "application/json, application/zip",
+            "Accept": "application/json, application/zip, application/octet-stream;q=0.9, */*;q=0.8",
+            "Accept-Encoding": "identity",
+            "Referer": DOWNLOAD_REFERER,
         }
         if offset:
             headers["Range"] = f"bytes={offset}-"

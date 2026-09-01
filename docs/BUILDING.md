@@ -34,7 +34,7 @@ Profile-bearing native builds must set both the exact generated adapter and the 
 ```powershell
 cmake -S OniBridge -B OniBridge/build/windows-release -A x64 `
   -DONIBRIDGE_BUILD_PLUGIN=ON `
-  -DONIBRIDGE_GENERATED_ADAPTER=OniBridge/generated/bds/1.26.44.3/windows-x86_64/adapter.cpp `
+  -DONIBRIDGE_GENERATED_ADAPTER=OniBridge/generated/bds/1.26.45.1/windows-x86_64/adapter.cpp `
   -DONIBRIDGE_ENDSTONE_SOURCE=.upstream/endstone
 cmake --build OniBridge/build/windows-release --config Release
 ctest --test-dir OniBridge/build/windows-release -C Release --output-on-failure

@@ -171,6 +171,30 @@ class MetadataTests(unittest.TestCase):
 
 
 class TransportTests(unittest.TestCase):
+    def test_official_download_headers_are_browser_compatible(self):
+        class CapturingOpener:
+            request = None
+            timeout = None
+
+            def open(self, request, timeout):
+                self.request = request
+                self.timeout = timeout
+                return object()
+
+        transport = HttpTransport(connect_timeout=42)
+        capture = CapturingOpener()
+        transport.opener = capture
+
+        transport._open(LINUX_URL)
+
+        self.assertIn("Mozilla/5.0", capture.request.get_header("User-agent"))
+        self.assertEqual("identity", capture.request.get_header("Accept-encoding"))
+        self.assertEqual(
+            "https://www.minecraft.net/en-us/download/server/bedrock/",
+            capture.request.get_header("Referer"),
+        )
+        self.assertEqual(42, capture.timeout)
+
     def test_redirect_to_unapproved_host(self):
         with self.assertRaises(SecurityError):
             validate_url("https://attacker.invalid/payload.zip")

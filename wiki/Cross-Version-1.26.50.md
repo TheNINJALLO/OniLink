@@ -1,7 +1,7 @@
 # Minecraft 1.26.50 cross-version preview
 
-The unreleased OniLink build accepts a `1.26.50` protocol-`2192` client and translates it to a BDS
-`1.26.44` protocol-`2168` backend. Leave backend detection automatic:
+OniLink beta 5 accepts a `1.26.50` protocol-`2192` client and translates it to BDS `1.26.45.1`
+protocol `2169`, or to an older supported backend. Leave backend detection automatic:
 
 ```properties
 backend.protocol=auto
@@ -10,12 +10,12 @@ backend.protocol=auto
 If the backend cannot answer OniLink's UDP version probe, pin the version BDS actually runs:
 
 ```properties
-backend.survival.protocol=1.26.44
+backend.survival.protocol=1.26.45
 ```
 
 Do not set this to `1.26.50` until BDS itself upgrades. OniLink handles `2192` on the player side
-and the `1.26.44` hotfix dialect of `2168` on the backend side. OniBridge and its shared key remain
-unchanged and must still match the exact `1.26.44.3` native profile.
+and `2169` on a BDS 1.26.45 backend. Existing keys remain valid, but OniBridge must be rebuilt for
+exact BDS `1.26.45.1` and Endstone `0.11.10`; a 1.26.44 native plugin cannot be reused.
 
 This is Preview support, not final-release certification. Test join, chunks, movement, inventory,
 crafting, commands, packs, scoreboards, switching, and reconnect after Mojang publishes the final

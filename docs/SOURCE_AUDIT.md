@@ -20,6 +20,24 @@ This is an internal engineering record. The workspace contained no implementatio
 
 The inventory digest is the SHA-256 of sorted lines containing each tracked file's SHA-256 and normalized path. It is an audit completeness marker, not an upstream Git tree ID.
 
+## 2026-08-31 Endstone/BDS update audit
+
+The signed Endstone `v0.11.10` tag was separately inspected at commit
+`8f84d6f5b556916597ed5b6b71329b2ed3ca8fc8` for the BDS `1.26.45.1` update. It was compared
+directly with the previously pinned `v0.11.9` commit. The review covered every changed tracked
+file, the complete installed C++ header diff, platform symbol maps, build dependencies, network
+settings, player-drop cancellation, login compatibility hooks, version metadata, and release
+artifacts. Detailed hashes and findings are in [Endstone 0.11.10 update audit](ENDSTONE_0_11_10_AUDIT.md).
+
+Material conclusions:
+
+- BDS moves from protocol `2168` to `2169`; Endstone rewrites 1.26.40-1.26.44 Login and
+  RequestNetworkSettings versions so those clients remain accepted by the 1.26.45 backend.
+- The temporary 1.26.44 SetScore removal discriminator is absent in 1.26.45.
+- Installed public C++ headers are source-compatible, but native login symbols moved. OniBridge
+  therefore pins the new tag and requires newly generated exact-executable adapters.
+- IPv6 is now opt-in through `[network] ipv6 = true` in `endstone.toml`.
+
 ## Supplemental dashboard reference
 
 The public [`TheNINJALLO/NinjOS-Proxie-Edge-Fabric`](https://github.com/TheNINJALLO/NinjOS-Proxie-Edge-Fabric) repository was separately inspected at commit `2d25c346a0d4a217932434eff3a98e278bb30f7c` to understand the operator experience requested for OniLink. The audit covered its standalone Go dashboard, embedded frontend, SQLite-backed accounts, setup flow, roles, TOTP, sessions, backend/player views, configuration handling, packet tools, transfers, audit records, and service controls.
@@ -34,7 +52,7 @@ Relevant paths:
 - `src/test`: 79 test classes across the application and vendored codecs, with 409 `@Test` methods.
 - `network/transport-raknet`: 72 RakNet transport classes plus tests; `network/transport-nethernet`: 24 optional transport classes.
 - `protocol/bedrock-codec`: vendored packet models, serializers, codecs, and the locally maintained
-  898/924/944/975/1001/2168/2192 protocol work. Protocol 2192 was reviewed against the pinned
+  898/924/944/975/1001/2168/2169/2192 protocol work. Protocol 2192 was reviewed against the pinned
   EndstoneMC Endweave and bedrock-protocol sources recorded in `NOTICE`.
 - `protocol/bedrock-connection`, `protocol/common`, and `protocol/adventure`: session, batch, compression, utility, and text integration.
 - `build.gradle.kts`, `settings.gradle.kts`, `.github/workflows/build.yml`, `config.example.properties`, `README.md`, `SECURITY.md`, `NOTICE`, and all nested build/license files.
@@ -90,7 +108,8 @@ Security findings:
 
 ## Endstone audit
 
-Target source identifies itself as Endstone 0.11.9. Relevant paths include:
+The original target source identifies itself as Endstone 0.11.9; the update audit above verifies
+the signed 0.11.10 delta. Relevant paths include:
 
 - Login and identity: `src/endstone/runtime/bedrock_hooks/server_network_handler.cpp`, `src/bedrock/network/server_network_handler.{h,cpp}`, `src/bedrock/network/{base_connection_request,connection_request}.{h,cpp}`, `src/bedrock/network/packet/login_packet.h`, `src/bedrock/certificates/identity/player_authentication_info.h`, and `src/bedrock/world/level/storage/level_storage.h`.
 - Hooking: `src/endstone/runtime/{hook,vtable_hook}.{h,cpp}`, platform symbol discovery, runtime initialization, and generated platform symbol tables.

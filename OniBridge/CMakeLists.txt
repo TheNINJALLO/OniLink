@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 if(NOT DEFINED ONIBRIDGE_VERSION)
-    set(ONIBRIDGE_VERSION "0.3.0-beta.4")
+    set(ONIBRIDGE_VERSION "0.3.0-beta.5")
 endif()
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ONIBRIDGE_PROJECT_VERSION "${ONIBRIDGE_VERSION}")
 if(NOT ONIBRIDGE_PROJECT_VERSION)
@@ -75,7 +75,7 @@ if(ONIBRIDGE_BUILD_PLUGIN)
         FetchContent_Declare(
             endstone_source
             GIT_REPOSITORY https://github.com/EndstoneMC/endstone.git
-            GIT_TAG a73f76d3725b471a6d83783166edc004804faa1b
+            GIT_TAG 8f84d6f5b556916597ed5b6b71329b2ed3ca8fc8
             GIT_SHALLOW FALSE)
         FetchContent_GetProperties(endstone_source)
         if(NOT endstone_source_POPULATED)
@@ -86,17 +86,40 @@ if(ONIBRIDGE_BUILD_PLUGIN)
     endstone_add_plugin(onibridge src/plugin/onibridge_plugin.cpp "${ONIBRIDGE_GENERATED_ADAPTER}")
     target_compile_features(onibridge PRIVATE cxx_std_20)
     target_compile_definitions(onibridge PRIVATE ONIBRIDGE_VERSION="${ONIBRIDGE_VERSION}")
-    if(WIN32)
-        target_compile_definitions(onibridge PRIVATE
-            ONIBRIDGE_BDS_VERSION="1.26.44.3"
-            ONIBRIDGE_BDS_SHA256="2d6518ddd25211aa51155fc015cd0393b29b2af74551a378b16f9a724ed771bd"
-            ONIBRIDGE_OPERATING_SYSTEM="windows")
-    else()
-        target_compile_definitions(onibridge PRIVATE
-            ONIBRIDGE_BDS_VERSION="1.26.44.3"
-            ONIBRIDGE_BDS_SHA256="06effdd00067f1ae0951ee7a732398dde721728e6b18ea149b138b8e2aececa7"
-            ONIBRIDGE_OPERATING_SYSTEM="linux")
+
+    # The reviewed generated adapter is the single source of truth for its exact BDS identity.
+    # Extracting these diagnostic values prevents a new profile from being paired with stale
+    # hardcoded control-plane metadata while the adapter still performs the runtime hash check.
+    file(READ "${ONIBRIDGE_GENERATED_ADAPTER}" ONIBRIDGE_ADAPTER_SOURCE)
+    string(REGEX MATCH
+        "kProfileId\\[\\] = \"bds-([0-9]+\\.[0-9]+\\.[0-9]+(\\.[0-9]+)?)-(linux|windows)-x86_64-[0-9a-f]+\""
+        ONIBRIDGE_PROFILE_MATCH "${ONIBRIDGE_ADAPTER_SOURCE}")
+    set(ONIBRIDGE_PROFILE_BDS_VERSION "${CMAKE_MATCH_1}")
+    set(ONIBRIDGE_PROFILE_OPERATING_SYSTEM "${CMAKE_MATCH_3}")
+    if(NOT ONIBRIDGE_PROFILE_MATCH)
+        message(FATAL_ERROR "The generated adapter does not contain a valid exact BDS profile ID")
     endif()
+    string(REGEX MATCH
+        "kExecutableHash\\[\\] = \"([0-9a-f]+)\""
+        ONIBRIDGE_HASH_MATCH "${ONIBRIDGE_ADAPTER_SOURCE}")
+    set(ONIBRIDGE_PROFILE_BDS_SHA256 "${CMAKE_MATCH_1}")
+    string(LENGTH "${ONIBRIDGE_PROFILE_BDS_SHA256}" ONIBRIDGE_PROFILE_HASH_LENGTH)
+    if(NOT ONIBRIDGE_HASH_MATCH OR NOT ONIBRIDGE_PROFILE_HASH_LENGTH EQUAL 64)
+        message(FATAL_ERROR "The generated adapter does not contain a valid 64-character BDS SHA-256")
+    endif()
+    if(WIN32)
+        set(ONIBRIDGE_TARGET_OPERATING_SYSTEM "windows")
+    else()
+        set(ONIBRIDGE_TARGET_OPERATING_SYSTEM "linux")
+    endif()
+    if(NOT ONIBRIDGE_PROFILE_OPERATING_SYSTEM STREQUAL ONIBRIDGE_TARGET_OPERATING_SYSTEM)
+        message(FATAL_ERROR
+            "The ${ONIBRIDGE_PROFILE_OPERATING_SYSTEM} generated adapter cannot build for ${ONIBRIDGE_TARGET_OPERATING_SYSTEM}")
+    endif()
+    target_compile_definitions(onibridge PRIVATE
+        ONIBRIDGE_BDS_VERSION="${ONIBRIDGE_PROFILE_BDS_VERSION}"
+        ONIBRIDGE_BDS_SHA256="${ONIBRIDGE_PROFILE_BDS_SHA256}"
+        ONIBRIDGE_OPERATING_SYSTEM="${ONIBRIDGE_TARGET_OPERATING_SYSTEM}")
     target_link_libraries(onibridge PRIVATE onibridge_core)
     set_target_properties(onibridge PROPERTIES PREFIX "" OUTPUT_NAME "onibridge")
 endif()

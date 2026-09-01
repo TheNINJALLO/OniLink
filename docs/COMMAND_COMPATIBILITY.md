@@ -2,7 +2,8 @@
 
 ## Endstone command path
 
-The inspected Endstone 0.11.9 path is:
+The Endstone 0.11.9 command path below was rechecked against signed Endstone 0.11.10. None of the
+command registration, serialization, execution, permission, soft-enum, or output paths changed:
 
 1. Vanilla commands live in BDS `CommandRegistry`.
 2. Endstone creates default and plugin commands in `EndstoneCommandMap`.

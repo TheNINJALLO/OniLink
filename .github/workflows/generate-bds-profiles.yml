@@ -1,12 +1,26 @@
 name: Generate BDS profile candidates
 on:
   workflow_dispatch:
+    inputs:
+      bds_version:
+        description: Exact current stable BDS build expected from Mojang
+        required: true
+        default: 1.26.45.1
+      linux_archive_sha256:
+        description: Independently reviewed SHA-256 for the exact official Linux archive
+        required: true
+        default: b0db86098ee418a9bb226f6f3f51ff2be36542236839375627b29aef3dfa5cda
+      windows_archive_sha256:
+        description: Independently reviewed SHA-256 for the exact official Windows archive
+        required: true
+        default: b27216dd32d034f3bc5fbe3094a70d2b3cec9a9871ca3d7b46a2b8690a1c0b14
 permissions:
   contents: read
 jobs:
   generate:
     environment: bds-profile-generation
-    runs-on: self-hosted
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
     env:
       MINECRAFT_EULA_ACCEPTED: ${{ vars.MINECRAFT_EULA_ACCEPTED }}
     steps:
@@ -14,7 +28,72 @@ jobs:
       - uses: actions/setup-python@v5
         with: {python-version: "3.12"}
       - run: python -m pip install -e OniBridge/tools/bdsctl -e OniBridge/tools/sdkgen
-      - run: python -m bdsctl fetch --lock OniBridge/bds.lock.json
+      - name: Resolve the exact current stable BDS pair
+        run: >-
+          python -m bdsctl resolve --channel stable --platform both
+          --output bds.resolved.json
+      - name: Refuse a different stable build before download
+        env:
+          EXPECTED_BDS_VERSION: ${{ inputs.bds_version }}
+        run: >-
+          python -c "import json, os;
+          lock=json.load(open('bds.resolved.json', encoding='utf-8'));
+          versions={entry['version'] for entry in lock['platforms'].values()};
+          assert versions == {os.environ['EXPECTED_BDS_VERSION']},
+          f'expected {os.environ[\"EXPECTED_BDS_VERSION\"]}, resolved {sorted(versions)}'"
+      - name: Download official archives with resumable retries
+        shell: bash
+        env:
+          EXPECTED_LINUX_ARCHIVE_SHA256: ${{ inputs.linux_archive_sha256 }}
+          EXPECTED_WINDOWS_ARCHIVE_SHA256: ${{ inputs.windows_archive_sha256 }}
+        run: |
+          mkdir -p .cache/downloads
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import subprocess
+
+          with open("bds.resolved.json", encoding="utf-8") as stream:
+              platforms = json.load(stream)["platforms"]
+          for platform, filename in (
+              ("linux-x86_64", "bedrock-server-linux.zip"),
+              ("windows-x86_64", "bedrock-server-windows.zip"),
+          ):
+              subprocess.run(
+                  [
+                      "curl", "--fail", "--location", "--http1.1", "--continue-at", "-",
+                      "--retry", "20", "--retry-all-errors", "--retry-delay", "5",
+                      "--connect-timeout", "60", "--speed-limit", "1024",
+                      "--speed-time", "180",
+                      "--user-agent", "Mozilla/5.0 (compatible; OniLink-BDS-Profile/1.0)",
+                      "--referer", "https://www.minecraft.net/en-us/download/server/bedrock/",
+                      "--header", "Accept: application/zip,application/octet-stream;q=0.9,*/*;q=0.8",
+                      "--header", "Accept-Encoding: identity",
+                      "--output", f".cache/downloads/{filename}",
+                      platforms[platform]["download_url"],
+                  ],
+                  check=True,
+              )
+              archive = f".cache/downloads/{filename}"
+              digest = hashlib.sha256()
+              with open(archive, "rb") as source:
+                  for chunk in iter(lambda: source.read(1024 * 1024), b""):
+                      digest.update(chunk)
+              expected = os.environ[
+                  "EXPECTED_LINUX_ARCHIVE_SHA256"
+                  if platform == "linux-x86_64"
+                  else "EXPECTED_WINDOWS_ARCHIVE_SHA256"
+              ].lower()
+              if digest.hexdigest() != expected:
+                  raise SystemExit(f"{platform} official archive SHA-256 mismatch")
+          PY
+      - name: Import, inspect, and lock the downloaded pair
+        run: >-
+          python -m bdsctl import-local --channel stable
+          --linux .cache/downloads/bedrock-server-linux.zip
+          --windows .cache/downloads/bedrock-server-windows.zip
+          --output OniBridge/bds.lock.json
       - run: python -m bdsctl verify --lock OniBridge/bds.lock.json
       - name: Generate candidates with reviewed analysis inputs
         run: sh scripts/generate-profiles.sh
@@ -27,11 +106,15 @@ jobs:
           ctest --test-dir OniBridge/build/profile-harness -C Release --output-on-failure
       - name: Remove BDS-owned inputs
         if: always()
-        run: python -m bdsctl clean && rm -rf .cache/bds build/bds-analysis
+        run: >-
+          python -m bdsctl clean &&
+          rm -rf .cache/bds .cache/downloads bds.resolved.json build/bds-analysis
       - uses: actions/upload-artifact@v4
         with:
           name: onibridge-profile-candidates
           path: |
+            OniBridge/bds.lock.json
+            OniBridge/analysis-recipes/${{ inputs.bds_version }}
             OniBridge/generated
             OniBridge/profiles
           if-no-files-found: error

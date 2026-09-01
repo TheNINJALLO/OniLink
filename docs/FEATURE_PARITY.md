@@ -29,7 +29,7 @@ Statuses use the required vocabulary. This audit document is updated as implemen
 | Addon manager, addon lifecycle, addon context, and trusted listeners | OniLink SDK addon loader/API | intentionally redesigned | Provide isolated JAR addons, lifecycle ordering, protocol contributions, and loopback-only trusted listeners through OniLink's descriptor and API. |
 | `BackendConfig`, `BackendKickAction`, `BackendSwitchConfig`, `CommandsConfig`, `ConfigValues`, `FailoverConfig`, `ForcedHostsConfig`, `JoinConfig`, `ProtocolFaultPolicy`, `ProxyConfig`, `ProxyPolicy` | typed OniLink properties configuration | intentionally redesigned | Preserve documented defaults/validation while adding backend-specific bridge/key/secret settings and removing legacy keys. |
 | Vendored RakNet/network modules | OniLink transport modules | intentionally redesigned | Preserve source and tests with required licenses; no protocol behavior is claimed from package presence alone. |
-| Vendored Bedrock protocol modules and 898/924/944/975/1001/2168/2192 codecs | OniLink protocol modules | intentionally redesigned | Preserve packet models/serializers and tests; exact command round trips and supported-pair tests gate status. |
+| Vendored Bedrock protocol modules and 898/924/944/975/1001/2168/2169/2192 codecs | OniLink protocol modules | intentionally redesigned | Preserve packet models/serializers and tests; exact command round trips and supported-pair tests gate status. |
 | Gradle wrapper, composite builds, CI, security and deployment assumptions | Java 21 Gradle build, CI, release and Pterodactyl docs | intentionally redesigned | Java 21 and renamed artifacts/workflows replace the reference build. |
 
 ## Backend identity reference behavior to OniBridge

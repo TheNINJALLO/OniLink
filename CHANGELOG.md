@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Added exact Minecraft Bedrock `1.26.45` protocol `2169` support and preserved the distinct
+  `1.26.44`/protocol-2168 SetScore dialect after authenticated client version discovery.
+- Added routes for `1.26.40`-`1.26.44` clients and `1.26.50` Preview clients to a `1.26.45`
+  backend without changing codecs for other live player sessions.
+- Pinned OniBridge to Endstone `0.11.10` and added exact BDS `1.26.45.1` Linux/Windows profile
+  generation. New native profiles remain candidates until platform-specific live acceptance.
+- Documented Endstone's IPv6 default change, drop-cancellation fix, binary-symbol changes, and
+  exact upstream artifact hashes.
+
 ## 0.3.0-beta.4 - 2026-08-26
 
 - Fixed Preview `1.26.50`/protocol `2192` joins to `1.26.44` backends by rebuilding the

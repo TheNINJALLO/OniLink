@@ -6,6 +6,7 @@ import org.cloudburstmc.protocol.bedrock.codec.v944.Bedrock_v944;
 import org.cloudburstmc.protocol.bedrock.codec.v975.Bedrock_v975;
 import org.cloudburstmc.protocol.bedrock.codec.v2168.Bedrock_v2168;
 import org.cloudburstmc.protocol.bedrock.codec.v2168.Bedrock_v2168_hotfix4;
+import org.cloudburstmc.protocol.bedrock.codec.v2169.Bedrock_v2169;
 import org.cloudburstmc.protocol.bedrock.codec.v2192.Bedrock_v2192;
 import org.cloudburstmc.protocol.bedrock.packet.PlayStatusPacket;
 import org.junit.jupiter.api.Test;
@@ -27,6 +28,7 @@ class ProtocolRegistryTest {
         assertTrue(registry.findClientCodec(975).isPresent());
         assertTrue(registry.findClientCodec(1001).isPresent());
         assertTrue(registry.findClientCodec(2168).isPresent());
+        assertTrue(registry.findClientCodec(2169).isPresent());
         assertTrue(registry.findClientCodec(2192).isPresent());
         assertTrue(registry.findClientCodec(897).isEmpty());
         assertTrue(registry.findClientCodec(976).isEmpty());
@@ -69,6 +71,7 @@ class ProtocolRegistryTest {
         assertSame(Bedrock_v975.CODEC, CanonicalProtocol.V1_26_20.codec());
         assertSame(Bedrock_v2168.CODEC, CanonicalProtocol.V1_26_40.codec());
         assertSame(Bedrock_v2168_hotfix4.CODEC, CanonicalProtocol.V1_26_44.codec());
+        assertSame(Bedrock_v2169.CODEC, CanonicalProtocol.V1_26_45.codec());
         assertSame(Bedrock_v2192.CODEC, CanonicalProtocol.V1_26_50.codec());
         // Derived, not hardcoded: this assertion existed to catch a registry that forgot the newest
         // codec, and pinning a literal made it fail on every release instead.
@@ -89,7 +92,41 @@ class ProtocolRegistryTest {
         assertSame(Bedrock_v2168.CODEC, original.backendCodec());
 
         assertSame(CanonicalProtocol.V1_26_44, CanonicalProtocol.fromConfig("2168"));
+        assertSame(CanonicalProtocol.V1_26_45, CanonicalProtocol.fromConfig("2169"));
+        assertSame(CanonicalProtocol.V1_26_45, CanonicalProtocol.fromConfig("1.26.45"));
         assertSame(CanonicalProtocol.V1_26_40, CanonicalProtocol.fromConfig("1.26.40"));
+    }
+
+    @Test
+    void routes2168And2192ClientsToA2169Backend() {
+        ProtocolRegistry registry = ProtocolRegistry.createDefault();
+
+        ProtocolBinding oldClient = registry.findBinding(
+                Bedrock_v2168_hotfix4.CODEC,
+                2169,
+                "1.26.45.1"
+        ).orElseThrow();
+        assertSame(Bedrock_v2168_hotfix4.CODEC, oldClient.clientCodec());
+        assertSame(Bedrock_v2169.CODEC, oldClient.backendCodec());
+        assertSame(IdentityTranslator898.INSTANCE, oldClient.translator());
+
+        ProtocolBinding previewClient = registry.findBinding(2192, 2169, "1.26.45.1")
+                .orElseThrow();
+        assertSame(Bedrock_v2192.CODEC, previewClient.clientCodec());
+        assertSame(Bedrock_v2169.CODEC, previewClient.backendCodec());
+        assertSame(ModernClientTo2168Translator.INSTANCE, previewClient.translator());
+    }
+
+    @Test
+    void authenticatedGameVersionSelectsThe2168ClientDialect() {
+        assertSame(Bedrock_v2168.CODEC,
+                CanonicalProtocol.clientCodec(Bedrock_v2168.CODEC, "1.26.40"));
+        assertSame(Bedrock_v2168_hotfix4.CODEC,
+                CanonicalProtocol.clientCodec(Bedrock_v2168.CODEC, "1.26.44"));
+        assertSame(Bedrock_v2168_hotfix4.CODEC,
+                CanonicalProtocol.clientCodec(Bedrock_v2168.CODEC, "1.26.44.3"));
+        assertSame(Bedrock_v2169.CODEC,
+                CanonicalProtocol.clientCodec(Bedrock_v2169.CODEC, "1.26.45.1"));
     }
 
     @Test

@@ -8,6 +8,11 @@ shows how to add more BDS servers safely. For a shorter first pass, use [Quick s
 > executable and Endstone `0.11.9`. Keep `allow_unreviewed_profile=false`. A nearby BDS or Endstone
 > version is a different binary target and must not reuse this plugin/profile pair.
 
+> [!NOTE]
+> Beta 5 testers upgrading to BDS `1.26.45.1` must also install Endstone `0.11.10` and the exact
+> beta 5 profile-specific OniBridge artifact. Follow the
+> [beta 5 upgrade gate](releases/v0.3.0-beta.5.md); the new profile is not production-approved yet.
+
 ## 1. Plan the deployment
 
 OniLink needs one public UDP listener. Each BDS backend needs its own UDP listener that is private or

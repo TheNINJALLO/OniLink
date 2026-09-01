@@ -8,6 +8,7 @@ import org.cloudburstmc.protocol.bedrock.codec.v975.Bedrock_v975;
 import org.cloudburstmc.protocol.bedrock.codec.v1001.Bedrock_v1001;
 import org.cloudburstmc.protocol.bedrock.codec.v2168.Bedrock_v2168;
 import org.cloudburstmc.protocol.bedrock.codec.v2168.Bedrock_v2168_hotfix4;
+import org.cloudburstmc.protocol.bedrock.codec.v2169.Bedrock_v2169;
 import org.cloudburstmc.protocol.bedrock.codec.v2192.Bedrock_v2192;
 
 import java.util.Optional;
@@ -22,6 +23,8 @@ public enum CanonicalProtocol {
     V1_26_40(Bedrock_v2168.CODEC),
     // 1.26.44 kept protocol 2168 but changed SetScore's wire layout.
     V1_26_44(Bedrock_v2168_hotfix4.CODEC),
+    // 1.26.45 restored the original SetScore layout and advanced the protocol to 2169.
+    V1_26_45(Bedrock_v2169.CODEC),
     V1_26_50(Bedrock_v2192.CODEC);
 
     private final BedrockCodec codec;
@@ -83,5 +86,36 @@ public enum CanonicalProtocol {
             }
         }
         return Optional.empty();
+    }
+
+    /**
+     * Refines a negotiated wire protocol using the authenticated login's GameVersion claim.
+     * Protocol 2168 alone cannot distinguish 1.26.40 from 1.26.44, whose SetScore layouts differ.
+     */
+    public static BedrockCodec clientCodec(BedrockCodec negotiatedCodec, String minecraftVersion) {
+        if (negotiatedCodec == null) {
+            throw new IllegalArgumentException("negotiatedCodec cannot be null");
+        }
+        if (negotiatedCodec.getProtocolVersion() == 2168 && is12644(minecraftVersion)) {
+            return Bedrock_v2168_hotfix4.CODEC;
+        }
+        return negotiatedCodec;
+    }
+
+    private static boolean is12644(String version) {
+        if (version == null || version.isBlank()) {
+            return false;
+        }
+        String[] raw = version.trim().split("\\.");
+        int offset = raw.length > 0 && "1".equals(raw[0]) ? 1 : 0;
+        if (raw.length < offset + 2) {
+            return false;
+        }
+        try {
+            return Integer.parseInt(raw[offset]) == 26
+                    && Integer.parseInt(raw[offset + 1]) == 44;
+        } catch (NumberFormatException ignored) {
+            return false;
+        }
     }
 }

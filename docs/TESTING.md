@@ -4,10 +4,10 @@ Current completed results:
 
 | Suite | Result | Evidence category |
 | --- | --- | --- |
-| `bdsctl` | 27 passed | unit test |
+| `bdsctl` | 28 passed | unit test |
 | `sdkgen` | 17 passed | unit test |
 | packaging, egg, ABI, and checked-profile Python suite | 28 passed, 3 skipped | unit/platform fixture |
-| OniLink Java 21 | 476 passed, 0 failed, 0 skipped | unit/integration fixture |
+| OniLink Java 21 | 480 passed, 0 failed, 0 skipped | unit/integration fixture |
 | Dashboard UI | 38 passed, 0 failed | component/integration fixture |
 | OniBridge Windows CTest | 2 passed | native unit + synthetic executable hook harness |
 | Windows BDS 1.26.44.3 + Endstone 0.11.9 | server start, DLL load/enable, exact hook install, disable/uninstall, exit 0 | partial live lifecycle; offline mode, no client |
@@ -21,6 +21,23 @@ The acquisition suite covers official metadata, stable/preview separation, redir
 The hook harness uses executable synthetic code rather than a mocked method name. It checks the direct call replacement, original destination, correct XUID substitution, rejection without a verified login, prior-call chaining, double-install prevention, safe rollback, and final identity registration.
 
 The repository operator approved the complete Linux acceptance result for the exact BDS `1.26.44.3` + Endstone `0.11.9` target, including the human-review and live-test gates. The Linux profile is therefore production-approved. Windows has proven plugin load/hook lifecycle offline but no live client join and remains a candidate.
+
+## BDS 1.26.45.1 / Endstone 0.11.10 beta verification performed on 2026-08-31
+
+The beta 5 source gate adds the 1.26.45 protocol-2169 codec, version-aware routing, and an exact
+Endstone 0.11.10 pin. All 480 OniLink tests, the standalone JAR build, the dashboard production
+build, 38 dashboard tests, all 73 Python acquisition/profile/packaging tests, and both Windows
+native core/hook-harness tests passed. Formatting, lint, and TypeScript checks also passed.
+
+The exact Linux BDS 1.26.45.1 adapter and release package also built successfully on GitHub's
+Ubuntu 22.04 runner. Both native CTest targets passed, the packaged shared object requires no
+`libstdc++` or unresolved `std::__cxx11` symbols, and its highest imported GLIBC version is 2.35.
+The sanitized artifact contains only OniLink/OniBridge outputs, examples, metadata, and checksums;
+it contains no BDS archive, executable, or other Mojang-owned server payload.
+
+The new BDS 1.26.45.1 native profiles remain candidates. Static executable validation and the
+synthetic hook harness are prerequisites, not substitutes for the real startup/login/XUID/
+disconnect/shutdown matrix documented in [Compatibility](COMPATIBILITY.md).
 
 ## 1.26.50 preview beta verification performed on 2026-08-26
 
