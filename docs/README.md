@@ -9,7 +9,7 @@ Use this page as the canonical map for operators, testers, and contributors. The
 > [!IMPORTANT]
 > `v0.2.0` is the current stable release. It includes detailed token-redacted packet evidence, verified shared-codec mappings from real traffic, and review flags for translator gaps. Full captures include sensitive player and network data. The exact Linux BDS `1.26.44.3` + Endstone `0.11.9` profile remains production-approved; monitoring does not relax any compatibility gate.
 
-> `v0.3.0-beta.7` is the next preview beta. It adds per-session 1.26.45/2169 support, pins
+> `v0.3.0-beta.8` is the next preview beta. It adds per-session 1.26.45/2169 support, pins
 > Endstone 0.11.10, adds exact BDS 1.26.45.1 Linux/Windows profile candidates, and supports a
 > bounded proxy/backend clock-domain offset for separately hosted systems. The existing
 > Linux 1.26.44.3 profile remains the production-approved default until the new live gate passes.
@@ -23,7 +23,7 @@ Use this page as the canonical map for operators, testers, and contributors. The
 | Install the current Linux release | [Quick start](QUICKSTART.md) |
 | Install and configure the complete network | [Installation](INSTALLATION.md) |
 | Add another BDS server automatically | [Adding a BDS backend](ADDING_BACKEND.md) |
-| Review the next beta and upgrade steps | [v0.3.0-beta.7 release notes](releases/v0.3.0-beta.7.md) |
+| Review the next beta and upgrade steps | [v0.3.0-beta.8 release notes](releases/v0.3.0-beta.8.md) |
 | Inspect live cross-version packet mappings | [Packet monitor](PACKET_MONITOR.md) |
 | Test a 1.26.50 client against a 1.26.45 backend | [1.26.50 cross-version preview](CROSS_VERSION_1_26_50.md) |
 | Configure typed per-player and BDS actions | [OniControl](ONICONTROL.md) |
@@ -79,7 +79,7 @@ Use this page as the canonical map for operators, testers, and contributors. The
 | Item | Current value |
 | --- | --- |
 | Product identity | Standalone OniLink system |
-| Application release | `v0.2.0` stable; `v0.3.0-beta.7` next preview beta |
+| Application release | `v0.2.0` stable; `v0.3.0-beta.8` next preview beta |
 | Locked BDS | `1.26.45.1` candidate; `1.26.44.3` Linux production-approved |
 | Endstone | `0.11.10` for BDS 1.26.45.1; `0.11.9` for BDS 1.26.44.3 |
 | Public proxy runtime | Java 21 |

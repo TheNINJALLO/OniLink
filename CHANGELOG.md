@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Fixed variable OniForward clock readings by minting the signed backend token only after the
+  backend returns `NetworkSettings`, immediately before its Login packet is sent. RakNet dialing,
+  protocol negotiation, and retry time no longer consume the short token lifetime.
 - Added bounded `proxy_clock_offset_ms` compensation for separately hosted OniLink and OniBridge
   systems when a provider-managed host clock cannot be repaired. Beta 7 accepts a fixed offset of
   up to 24 hours, including the live-observed `9922992 ms` case. Token lifetime, normal skew, and

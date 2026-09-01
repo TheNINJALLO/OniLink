@@ -113,7 +113,7 @@ enabled = false
 The parser rejects unknown or duplicate options. Configure exactly one active secret source: `active_secret_env` or `active_secret_file`, never both. A secret file must be accessible only to the BDS service account.
 
 Keep `proxy_clock_offset_ms = 0` when both hosts have working NTP. If a separately managed host
-cannot be corrected, beta 7 reports the signed proxy-minus-backend offset after a rejected login.
+cannot be corrected, beta 8 reports the signed proxy-minus-backend offset after a rejected login.
 Copy that value into `proxy_clock_offset_ms`, keep `allowed_clock_skew_ms = 2000`, and restart
 OniBridge. Compensation is bounded to 24 hours and does not extend token or replay lifetime.
 

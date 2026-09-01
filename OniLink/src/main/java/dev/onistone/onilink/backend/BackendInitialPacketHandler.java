@@ -28,7 +28,9 @@ import javax.crypto.SecretKey;
 import java.security.interfaces.ECPublicKey;
 import java.util.Base64;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 public final class BackendInitialPacketHandler implements BedrockPacketHandler {
     private final ProxyConnection connection;
@@ -48,10 +50,12 @@ public final class BackendInitialPacketHandler implements BedrockPacketHandler {
     private final ProxyPermissions permissions;
     private final ProxyPlayerEnum playerEnum;
     private final CommandsConfig commandsConfig;
+    private final Supplier<LoginPacket> backendLoginSupplier;
     /** The command names this backend has taken over; resolved once, since backendName is fixed. */
     private final java.util.Set<String> passthroughCommands;
     private PendingJoin pendingJoin;
     private boolean warnedPreHandshakeDisconnect;
+    private boolean loginSent;
 
     public BackendInitialPacketHandler(
             ProxyConnection connection,
@@ -70,7 +74,8 @@ public final class BackendInitialPacketHandler implements BedrockPacketHandler {
             JoinFailover joinFailover,
             ProxyPermissions permissions,
             ProxyPlayerEnum playerEnum,
-            CommandsConfig commandsConfig
+            CommandsConfig commandsConfig,
+            Supplier<LoginPacket> backendLoginSupplier
     ) {
         this.connection = connection;
         this.backend = backend;
@@ -90,10 +95,15 @@ public final class BackendInitialPacketHandler implements BedrockPacketHandler {
         this.playerEnum = playerEnum;
         this.commandsConfig = commandsConfig == null ? CommandsConfig.defaults() : commandsConfig;
         this.passthroughCommands = this.commandsConfig.passthroughFor(backendName);
+        this.backendLoginSupplier = Objects.requireNonNull(backendLoginSupplier);
     }
 
     @Override
     public PacketSignal handle(NetworkSettingsPacket packet) {
+        if (loginSent) {
+            return PacketSignal.HANDLED;
+        }
+        loginSent = true;
         if (packet.getCompressionThreshold() > 0) {
             backend.setCompression(packet.getCompressionAlgorithm());
         } else {
@@ -121,11 +131,33 @@ public final class BackendInitialPacketHandler implements BedrockPacketHandler {
                     backendName
             );
         }
-        if (ProxyConnection.isPacketTracingConfigured()) {
-            logBackendLoginCapabilities(connection.backendLogin());
+        final LoginPacket login;
+        try {
+            // RakNet connection establishment and protocol negotiation can take longer than the
+            // OniForward lifetime. Mint only after NetworkSettings arrives so every retry carries
+            // a fresh token immediately before the backend Login packet is sent.
+            login = issueBackendLogin();
+            connection.setBackendLogin(login);
+        } catch (RuntimeException exception) {
+            System.err.printf(
+                    "Unable to create fresh backend LoginPacket for %s: %s.%n",
+                    backendName,
+                    exception.getMessage()
+            );
+            backend.setDisconnectClientOnClose(false);
+            activation.onFailure(backend, exception);
+            backend.disconnect("Unable to create backend login");
+            return PacketSignal.HANDLED;
         }
-        backend.sendPacketImmediately(connection.backendLogin());
+        if (ProxyConnection.isPacketTracingConfigured()) {
+            logBackendLoginCapabilities(login);
+        }
+        backend.sendPacketImmediately(login);
         return PacketSignal.HANDLED;
+    }
+
+    LoginPacket issueBackendLogin() {
+        return Objects.requireNonNull(backendLoginSupplier.get(), "backend LoginPacket cannot be null");
     }
 
     @Override

@@ -438,11 +438,12 @@ public final class BackendConnector {
                 disconnectClientOnClose,
                 activation
         );
+        final BackendProtocol backendProtocol;
+        final ProtocolBinding binding;
         try {
-            BackendProtocol backendProtocol = backendProtocol(backendConfig, connection);
-            ProtocolBinding binding = resolveBinding(connection, backendConfig, backendProtocol);
+            backendProtocol = backendProtocol(backendConfig, connection);
+            binding = resolveBinding(connection, backendConfig, backendProtocol);
             connection.setSessionProfile(ProxySessionProfile.from(binding));
-            connection.setBackendLogin(backendLogin(connection, binding, backendConfig, backendProtocol));
             if (ProxyConnection.isPacketTracingConfigured()) {
                 System.out.printf(
                         "Selected backend %s protocol %s for client %s.%n",
@@ -518,7 +519,8 @@ public final class BackendConnector {
                                 joinFailover,
                                 permissions,
                                 playerEnum,
-                                policy.commands()
+                                policy.commands(),
+                                () -> backendLogin(connection, binding, backendConfig, backendProtocol)
                         ));
                     }
                 })

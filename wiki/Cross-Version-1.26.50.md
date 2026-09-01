@@ -1,6 +1,6 @@
 # Minecraft 1.26.50 cross-version preview
 
-OniLink beta 7 accepts a `1.26.50` protocol-`2192` client and translates it to BDS `1.26.45.1`
+OniLink beta 8 accepts a `1.26.50` protocol-`2192` client and translates it to BDS `1.26.45.1`
 protocol `2169`, or to an older supported backend. Leave backend detection automatic:
 
 ```properties

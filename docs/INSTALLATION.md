@@ -9,9 +9,9 @@ shows how to add more BDS servers safely. For a shorter first pass, use [Quick s
 > version is a different binary target and must not reuse this plugin/profile pair.
 
 > [!NOTE]
-> Beta 7 testers upgrading to BDS `1.26.45.1` must also install Endstone `0.11.10` and the exact
-> beta 7 profile-specific OniBridge artifact. Follow the
-> [beta 7 upgrade gate](releases/v0.3.0-beta.7.md); the new profile is not production-approved yet.
+> Beta 8 testers upgrading to BDS `1.26.45.1` must also install Endstone `0.11.10` and the exact
+> beta 8 profile-specific OniBridge artifact. Follow the
+> [beta 8 upgrade gate](releases/v0.3.0-beta.8.md); the new profile is not production-approved yet.
 
 ## 1. Plan the deployment
 

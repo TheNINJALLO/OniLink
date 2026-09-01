@@ -51,12 +51,19 @@ A Java properties value with an inline `# comment` includes the comment text. Pu
 
 ### `token was issued in the future` or `token is expired`
 
-Beta 7 reports `observed proxy-minus-backend clock offset` after the token signature and forwarding
+Beta 8 reports `observed proxy-minus-backend clock offset` after the token signature and forwarding
 context have already passed. Synchronize both host clocks with NTP whenever possible. If one
 provider-managed host is inaccessible, keep `allowed_clock_skew_ms=2000`, set
 `forwarding.proxy_clock_offset_ms` to the reported signed value, and fully restart OniBridge. The
 accepted range is `-86400000..86400000` ms. This translation preserves the original token lifetime and
 replay-cache expiration; do not increase the general skew window to compensate for a fixed offset.
+
+If the observed offset changes by several seconds on every attempt, confirm OniLink is beta 8 or
+newer. Older builds minted the token before RakNet dialing and backend protocol negotiation, so
+variable connection time appeared as a changing clock offset and could expire an otherwise valid
+token. Beta 8 mints it only after `NetworkSettings`, immediately before backend Login. After
+upgrading OniLink, use the newly reported value once; do not keep chasing readings produced by an
+older JAR.
 
 ## Direct backend joins succeed
 
