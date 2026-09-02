@@ -36,25 +36,28 @@ Example secret generation:
 openssl rand -base64 32
 ```
 
-## Token lifetime
+## Token freshness
 
-OniLink defaults to a 5-second token lifetime. Validators cap lifetime at 10 seconds and allow only the configured clock skew. Keep proxy and backend clocks synchronized. Increasing the lifetime expands the replay window and should not be used to hide clock or network problems.
+OniLink defaults to a 5-second declared token lifetime, capped at 10 seconds. OniForward v3 signs a
+persisted monotonic proxy boot UUID and a strictly increasing, one-time sequence into every backend Login.
+OniBridge persists its accepted sequence floor locally, so separate providers do not need matching
+wall clocks and operators never have to measure or chase a clock offset.
 
-When OniLink and OniBridge run on different providers and one host clock cannot be repaired,
-`forwarding.proxy_clock_offset_ms` translates between their clock domains without extending the
-token lifetime or replay retention. The value is signed **proxy time minus backend time**. Keep
-`allowed_clock_skew_ms=2000`, attempt one login, and copy the measured offset from OniBridge's
-token rejection into `proxy_clock_offset_ms`. For example, an observed offset of `24750 ms` uses:
+Use this on every updated backend:
 
 ```toml
 [forwarding]
+protocol = 3
 allowed_clock_skew_ms = 2000
-proxy_clock_offset_ms = 24750
+proxy_clock_offset_ms = 0
 ```
 
-Negative values mean the proxy clock is behind the backend. The offset is bounded to 24 hours in
-either direction, requires an OniBridge restart, and emits a startup warning while active. It is an
-explicit compensation for an inaccessible host, not a replacement for provider-managed NTP.
+`protocol = 3` disables legacy v2 downgrade. An existing `protocol = 2` config accepts v2 and v3
+only to permit a staged upgrade; change it to `3` after both components are updated. The offset and
+skew settings are ignored for v3 wall-clock validation and remain only for v2 rollback compatibility.
+Do not edit or delete `dashboard/oniforward-proxy.state` or
+`plugins/onibridge/oniforward-sequences.state` during normal operation. The first path follows a
+custom `dashboard.dataDirectory` if one is configured.
 
 ## Key rotation
 
@@ -281,7 +284,7 @@ Raise a limit only after logs prove a legitimate client is hitting it. Do not di
 | `trusted_proxy_cidrs` | required array | At least one actual proxy source CIDR |
 | `shutdown_on_hook_failure` | `true` | Keep enabled |
 | `reject_direct_joins` | `true` | Required; `false` is rejected |
-| `forwarding.protocol` | `2` | Only protocol 2 is supported |
+| `forwarding.protocol` | `3` | `3` is clock-independent and rejects v2 downgrade; `2` is migration-only |
 | `forwarding.active_key_id` | required | Must match OniLink |
 | `forwarding.active_secret_env` | one source | Environment-variable name |
 | `forwarding.active_secret_file` | one source | Restricted-file alternative |
@@ -290,8 +293,8 @@ Raise a limit only after logs prove a legitimate client is hitting it. Do not di
 | `forwarding.previous_secret_file` | empty | Previous-key file source |
 | `forwarding.maximum_token_size` | `4096` | Allowed `256..65536` |
 | `forwarding.maximum_lifetime_ms` | `10000` | Allowed `1..10000` |
-| `forwarding.allowed_clock_skew_ms` | `2000` | Allowed `0..10000` |
-| `forwarding.proxy_clock_offset_ms` | `0` | Signed proxy-minus-backend offset; allowed `-86400000..86400000` |
+| `forwarding.allowed_clock_skew_ms` | `2000` | Legacy v2 only; allowed `0..10000` |
+| `forwarding.proxy_clock_offset_ms` | `0` | Legacy v2 only; keep `0` for v3 |
 | `forwarding.replay_cache_max_entries` | `10000` | Allowed `1..1000000` |
 | `identity.uuid_mode` | `preserve_backend` | `proxy_experimental` is not validated |
 | `identity.verify_post_login_xuid` | `true` | Keep enabled |

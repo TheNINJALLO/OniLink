@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Added OniForward v3 clock-independent freshness for separately hosted OniLink and OniBridge
+  systems. Every Login carries a signed persisted monotonic proxy boot ID and one-time increasing
+  sequence;
+  OniBridge persists replay floors across backend restarts, permits bounded concurrent reordering,
+  retires old proxy boots, and rejects v2 downgrade when `protocol = 3`.
+- Changed all dashboard-generated OniBridge configurations and current examples to protocol 3.
+  Existing protocol 2 files remain a migration mode that accepts v3 until the backend is locked.
 - Fixed variable OniForward clock readings by minting the signed backend token only after the
   backend returns `NetworkSettings`, immediately before its Login packet is sent. RakNet dialing,
   protocol negotiation, and retry time no longer consume the short token lifetime.

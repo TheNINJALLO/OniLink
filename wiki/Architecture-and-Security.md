@@ -6,7 +6,7 @@ Public Bedrock client
         v
 OniLink: Xbox authentication + routing
         |
-        | short-lived, backend-bound OniForward
+        | one-time, backend-bound OniForward
         v
 OniBridge: pre-storage identity verification
         |

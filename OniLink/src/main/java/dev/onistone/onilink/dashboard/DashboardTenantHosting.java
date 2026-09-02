@@ -728,7 +728,7 @@ final class DashboardTenantHosting implements AutoCloseable {
                 reject_direct_joins = true
 
                 [forwarding]
-                protocol = 2
+                protocol = 3
                 active_key_id = "key-1"
                 active_secret_env = ""
                 active_secret_file = "default.key"

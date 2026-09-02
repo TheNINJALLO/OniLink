@@ -75,6 +75,9 @@ allow_unknown_bds = false
 allow_unknown_endstone = false
 ```
 
+This stable `v0.2.0` example uses legacy protocol 2. Beta 9 and newer operators should follow the
+[beta 9 upgrade steps](releases/v0.3.0-beta.9.md) and set `protocol = 3` on the updated backend.
+
 Replace `10.0.0.10/32` with the exact OniLink source address observed by the backend. Keep `allow_unreviewed_profile=false`; the exact released profile is production-approved.
 
 5. Start BDS with `ONIBRIDGE_FORWARDING_SECRET` present in its environment.

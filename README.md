@@ -11,7 +11,7 @@
 
 <p align="center">
   <img alt="Version 0.2.0" src="https://img.shields.io/badge/Release-v0.2.0-52b7a8?style=flat-square">
-  <img alt="Beta 0.3.0 beta 8" src="https://img.shields.io/badge/Beta-v0.3.0--beta.8-ffb347?style=flat-square">
+  <img alt="Beta 0.3.0 beta 9" src="https://img.shields.io/badge/Beta-v0.3.0--beta.9-ffb347?style=flat-square">
   <img alt="Endstone 0.11.10" src="https://img.shields.io/badge/Endstone-0.11.10-52b7a8?style=flat-square">
   <img alt="BDS 1.26.45.1" src="https://img.shields.io/badge/BDS-1.26.45.1-63b8ff?style=flat-square">
   <img alt="Java 21" src="https://img.shields.io/badge/Java-21-ED8B00?style=flat-square&amp;logo=openjdk&amp;logoColor=white">
@@ -34,10 +34,10 @@
 > [!IMPORTANT]
 > `v0.2.0` is the current stable release. The Linux BDS `1.26.44.3` + Endstone `0.11.9` profile is production-approved and remains fail closed. Full packet captures can include chat, XUIDs, endpoints, decoded fields, and incoming bytes; restrict dashboard access and inspect exports before sharing them.
 
-> `v0.3.0-beta.8` is the next preview beta. One running OniLink instance negotiates
-> 1.26.44/2168, 1.26.45/2169, and 1.26.50/2192 independently for each player. Beta 8 pins
-> Endstone 0.11.10, adds exact BDS 1.26.45.1 native profile candidates, and supports a bounded
-> clock-domain offset when proxy and backend hosts cannot share NTP. Keep using the
+> `v0.3.0-beta.9` is the next preview beta. One running OniLink instance negotiates
+> 1.26.44/2168, 1.26.45/2169, and 1.26.50/2192 independently for each player. Beta 9 pins
+> Endstone 0.11.10, adds exact BDS 1.26.45.1 native profile candidates, and replaces fragile
+> cross-provider clock offsets with signed, persisted one-time forwarding sequences. Keep using the
 > production-approved 1.26.44.3 profile until the new platform-specific live gates pass.
 
 ## The product family
@@ -61,7 +61,7 @@ Xbox-authenticated Bedrock client
                 v
        OniLink public listener
                 |
-                | short-lived, backend-bound OniForward claim
+                | one-time, backend-bound OniForward claim
                 v
        OniBridge + Endstone + BDS
                 |
@@ -69,8 +69,8 @@ Xbox-authenticated Bedrock client
     verified XUID selected before player storage
 ```
 
-The forwarding check makes no HTTP request. Claims are backend-bound, bridge-bound, short-lived,
-replay-protected, and accepted only from configured proxy CIDRs. Missing, expired, replayed,
+The forwarding check makes no HTTP request. Claims are backend-bound, bridge-bound, single-use,
+replay-protected, and accepted only from configured proxy CIDRs. Missing, replayed, retired,
 incorrectly scoped, or incorrectly sourced claims fail closed.
 
 ## Quick start

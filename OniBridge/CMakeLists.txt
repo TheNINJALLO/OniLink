@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 if(NOT DEFINED ONIBRIDGE_VERSION)
-    set(ONIBRIDGE_VERSION "0.3.0-beta.8")
+    set(ONIBRIDGE_VERSION "0.3.0-beta.9")
 endif()
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ONIBRIDGE_PROJECT_VERSION "${ONIBRIDGE_VERSION}")
 if(NOT ONIBRIDGE_PROJECT_VERSION)
@@ -21,6 +21,7 @@ add_library(onibridge_core STATIC
     src/forwarding/token.cpp
     src/forwarding/login_envelope.cpp
     src/forwarding/replay_cache.cpp
+    src/forwarding/sequence_guard.cpp
     src/forwarding/trusted_proxy.cpp
     src/identity/verified_identity_registry.cpp
     src/runtime/onibridge_service.cpp

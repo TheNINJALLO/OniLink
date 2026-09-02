@@ -7,7 +7,7 @@ Xbox-authenticated client
   -> OniLink validates the Mojang-signed identity chain and client JWT
   -> OniLink selects one configured backend
   -> OniLink creates a fresh session ID and nonce for this connection attempt
-  -> OniLink signs a short-lived, backend- and bridge-bound OniForward token
+  -> OniLink signs a one-time, backend- and bridge-bound OniForward token
   -> token is embedded in the forged backend client-data JWT
   -> Endstone PacketReceiveEvent exposes the final Login payload and actual socket source
   -> OniBridge parses the bounded client-data JWT and verifies source/token locally

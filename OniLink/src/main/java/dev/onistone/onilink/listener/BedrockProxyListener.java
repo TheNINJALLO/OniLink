@@ -257,7 +257,8 @@ public final class BedrockProxyListener {
                 playerEnum,
                 backendPaletteStore,
                 config.publicAddress(),
-                listen.getPort()
+                listen.getPort(),
+                config.dashboard().dataDirectory().resolve("oniforward-proxy.state")
         );
         backendConnector.setRoutingScope(tenantId, proxyId);
         backendSwitcher = backendConnector.switcher();

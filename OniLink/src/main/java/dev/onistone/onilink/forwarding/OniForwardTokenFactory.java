@@ -7,25 +7,42 @@ import dev.onistone.onilink.config.BackendForwardingConfig;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermission;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.util.Base64;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 
 /** Issues one short-lived, independently replayable token for each backend login attempt. */
 public final class OniForwardTokenFactory {
     private static final SecureRandom RANDOM = new SecureRandom();
     private final Clock clock;
+    private final UUID proxyBootId;
+    private final AtomicLong sequence = new AtomicLong();
 
     public OniForwardTokenFactory() {
-        this(Clock.systemUTC());
+        this(Path.of("dashboard", "oniforward-proxy.state"));
     }
 
     OniForwardTokenFactory(Clock clock) {
         this.clock = clock;
+        this.proxyBootId = bootId(Math.max(1, clock.millis()));
+    }
+
+    public OniForwardTokenFactory(Path stateFile) {
+        this(Clock.systemUTC(), stateFile);
+    }
+
+    OniForwardTokenFactory(Clock clock, Path stateFile) {
+        this.clock = clock;
+        this.proxyBootId = bootId(nextBootEpoch(stateFile, clock));
     }
 
     public String issue(BackendConfig backend, AuthData auth, String sessionId, SocketAddress clientAddress) {
@@ -53,7 +70,9 @@ public final class OniForwardTokenFactory {
                     inet.getAddress() != null ? inet.getAddress().getHostAddress() : inet.getHostString(),
                     inet.getPort(),
                     issued,
-                    issued + config.tokenLifetimeMillis()
+                    issued + config.tokenLifetimeMillis(),
+                    proxyBootId,
+                    nextSequence()
             );
             String token = OniForward.sign(claims, new OniForward.Key(config.activeKeyId(), secret));
             if (token.length() > 4_096) {
@@ -109,5 +128,58 @@ public final class OniForwardTokenFactory {
         byte[] value = new byte[16];
         RANDOM.nextBytes(value);
         return java.util.HexFormat.of().formatHex(value);
+    }
+
+    private long nextSequence() {
+        long value = sequence.incrementAndGet();
+        if (value <= 0) {
+            throw new IllegalStateException("OniForward sequence space is exhausted; restart OniLink");
+        }
+        return value;
+    }
+
+    static long nextBootEpoch(Path stateFile, Clock clock) {
+        Path normalized = stateFile.toAbsolutePath().normalize();
+        try {
+            Path parent = normalized.getParent();
+            if (parent != null) Files.createDirectories(parent);
+            long previous = 0;
+            if (Files.exists(normalized)) {
+                String stored = Files.readString(normalized).trim();
+                if (!stored.startsWith("ONIFORWARD_PROXY_EPOCH_V1 ")) {
+                    throw new IllegalStateException("OniForward proxy epoch state is malformed");
+                }
+                previous = Long.parseLong(stored.substring("ONIFORWARD_PROXY_EPOCH_V1 ".length()));
+                if (previous < 1) {
+                    throw new IllegalStateException("OniForward proxy epoch state is invalid");
+                }
+            }
+            long wallEpoch = Math.max(1, clock.millis());
+            long epoch = Math.max(wallEpoch, Math.addExact(previous, 1));
+            Path temporary = normalized.resolveSibling(
+                    normalized.getFileName() + ".tmp-" + UUID.randomUUID());
+            Files.writeString(temporary,
+                    "ONIFORWARD_PROXY_EPOCH_V1 " + epoch + System.lineSeparator());
+            PosixFileAttributeView view =
+                    Files.getFileAttributeView(temporary, PosixFileAttributeView.class);
+            if (view != null) {
+                view.setPermissions(Set.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE));
+            }
+            try {
+                Files.move(temporary, normalized,
+                        StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            } catch (AtomicMoveNotSupportedException exception) {
+                Files.move(temporary, normalized, StandardCopyOption.REPLACE_EXISTING);
+            }
+            return epoch;
+        } catch (IOException | ArithmeticException | NumberFormatException exception) {
+            throw new IllegalStateException("Cannot advance OniForward proxy epoch state: " + normalized, exception);
+        }
+    }
+
+    static UUID bootId(long epoch) {
+        long random = RANDOM.nextLong();
+        random = (random & 0x3fff_ffff_ffff_ffffL) | 0x8000_0000_0000_0000L;
+        return new UUID(epoch, random);
     }
 }

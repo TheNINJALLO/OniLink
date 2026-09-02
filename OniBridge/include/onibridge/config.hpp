@@ -52,7 +52,7 @@ struct OniBridgeConfig {
     bool shutdown_on_hook_failure{true};
     bool reject_direct_joins{true};
 
-    std::uint32_t forwarding_protocol{2};
+    std::uint32_t forwarding_protocol{3};
     std::string active_key_id;
     SecretSource active_secret;
     std::string previous_key_id;

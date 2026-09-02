@@ -42,7 +42,7 @@ OniLink is a standalone Bedrock edge system. The supported runtime family has tw
 | Item | Value |
 | --- | --- |
 | Application | [`v0.2.0`](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.2.0) (stable) |
-| Preview | `v0.3.0-beta.8` preparation |
+| Preview | `v0.3.0-beta.9` preparation |
 | BDS | `1.26.44.3` stable profile; `1.26.45.1` candidate profiles |
 | Endstone | `0.11.9` stable profile; `0.11.10` candidate profiles |
 | Linux profile | 1.26.44.3 production-approved; 1.26.45.1 candidate |

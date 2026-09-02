@@ -3,6 +3,7 @@
 #include <onibridge/forwarding.hpp>
 #include <onibridge/identity.hpp>
 
+#include <filesystem>
 #include <mutex>
 #include <optional>
 #include <string>
@@ -29,7 +30,9 @@ class OniBridgeService final {
                      std::size_t maximum_token_size = 4'096,
                      std::int64_t maximum_lifetime_ms = 10'000,
                      std::int64_t allowed_clock_skew_ms = 2'000,
-                     std::int64_t proxy_clock_offset_ms = 0);
+                     std::int64_t proxy_clock_offset_ms = 0,
+                     std::filesystem::path sequence_state_file = {},
+                     std::uint32_t minimum_protocol_version = kOniForwardLegacyProtocolVersion);
 
     [[nodiscard]] IdentityDecision verify_forwarded_login(std::string_view token,
                                                           std::string_view actual_socket_source,
@@ -59,10 +62,12 @@ class OniBridgeService final {
     ForwardingKeyRing keys_;
     TrustedProxyMatcher trusted_proxies_;
     ReplayCache replay_;
+    ForwardingSequenceGuard sequences_;
     VerifiedIdentityRegistry identities_;
     struct PendingLogin {
         VerifiedIdentity identity;
         std::int64_t expires_at_ms{};
+        bool monotonic_expiry{};
     };
     mutable std::mutex pending_mutex_;
     std::unordered_map<std::string, PendingLogin> pending_;
@@ -70,6 +75,7 @@ class OniBridgeService final {
     std::int64_t maximum_lifetime_ms_;
     std::int64_t allowed_clock_skew_ms_;
     std::int64_t proxy_clock_offset_ms_;
+    std::uint32_t minimum_protocol_version_;
 };
 
 } // namespace onistone::onibridge

@@ -210,8 +210,8 @@ std::optional<std::string> OniBridgeConfig::validate() const {
     if (!reject_direct_joins) {
         return "reject_direct_joins must remain enabled";
     }
-    if (forwarding_protocol != 2) {
-        return "only OniForward protocol 2 is supported";
+    if (forwarding_protocol != 2 && forwarding_protocol != 3) {
+        return "OniForward protocol must be 2 or 3";
     }
     if (active_key_id.empty()) {
         return "active forwarding key ID is required";
@@ -442,7 +442,7 @@ OniBridgeConfig load_config(const std::filesystem::path& path) {
     config.shutdown_on_hook_failure = bool_value(values, "shutdown_on_hook_failure", true);
     config.reject_direct_joins = bool_value(values, "reject_direct_joins", true);
     config.forwarding_protocol =
-        static_cast<std::uint32_t>(int_value(values, "forwarding.protocol", 2));
+        static_cast<std::uint32_t>(int_value(values, "forwarding.protocol", 3));
     config.active_key_id = string_value(values, "forwarding.active_key_id");
     config.active_secret.environment_variable =
         string_value(values, "forwarding.active_secret_env");

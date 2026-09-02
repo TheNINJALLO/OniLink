@@ -39,6 +39,7 @@ import dev.onistone.onilink.migration.verification.PendingJoinRegistry;
 import dev.onistone.onilink.modules.fleet.RoutingOverrides;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -47,7 +48,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
 public final class BackendConnector {
-    private final OniForwardTokenFactory forwardingTokenFactory = new OniForwardTokenFactory();
+    private final OniForwardTokenFactory forwardingTokenFactory;
     private final EventLoopGroup eventLoopGroup;
     private final BackendDirectory backendDirectory;
     private final ProxyCommandRegistry commandRegistry;
@@ -93,7 +94,8 @@ public final class BackendConnector {
             ProxyPlayerEnum playerEnum,
             BackendPaletteStore paletteStore,
             String publicAddress,
-            int listenPort
+            int listenPort,
+            Path forwardingStateFile
     ) {
         this(
                 eventLoopGroup,
@@ -112,7 +114,8 @@ public final class BackendConnector {
                 playerEnum,
                 paletteStore,
                 publicAddress,
-                listenPort
+                listenPort,
+                forwardingStateFile
         );
     }
 
@@ -138,8 +141,10 @@ public final class BackendConnector {
             ProxyPlayerEnum playerEnum,
             BackendPaletteStore paletteStore,
             String publicAddress,
-            int listenPort
+            int listenPort,
+            Path forwardingStateFile
     ) {
+        this.forwardingTokenFactory = new OniForwardTokenFactory(forwardingStateFile);
         this.paletteStore = paletteStore;
         this.publicAddress = publicAddress == null ? "" : publicAddress.trim();
         this.listenPort = listenPort;

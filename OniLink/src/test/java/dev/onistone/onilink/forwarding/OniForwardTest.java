@@ -1,20 +1,26 @@
 package dev.onistone.onilink.forwarding;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class OniForwardTest {
     private static final String VECTOR = "T05JRgEOAQABMgIAC2tleS0yMDI2LTAxAwAGZWRnZS0xBAAMa2luZ2RvbS1tYWluBQAHa2luZ2RvbQYAJDAxOGY0N2YyLWMwMDEtNzAwMC04MDAwLTAwMDAwMDAwMDAwMQcAIDAwMTEyMjMzNDQ1NTY2Nzc4ODk5YWFiYmNjZGRlZWZmCAAEQWxleAkAEDI1MzMyNzQ3OTAzOTU5MDQKACQxMjNlNDU2Ny1lODliLTEyZDMtYTQ1Ni00MjY2MTQxNzQwMDALAAwyMDAxOmRiODo6NDIMAAU1NDMyMQ0ADTE4MDAwMDAwMDAwMDAOAA0xODAwMDAwMDA1MDAw.922WXG-qG04OJiAFAzPSlrNh4mi7LObu0V2oDdc9KX0";
+    private static final String V3_VECTOR = "T05JRgEQAQABMwIAC2tleS0yMDI2LTAxAwAGZWRnZS0xBAAMa2luZ2RvbS1tYWluBQAHa2luZ2RvbQYAJDAxOGY0N2YyLWMwMDEtNzAwMC04MDAwLTAwMDAwMDAwMDAwMgcAIDEwMTEyMjMzNDQ1NTY2Nzc4ODk5YWFiYmNjZGRlZWZmCAAEQWxleAkAEDI1MzMyNzQ3OTAzOTU5MDQKACQxMjNlNDU2Ny1lODliLTEyZDMtYTQ1Ni00MjY2MTQxNzQwMDALAAwyMDAxOmRiODo6NDIMAAU1NDMyMQ0ADTE4MDAwMDAwMDAwMDAOAA0xODAwMDAwMDA1MDAwDwAkYWFhYWFhYWEtYmJiYi00Y2NjLThkZGQtZWVlZWVlZWVlZWVlEAACNDI.OAhkmk-FYr7pzXaTDixLur5B4Px3e5JOGY3K6UiXgcs";
 
     private OniForward.Claims claims() {
         return new OniForward.Claims(2, "key-2026-01", "edge-1", "kingdom-main", "kingdom",
                 "018f47f2-c001-7000-8000-000000000001", "00112233445566778899aabbccddeeff",
                 "Alex", "2533274790395904", UUID.fromString("123e4567-e89b-12d3-a456-426614174000"),
-                "2001:db8::42", 54321, 1_800_000_000_000L, 1_800_000_005_000L);
+                "2001:db8::42", 54321, 1_800_000_000_000L, 1_800_000_005_000L, null, 0);
     }
 
     private OniForward.Key key() {
@@ -47,5 +53,36 @@ class OniForwardTest {
         var active = new OniForward.Key("key-2026-02", "another secret that is rotated in".getBytes(StandardCharsets.UTF_8));
         assertTrue(OniForward.verify(VECTOR, new OniForward.KeyRing(active, key()), validation()).valid());
     }
-}
 
+    @Test
+    void v3FreshnessClaimsDoNotDependOnWallClock() {
+        UUID bootId = UUID.fromString("aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee");
+        var claims = new OniForward.Claims(3, "key-2026-01", "edge-1", "kingdom-main", "kingdom",
+                "018f47f2-c001-7000-8000-000000000002", "10112233445566778899aabbccddeeff",
+                "Alex", "2533274790395904", UUID.fromString("123e4567-e89b-12d3-a456-426614174000"),
+                "2001:db8::42", 54321, 1_800_000_000_000L, 1_800_000_005_000L, bootId, 42);
+        String token = OniForward.sign(claims, key());
+        var clockJumped = new OniForward.Validation(
+                "Alex", "kingdom-main", "kingdom", 1_900_000_000_000L, 10_000, 2_000, 4_096);
+
+        OniForward.Result result = OniForward.verify(token, new OniForward.KeyRing(key(), null), clockJumped);
+
+        assertEquals(V3_VECTOR, token);
+        assertTrue(result.valid());
+        assertEquals(bootId, result.claims().proxyBootId());
+        assertEquals(42, result.claims().sequence());
+    }
+
+    @Test
+    void proxyBootEpochPersistsAcrossBackwardClockJump(@TempDir Path directory) {
+        Path state = directory.resolve("oniforward-proxy.state");
+        long first = OniForwardTokenFactory.nextBootEpoch(
+                state, Clock.fixed(Instant.ofEpochMilli(1_000), ZoneOffset.UTC));
+        long second = OniForwardTokenFactory.nextBootEpoch(
+                state, Clock.fixed(Instant.ofEpochMilli(500), ZoneOffset.UTC));
+
+        assertEquals(1_000, first);
+        assertEquals(1_001, second);
+        assertEquals(second, OniForwardTokenFactory.bootId(second).getMostSignificantBits());
+    }
+}

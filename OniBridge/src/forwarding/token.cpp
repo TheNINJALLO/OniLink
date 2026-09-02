@@ -16,14 +16,15 @@ namespace {
 
 constexpr std::array<std::byte, 4> magic{
     std::byte{'O'}, std::byte{'N'}, std::byte{'I'}, std::byte{'F'}};
-constexpr std::size_t field_count = 14;
+constexpr std::size_t v2_field_count = 14;
+constexpr std::size_t v3_field_count = 16;
 
 std::string decimal(auto value) {
     return std::to_string(value);
 }
 
-std::array<std::string, field_count> fields(const ForwardingClaims& c) {
-    return {
+std::vector<std::string> fields(const ForwardingClaims& c) {
+    std::vector<std::string> result{
         decimal(c.protocol_version),
         c.key_id,
         c.proxy_id,
@@ -39,13 +40,20 @@ std::array<std::string, field_count> fields(const ForwardingClaims& c) {
         decimal(c.issued_at_ms),
         decimal(c.expires_at_ms),
     };
+    if (c.protocol_version == kOniForwardProtocolVersion) {
+        result.push_back(c.proxy_boot_id);
+        result.push_back(decimal(c.sequence));
+    } else if (c.protocol_version != kOniForwardLegacyProtocolVersion) {
+        throw std::invalid_argument("unsupported OniForward protocol version");
+    }
+    return result;
 }
 
 std::vector<std::byte> encode(const ForwardingClaims& claims) {
     std::vector<std::byte> result(magic.begin(), magic.end());
     result.push_back(static_cast<std::byte>(kOniForwardEncodingVersion));
-    result.push_back(static_cast<std::byte>(field_count));
     const auto values = fields(claims);
+    result.push_back(static_cast<std::byte>(values.size()));
     for (std::size_t index = 0; index < values.size(); ++index) {
         const auto& value = values[index];
         if (value.empty() || value.size() > std::numeric_limits<std::uint16_t>::max()) {
@@ -83,11 +91,20 @@ bool valid_uuid(std::string_view value) {
             if (value[i] != '-') {
                 return false;
             }
-        } else if (!std::isxdigit(static_cast<unsigned char>(value[i]))) {
+        } else if (!((value[i] >= '0' && value[i] <= '9') ||
+                     (value[i] >= 'a' && value[i] <= 'f'))) {
             return false;
         }
     }
     return true;
+}
+
+bool valid_identifier(std::string_view value) {
+    return !value.empty() && value.size() <= 64 &&
+           std::all_of(value.begin(), value.end(), [](unsigned char ch) {
+               return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') ||
+                      (ch >= '0' && ch <= '9') || ch == '.' || ch == '_' || ch == '-';
+           });
 }
 
 bool valid_utf8(std::string_view value) {
@@ -171,10 +188,11 @@ ForwardingResult decode_payload(std::span<const std::byte> payload) {
     if (std::to_integer<unsigned>(payload[4]) != kOniForwardEncodingVersion) {
         return fail("unsupported encoding version");
     }
-    if (std::to_integer<unsigned>(payload[5]) != field_count) {
+    const auto field_count = std::to_integer<unsigned>(payload[5]);
+    if (field_count != v2_field_count && field_count != v3_field_count) {
         return fail("missing or extra fields");
     }
-    std::array<std::string, field_count> values;
+    std::vector<std::string> values(field_count);
     std::size_t offset = 6;
     for (std::size_t expected = 1; expected <= field_count; ++expected) {
         if (offset + 3 > payload.size()) {
@@ -203,9 +221,12 @@ ForwardingResult decode_payload(std::span<const std::byte> payload) {
     ForwardingClaims claims;
     unsigned protocol = 0;
     unsigned port = 0;
-    if (!parse_integer(values[0], protocol) || protocol != kOniForwardProtocolVersion) {
+    if (!parse_integer(values[0], protocol) ||
+        (protocol != kOniForwardLegacyProtocolVersion && protocol != kOniForwardProtocolVersion)) {
         return fail("unsupported protocol version");
     }
+    if ((protocol == kOniForwardLegacyProtocolVersion) != (field_count == v2_field_count))
+        return fail("protocol field set is invalid");
     if (!parse_integer(values[11], port) || port > 65535) {
         return fail("invalid real port");
     }
@@ -225,6 +246,13 @@ ForwardingResult decode_payload(std::span<const std::byte> payload) {
     claims.proxy_uuid = values[9];
     claims.real_ip = values[10];
     claims.real_port = static_cast<std::uint16_t>(port);
+    if (protocol == kOniForwardProtocolVersion) {
+        if (!valid_uuid(values[14]) || !parse_integer(values[15], claims.sequence) ||
+            claims.sequence == 0) {
+            return fail("invalid OniForward v3 freshness claims");
+        }
+        claims.proxy_boot_id = values[14];
+    }
     return {std::move(claims), {}};
 }
 
@@ -278,6 +306,12 @@ ForwardingResult verify_forwarding_token(std::string_view token,
         return fail("signature mismatch");
     }
     auto& claims = *decoded.claims;
+    if (claims.protocol_version < validation.minimum_protocol_version) {
+        return fail("OniForward protocol downgrade is disabled by backend policy");
+    }
+    if (!valid_identifier(claims.proxy_id)) {
+        return fail("proxy ID is invalid");
+    }
     if (claims.xuid.empty() || !std::all_of(claims.xuid.begin(), claims.xuid.end(), [](char ch) {
             return ch >= '0' && ch <= '9';
         })) {
@@ -297,15 +331,17 @@ ForwardingResult verify_forwarding_token(std::string_view token,
         claims.expires_at_ms - claims.issued_at_ms > validation.maximum_lifetime_ms) {
         return fail("token lifetime exceeds policy");
     }
-    const auto expected_proxy_now =
-        saturating_add(validation.now_ms, validation.proxy_clock_offset_ms);
-    if (claims.issued_at_ms >
-        saturating_add(expected_proxy_now, validation.allowed_clock_skew_ms)) {
-        return fail(clock_error("token was issued in the future", claims, validation));
-    }
-    if (claims.expires_at_ms <
-        saturating_add(expected_proxy_now, -validation.allowed_clock_skew_ms)) {
-        return fail(clock_error("token is expired", claims, validation));
+    if (claims.protocol_version == kOniForwardLegacyProtocolVersion) {
+        const auto expected_proxy_now =
+            saturating_add(validation.now_ms, validation.proxy_clock_offset_ms);
+        if (claims.issued_at_ms >
+            saturating_add(expected_proxy_now, validation.allowed_clock_skew_ms)) {
+            return fail(clock_error("token was issued in the future", claims, validation));
+        }
+        if (claims.expires_at_ms <
+            saturating_add(expected_proxy_now, -validation.allowed_clock_skew_ms)) {
+            return fail(clock_error("token is expired", claims, validation));
+        }
     }
     TrustedProxyMatcher address_validator;
     try {

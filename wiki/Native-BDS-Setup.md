@@ -75,7 +75,7 @@ shutdown_on_hook_failure = true
 reject_direct_joins = true
 
 [forwarding]
-protocol = 2
+protocol = 3
 active_key_id = "key-2026-01"
 active_secret_env = "ONIBRIDGE_SURVIVAL_SECRET"
 active_secret_file = ""
@@ -112,10 +112,9 @@ enabled = false
 
 The parser rejects unknown or duplicate options. Configure exactly one active secret source: `active_secret_env` or `active_secret_file`, never both. A secret file must be accessible only to the BDS service account.
 
-Keep `proxy_clock_offset_ms = 0` when both hosts have working NTP. If a separately managed host
-cannot be corrected, beta 8 reports the signed proxy-minus-backend offset after a rejected login.
-Copy that value into `proxy_clock_offset_ms`, keep `allowed_clock_skew_ms = 2000`, and restart
-OniBridge. Compensation is bounded to 24 hours and does not extend token or replay lifetime.
+Keep `proxy_clock_offset_ms = 0`. OniForward v3 uses a signed proxy boot identity and persisted
+one-time sequences, so the proxy and backend may run on separate providers without matching wall
+clocks. The offset setting is read only for temporary OniForward v2 migration compatibility.
 
 ## 5. Configure OniLink
 

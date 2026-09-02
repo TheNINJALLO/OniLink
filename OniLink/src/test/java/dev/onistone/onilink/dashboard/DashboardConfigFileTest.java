@@ -97,6 +97,7 @@ class DashboardConfigFileTest {
         assertEquals("creative-main", config.backends().get("creative").forwarding().bridgeId());
         String toml = String.valueOf(result.get("onibridgeToml"));
         assertTrue(toml.contains("backend_name = \"creative\""));
+        assertTrue(toml.contains("protocol = 3"));
         assertTrue(toml.contains("trusted_proxy_cidrs = [\"198.51.100.10/32\"]"));
         assertTrue(toml.contains("active_key_id = \"key-1\""));
         assertTrue(toml.contains("active_secret_file = \"creative.key\""));

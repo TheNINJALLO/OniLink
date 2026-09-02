@@ -65,7 +65,7 @@ Behavior retained for OniLink:
 
 Behavior replaced:
 
-- The loopback HTTP pending-join verification protocol is replaced by the local, short-lived, backend-bound OniForward token.
+- The loopback HTTP pending-join verification protocol is replaced by the local, one-time, backend-bound OniForward token.
 - Global shared verification secrets are replaced by per-backend key IDs and secrets.
 - Public proxy commands move under `/onilink`; legacy top-level aliases are disabled by default and backend definitions win collisions.
 - Java 17 compilation and old packages/artifact names are replaced by Java 21 and `dev.onistone.onilink`.

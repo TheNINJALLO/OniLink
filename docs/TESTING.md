@@ -7,7 +7,7 @@ Current completed results:
 | `bdsctl` | 28 passed | unit test |
 | `sdkgen` | 17 passed | unit test |
 | packaging, egg, ABI, and checked-profile Python suite | 28 passed, 3 skipped | unit/platform fixture |
-| OniLink Java 21 | 480 passed, 0 failed, 0 skipped | unit/integration fixture |
+| OniLink Java 21 | 483 passed, 0 failed, 0 skipped | unit/integration fixture |
 | Dashboard UI | 38 passed, 0 failed | component/integration fixture |
 | OniBridge Windows CTest | 2 passed | native unit + synthetic executable hook harness |
 | Windows BDS 1.26.44.3 + Endstone 0.11.9 | server start, DLL load/enable, exact hook install, disable/uninstall, exit 0 | partial live lifecycle; offline mode, no client |
@@ -21,6 +21,22 @@ The acquisition suite covers official metadata, stable/preview separation, redir
 The hook harness uses executable synthetic code rather than a mocked method name. It checks the direct call replacement, original destination, correct XUID substitution, rejection without a verified login, prior-call chaining, double-install prevention, safe rollback, and final identity registration.
 
 The repository operator approved the complete Linux acceptance result for the exact BDS `1.26.44.3` + Endstone `0.11.9` target, including the human-review and live-test gates. The Linux profile is therefore production-approved. Windows has proven plugin load/hook lifecycle offline but no live client join and remains a candidate.
+
+## Clock-independent OniForward v3 verification performed on 2026-09-01
+
+The `0.3.0-beta.9` corrective gate replaces cross-provider wall-clock comparison with a signed,
+persisted monotonic proxy boot UUID and strictly increasing one-time sequence. Native tests cover exact Java/C++ v3
+vectors, arbitrary forward and backward wall-clock jumps, replay, 64 concurrent out-of-order
+logins, proxy boot retirement, backend restart with persisted floors, protocol downgrade, and
+monotonic packet-to-native-stage expiry. Existing v2 vectors and migration validation remain
+covered.
+
+All 483 OniLink Java tests passed with no failures or skips, and the standalone Java 21 JAR built
+successfully. The dashboard passed Prettier, ESLint, TypeScript, all 38 tests, and its production
+build. The 73 Python tests passed with 3 expected Windows platform skips. The exact Windows BDS
+1.26.45.1 plugin compiled against Endstone 0.11.10 and passed both CTest targets. Ruff, pinned C++
+formatting, and `git diff --check` passed. The exact beta 9 Linux build, GLIBC/libc++ gates, package,
+and live proxied-login matrix remain workflow/operator gates.
 
 ## Fresh OniForward issuance verification performed on 2026-09-01
 

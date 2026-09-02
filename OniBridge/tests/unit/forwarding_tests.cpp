@@ -100,6 +100,17 @@ ForwardingClaims fixture() {
     };
 }
 
+ForwardingClaims v3_fixture(std::uint64_t sequence = 1,
+                            std::string boot_id = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee") {
+    auto claims = fixture();
+    claims.protocol_version = 3;
+    claims.proxy_boot_id = std::move(boot_id);
+    claims.sequence = sequence;
+    claims.session_id = "018f47f2-c001-7000-8000-000000000002";
+    claims.nonce = "10112233445566778899aabbccddeeff";
+    return claims;
+}
+
 ForwardingKey key() {
     const std::string secret = "correct horse battery staple";
     std::vector<std::byte> bytes(secret.size());
@@ -175,6 +186,31 @@ void token_tests() {
     active.secret[0] ^= std::byte{1};
     check(static_cast<bool>(verify_forwarding_token(token, {active, previous}, validation())),
           "previous rotation key verifies");
+
+    const auto v3_token = sign_forwarding_token(v3_fixture(42), key());
+    check(v3_token ==
+              "T05JRgEQAQABMwIAC2tleS0yMDI2LTAxAwAGZWRnZS0xBAAMa2luZ2RvbS1tYWluBQAHa2luZ2RvbQY"
+              "AJDAxOGY0N2YyLWMwMDEtNzAwMC04MDAwLTAwMDAwMDAwMDAwMgcAIDEwMTEyMjMzNDQ1NTY2Nzc4OD"
+              "k5YWFiYmNjZGRlZWZmCAAEQWxleAkAEDI1MzMyNzQ3OTAzOTU5MDQKACQxMjNlNDU2Ny1lODliLTEyZ"
+              "DMtYTQ1Ni00MjY2MTQxNzQwMDALAAwyMDAxOmRiODo6NDIMAAU1NDMyMQ0ADTE4MDAwMDAwMDAwMDAO"
+              "AA0xODAwMDAwMDA1MDAwDwAkYWFhYWFhYWEtYmJiYi00Y2NjLThkZGQtZWVlZWVlZWVlZWVlEAACNDI."
+              "OAhkmk-FYr7pzXaTDixLur5B4Px3e5JOGY3K6UiXgcs",
+          "C++ v3 output matches the shared clock-independent vector");
+    auto jumped_clock = validation();
+    jumped_clock.now_ms += 100'000'000'000;
+    const auto v3_verified = verify_forwarding_token(v3_token, {key(), std::nullopt}, jumped_clock);
+    check(static_cast<bool>(v3_verified),
+          "v3 token verification does not use provider wall clocks");
+    check(v3_verified && v3_verified.claims->sequence == 42 &&
+              v3_verified.claims->proxy_boot_id == "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+          "v3 freshness claims survive canonical encoding");
+
+    auto v3_only = validation();
+    v3_only.minimum_protocol_version = kOniForwardProtocolVersion;
+    check(!verify_forwarding_token(token, {key(), std::nullopt}, v3_only),
+          "v3-only backend policy rejects a signed v2 downgrade");
+    check(static_cast<bool>(verify_forwarding_token(v3_token, {key(), std::nullopt}, v3_only)),
+          "v3-only backend policy accepts a signed v3 token");
 }
 
 void replay_tests() {
@@ -191,6 +227,52 @@ void replay_tests() {
         thread.join();
     check(accepted == 1, "replay identity is consumed atomically");
     check(cache.size() == 1, "replay cache stays bounded for duplicates");
+
+    ForwardingSequenceGuard concurrent_sequences;
+    std::atomic_int concurrent_accepted{0};
+    std::vector<std::thread> sequence_threads;
+    for (std::uint64_t sequence = 1; sequence <= 64; ++sequence) {
+        sequence_threads.emplace_back([sequence, &concurrent_sequences, &concurrent_accepted] {
+            std::string sequence_error;
+            if (concurrent_sequences.consume(v3_fixture(sequence), sequence_error))
+                ++concurrent_accepted;
+        });
+    }
+    for (auto& thread : sequence_threads)
+        thread.join();
+    check(concurrent_accepted == 64,
+          "concurrent v3 sequences are accepted once despite out-of-order arrival");
+
+    const auto state_path =
+        std::filesystem::temp_directory_path() / "onibridge-sequence-guard-test.state";
+    std::filesystem::remove(state_path);
+    std::string error;
+    {
+        ForwardingSequenceGuard sequences(state_path);
+        check(sequences.consume(v3_fixture(2), error),
+              "first v3 sequence establishes a proxy boot");
+        check(sequences.consume(v3_fixture(1), error),
+              "a concurrent v3 sequence may arrive out of order inside the bounded window");
+        check(!sequences.consume(v3_fixture(1), error), "a v3 sequence is single-use");
+        check(sequences.consume(v3_fixture(3, "bbbbbbbb-cccc-4ddd-8eee-ffffffffffff"), error),
+              "a new signed proxy boot rotates the freshness epoch");
+        check(!sequences.consume(v3_fixture(4), error),
+              "a token from a retired proxy boot is rejected");
+        check(!sequences.consume(v3_fixture(4, "99999999-aaaa-4bbb-8ccc-dddddddddddd"), error),
+              "an unseen older proxy boot cannot rotate persisted freshness state backward");
+    }
+    {
+        ForwardingSequenceGuard restored(state_path);
+        check(restored.consume(v3_fixture(4, "bbbbbbbb-cccc-4ddd-8eee-ffffffffffff"), error),
+              "the current proxy sequence advances after bridge restart");
+        check(!restored.consume(v3_fixture(2, "bbbbbbbb-cccc-4ddd-8eee-ffffffffffff"), error),
+              "persisted sequence state rejects an old token after bridge restart");
+        check(!restored.consume(v3_fixture(5), error),
+              "persisted retired boot state rejects rollback after bridge restart");
+        check(!restored.consume(v3_fixture(5, "11111111-2222-4333-8444-555555555555"), error),
+              "an unseen older boot remains rejected after bridge restart");
+    }
+    std::filesystem::remove(state_path);
 }
 
 void cidr_tests() {
@@ -243,7 +325,10 @@ void control_config_tests() {
                << control;
     };
     write("");
-    check(!load_config(path).control.enabled, "OniControl defaults to disabled");
+    const auto defaults = load_config(path);
+    check(!defaults.control.enabled, "OniControl defaults to disabled");
+    check(defaults.forwarding_protocol == kOniForwardProtocolVersion,
+          "new OniBridge configuration defaults to OniForward v3");
 
     write("[control]\nenabled = true\nlisten_host = \"127.0.0.1\"\nlisten_port = 19132\n"
           "bridge_id = \"survival-control\"\nbackend_name = \"survival\"\nkey_id = "
@@ -354,6 +439,36 @@ void service_tests() {
           "service translates replay and pending expiries into backend clock time");
     check(!offset_service.verify_forwarded_login(token, "10.5.4.3", "Alex", "uuid", offset_now + 1),
           "clock compensation does not weaken single-use replay enforcement");
+
+    OniBridgeService v3_service(
+        "kingdom-main", "kingdom", {key(), std::nullopt}, TrustedProxyMatcher({"10.0.0.0/8"}));
+    const auto v3_token = sign_forwarding_token(v3_fixture(10), key());
+    check(static_cast<bool>(
+              v3_service.verify_forwarded_login(v3_token,
+                                                "10.5.4.3",
+                                                "Alex",
+                                                "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                                                fixture().issued_at_ms + 100'000'000'000)),
+          "v3 service accepts a fresh signed sequence across an arbitrary wall-clock jump");
+    check(!v3_service.verify_forwarded_login(v3_token,
+                                             "10.5.4.3",
+                                             "Alex",
+                                             "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                                             fixture().issued_at_ms - 100'000'000'000),
+          "v3 service rejects replay independently of wall-clock direction");
+
+    auto staged_v3_claims = v3_fixture(11);
+    staged_v3_claims.session_id = "018f47f2-c001-7000-8000-000000000003";
+    staged_v3_claims.nonce = "20112233445566778899aabbccddeeff";
+    const auto staged_v3_token = sign_forwarding_token(staged_v3_claims, key());
+    check(static_cast<bool>(v3_service.stage_forwarded_login(
+              staged_v3_token, "10.5.4.3", "Alex", fixture().issued_at_ms + 200'000'000'000)),
+          "v3 service stages a login after a large forward wall-clock jump");
+    check(static_cast<bool>(
+              v3_service.consume_staged_login("Alex",
+                                              "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                                              fixture().issued_at_ms - 200'000'000'000)),
+          "v3 native-stage consumption uses monotonic time across a backward wall-clock jump");
 }
 
 void login_envelope_tests() {

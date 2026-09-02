@@ -120,7 +120,7 @@ shutdown_on_hook_failure = true
 reject_direct_joins = true
 
 [forwarding]
-protocol = 2
+protocol = 3
 active_key_id = "key-1"
 active_secret_env = ""
 active_secret_file = "creative.key"

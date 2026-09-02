@@ -9,7 +9,8 @@ to validate a fresh signed `OniForward` claim before accepting identity data.
 - Exact BDS `1.26.44.3` and Endstone `0.11.9` for the approved Linux profile.
 - A private UDP route between proxy and backend.
 - One unique 32-byte-or-stronger Base64 secret per backend.
-- Synchronized clocks and current backups.
+- Current backups. Stable v0.2 requires synchronized clocks; beta 9 uses clock-independent
+  forwarding sequences.
 
 ## Download
 

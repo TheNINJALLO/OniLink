@@ -991,7 +991,7 @@ final class DashboardConfigFile {
                 reject_direct_joins = true
 
                 [forwarding]
-                protocol = 2
+                protocol = 3
                 active_key_id = "%s"
                 active_secret_env = ""
                 active_secret_file = "%s"

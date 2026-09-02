@@ -5,18 +5,21 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
 namespace onistone::onibridge {
 
 inline constexpr std::uint8_t kOniForwardEncodingVersion = 1;
-inline constexpr std::uint32_t kOniForwardProtocolVersion = 2;
+inline constexpr std::uint32_t kOniForwardLegacyProtocolVersion = 2;
+inline constexpr std::uint32_t kOniForwardProtocolVersion = 3;
 
 struct ForwardingClaims {
     std::uint32_t protocol_version{kOniForwardProtocolVersion};
@@ -33,6 +36,8 @@ struct ForwardingClaims {
     std::uint16_t real_port{};
     std::int64_t issued_at_ms{};
     std::int64_t expires_at_ms{};
+    std::string proxy_boot_id;
+    std::uint64_t sequence{};
 };
 
 struct ForwardingKey {
@@ -52,8 +57,11 @@ struct ForwardingValidation {
     std::int64_t now_ms{};
     std::int64_t maximum_lifetime_ms{10'000};
     std::int64_t allowed_clock_skew_ms{2'000};
+    // Protocol 2 permits migration from the legacy clock-based format. Protocol 3 disables
+    // downgrade once both OniLink and OniBridge have been updated.
+    std::uint32_t minimum_protocol_version{kOniForwardLegacyProtocolVersion};
     // Signed proxy clock minus backend clock. This translates between the two wall-clock
-    // domains without widening the token lifetime or replay window.
+    // domains without widening the token lifetime or replay window. OniForward v3 ignores it.
     std::int64_t proxy_clock_offset_ms{};
     std::size_t maximum_token_size{4'096};
 };
@@ -104,6 +112,38 @@ class ReplayCache final {
     std::array<Shard, kShardCount> shards_;
     std::size_t maximum_entries_;
     std::atomic_size_t size_{0};
+};
+
+/**
+ * Clock-independent v3 freshness guard.
+ *
+ * A proxy process signs a persisted monotonic boot UUID and a strictly increasing sequence into
+ * every token.
+ * The bridge persists the current and retired boot UUIDs per proxy and accepts each sequence once,
+ * including a small window for concurrent logins that arrive out of order. This keeps consumed
+ * sequences and retired proxy processes unusable even when either provider's wall clock jumps.
+ */
+class ForwardingSequenceGuard final {
+  public:
+    explicit ForwardingSequenceGuard(std::filesystem::path state_file = {});
+    [[nodiscard]] bool consume(const ForwardingClaims& claims, std::string& error);
+
+  private:
+    static constexpr std::uint64_t kReorderingWindow = 4'096;
+    struct State {
+        std::string current_boot_id;
+        std::uint64_t highest_sequence{};
+        std::uint64_t restored_sequence_floor{};
+        std::unordered_set<std::uint64_t> recent_sequences;
+        std::unordered_set<std::string> retired_boot_ids;
+    };
+
+    void load();
+    void persist_locked() const;
+
+    std::filesystem::path state_file_;
+    std::mutex mutex_;
+    std::unordered_map<std::string, State> states_;
 };
 
 class TrustedProxyMatcher final {

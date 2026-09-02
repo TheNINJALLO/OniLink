@@ -35,7 +35,7 @@ checksum-valid changes.
 | `beta` | Newest published release including prereleases |
 | `pinned` | Stays on the exact `ONILINK_VERSION` |
 
-To test BDS `1.26.45.1`, use the `beta` channel or pin `v0.3.0-beta.8`, then separately replace the
+To test BDS `1.26.45.1`, use the `beta` channel or pin `v0.3.0-beta.9`, then separately replace the
 backend's Endstone runtime with `0.11.10` and OniBridge with the exact BDS 1.26.45.1 artifact. The
 OniLink egg updates the proxy JAR only; it cannot safely replace files inside a different BDS
 container.
@@ -136,7 +136,7 @@ shutdown_on_hook_failure = true
 reject_direct_joins = true
 
 [forwarding]
-protocol = 2
+protocol = 3
 active_key_id = "key-2026-01"
 active_secret_env = "ONIBRIDGE_FORWARDING_SECRET"
 active_secret_file = ""

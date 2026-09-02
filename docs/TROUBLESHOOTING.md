@@ -44,26 +44,30 @@ Compare these values character-for-character on OniLink and the backend validato
 2. Bridge ID
 3. Active key ID
 4. Decoded secret bytes
-5. Token lifetime/skew and system clocks
+5. OniForward protocol (`3` on updated systems)
 6. Actual proxy source CIDR observed at the backend
 
 A Java properties value with an inline `# comment` includes the comment text. Put comments on their own lines.
 
 ### `token was issued in the future` or `token is expired`
 
-Beta 8 reports `observed proxy-minus-backend clock offset` after the token signature and forwarding
-context have already passed. Synchronize both host clocks with NTP whenever possible. If one
-provider-managed host is inaccessible, keep `allowed_clock_skew_ms=2000`, set
-`forwarding.proxy_clock_offset_ms` to the reported signed value, and fully restart OniBridge. The
-accepted range is `-86400000..86400000` ms. This translation preserves the original token lifetime and
-replay-cache expiration; do not increase the general skew window to compensate for a fixed offset.
+This message proves OniBridge received a legacy OniForward v2 token. Do not keep copying the
+changing reported offset. Upgrade both `OniLink.jar` and the matching profile-specific OniBridge
+plugin to beta 9 or newer, set `[forwarding] protocol = 3`, keep `proxy_clock_offset_ms = 0`, and
+fully restart both processes. Startup must report:
 
-If the observed offset changes by several seconds on every attempt, confirm OniLink is beta 8 or
-newer. Older builds minted the token before RakNet dialing and backend protocol negotiation, so
-variable connection time appeared as a changing clock offset and could expire an otherwise valid
-token. Beta 8 mints it only after `NetworkSettings`, immediately before backend Login. After
-upgrading OniLink, use the newly reported value once; do not keep chasing readings produced by an
-older JAR.
+```text
+OniForward v3 clock-independent verification is active
+```
+
+If it instead reports protocol 2 compatibility mode, edit the backend's live file at
+`plugins/onibridge/onibridge.toml`; changing a downloaded example does not change the container.
+If the backend reports v3 but still emits a v2 clock error, the running OniLink JAR is older than
+beta 9 or the panel startup is selecting a different JAR.
+
+The first accepted v3 Login creates `plugins/onibridge/oniforward-sequences.state`. OniBridge owns
+this file automatically. It contains replay counters, not secrets, and requires no manual permission
+change.
 
 ## Direct backend joins succeed
 

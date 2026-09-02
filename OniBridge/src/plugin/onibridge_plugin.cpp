@@ -30,7 +30,7 @@
 #include <vector>
 
 #ifndef ONIBRIDGE_VERSION
-#define ONIBRIDGE_VERSION "0.3.0-beta.8"
+#define ONIBRIDGE_VERSION "0.3.0-beta.9"
 #endif
 #ifndef ONIBRIDGE_BDS_VERSION
 #define ONIBRIDGE_BDS_VERSION "profile-bound"
@@ -327,7 +327,7 @@ class OniBridgePlugin : public endstone::Plugin {
                 output << "bridge_id = \"change-me\"\nbackend_name = \"change-me\"\n"
                           "trusted_proxy_cidrs = [\"127.0.0.1/32\", \"::1/128\"]\n"
                           "shutdown_on_hook_failure = true\nreject_direct_joins = true\n\n"
-                          "[forwarding]\nprotocol = 2\nactive_key_id = \"key-1\"\n"
+                          "[forwarding]\nprotocol = 3\nactive_key_id = \"key-1\"\n"
                           "active_secret_env = \"ONIBRIDGE_FORWARDING_SECRET\"\n"
                           "maximum_token_size = 4096\nmaximum_lifetime_ms = 10000\n"
                           "allowed_clock_skew_ms = 2000\nproxy_clock_offset_ms = 0\n"
@@ -373,12 +373,26 @@ class OniBridgePlugin : public endstone::Plugin {
                                                    config_.maximum_token_size,
                                                    config_.maximum_lifetime_ms,
                                                    config_.allowed_clock_skew_ms,
-                                                   config_.proxy_clock_offset_ms);
+                                                   config_.proxy_clock_offset_ms,
+                                                   getDataFolder() / "oniforward-sequences.state",
+                                                   config_.forwarding_protocol);
+
+            if (config_.forwarding_protocol == kOniForwardProtocolVersion) {
+                getLogger().info(
+                    "OniForward v3 clock-independent verification is configured; replay state "
+                    "will be stored in {}.",
+                    (getDataFolder() / "oniforward-sequences.state").string());
+            } else {
+                getLogger().warning(
+                    "OniForward protocol 2 compatibility mode is active. Set protocol = 3 after "
+                    "updating OniLink to disable legacy clock-based tokens.");
+            }
 
             if (config_.proxy_clock_offset_ms != 0) {
                 getLogger().warning(
-                    "OniForward proxy clock compensation is active at {} ms; keep the normal "
-                    "clock-skew tolerance and have the host provider repair NTP.",
+                    "Legacy OniForward v2 proxy clock compensation is configured at {} ms. "
+                    "OniForward v3 ignores wall-clock offsets and uses persisted one-time "
+                    "sequences.",
                     config_.proxy_clock_offset_ms);
             }
 
@@ -404,6 +418,12 @@ class OniBridgePlugin : public endstone::Plugin {
             } else {
                 getLogger().info(
                     "OniBridge native identity hook is active for the exact reviewed profile.");
+                if (config_.forwarding_protocol == kOniForwardProtocolVersion) {
+                    getLogger().info(
+                        "OniForward v3 clock-independent verification is active; replay state "
+                        "is {}.",
+                        (getDataFolder() / "oniforward-sequences.state").string());
+                }
                 if (config_.control.enabled) {
                     auto control_secret = load_secret(config_.control.secret);
                     if (control_secret == active_secret)
@@ -464,9 +484,13 @@ class OniBridgePlugin : public endstone::Plugin {
         const auto& action = args[0];
         if (action == "status") {
             sender.sendMessage("OniBridge hook active: {}", hook_active_ ? "true" : "false");
-            sender.sendMessage("Proxy clock offset: {} ms; allowed skew: {} ms",
-                               config_.proxy_clock_offset_ms,
-                               config_.allowed_clock_skew_ms);
+            sender.sendMessage("OniForward protocol policy: {}", config_.forwarding_protocol);
+            if (config_.forwarding_protocol == kOniForwardProtocolVersion)
+                sender.sendMessage("Freshness: clock-independent persisted one-time sequences");
+            else
+                sender.sendMessage("Legacy proxy clock offset: {} ms; allowed skew: {} ms",
+                                   config_.proxy_clock_offset_ms,
+                                   config_.allowed_clock_skew_ms);
             if (!hook_error_.empty())
                 sender.sendErrorMessage("Compatibility: {}", hook_error_);
         } else if (action == "version") {

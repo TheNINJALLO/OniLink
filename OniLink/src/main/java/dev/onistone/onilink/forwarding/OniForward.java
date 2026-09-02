@@ -18,12 +18,14 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
-/** Canonical OniForward v2 encoder and verifier. */
+/** Canonical OniForward v2/v3 encoder and verifier. */
 public final class OniForward {
     public static final int ENCODING_VERSION = 1;
-    public static final int PROTOCOL_VERSION = 2;
+    public static final int LEGACY_PROTOCOL_VERSION = 2;
+    public static final int PROTOCOL_VERSION = 3;
     private static final byte[] MAGIC = {'O', 'N', 'I', 'F'};
-    private static final int FIELD_COUNT = 14;
+    private static final int V2_FIELD_COUNT = 14;
+    private static final int V3_FIELD_COUNT = 16;
 
     private OniForward() {
     }
@@ -42,7 +44,9 @@ public final class OniForward {
             String realIp,
             int realPort,
             long issuedAtMs,
-            long expiresAtMs
+            long expiresAtMs,
+            UUID proxyBootId,
+            long sequence
     ) {
         public Claims {
             Objects.requireNonNull(keyId);
@@ -55,6 +59,10 @@ public final class OniForward {
             Objects.requireNonNull(xuid);
             Objects.requireNonNull(proxyUuid);
             Objects.requireNonNull(realIp);
+            if (protocolVersion == PROTOCOL_VERSION) {
+                Objects.requireNonNull(proxyBootId);
+                if (sequence < 1) throw new IllegalArgumentException("OniForward v3 sequence must be positive");
+            }
         }
     }
 
@@ -138,29 +146,43 @@ public final class OniForward {
         if (key == null || signature.length != 32 || !MessageDigest.isEqual(hmac(key.secret, payload), signature)) {
             return failure("signature mismatch or unknown key");
         }
-        if (claims.protocolVersion() != PROTOCOL_VERSION) return failure("unsupported protocol version");
+        if (claims.protocolVersion() != LEGACY_PROTOCOL_VERSION && claims.protocolVersion() != PROTOCOL_VERSION) {
+            return failure("unsupported protocol version");
+        }
         if (claims.xuid().isEmpty() || !claims.xuid().chars().allMatch(c -> c >= '0' && c <= '9')) return failure("XUID is invalid");
         if (claims.realPort() < 0 || claims.realPort() > 65_535) return failure("real port is invalid");
         if (!validIpLiteral(claims.realIp())) return failure("real IP is invalid");
         if (!claims.playerName().equalsIgnoreCase(validation.expectedPlayerName())) return failure("player name mismatch");
         if (!claims.bridgeId().equals(validation.expectedBridgeId()) || !claims.backendName().equals(validation.expectedBackendName())) return failure("bridge or backend mismatch");
         if (claims.expiresAtMs() < claims.issuedAtMs() || claims.expiresAtMs() - claims.issuedAtMs() > validation.maximumLifetimeMs()) return failure("token lifetime exceeds policy");
-        if (claims.issuedAtMs() > validation.nowMs() + validation.allowedClockSkewMs()) return failure("token was issued in the future");
-        if (claims.expiresAtMs() < validation.nowMs() - validation.allowedClockSkewMs()) return failure("token is expired");
+        if (claims.protocolVersion() == LEGACY_PROTOCOL_VERSION) {
+            if (claims.issuedAtMs() > validation.nowMs() + validation.allowedClockSkewMs()) return failure("token was issued in the future");
+            if (claims.expiresAtMs() < validation.nowMs() - validation.allowedClockSkewMs()) return failure("token is expired");
+        }
         return decoded;
     }
 
     private static byte[] encode(Claims claims) {
-        String[] values = {
+        String[] common = {
                 Integer.toString(claims.protocolVersion()), claims.keyId(), claims.proxyId(), claims.bridgeId(),
                 claims.backendName(), claims.sessionId(), claims.nonce(), claims.playerName(), claims.xuid(),
                 claims.proxyUuid().toString(), claims.realIp(), Integer.toString(claims.realPort()),
                 Long.toString(claims.issuedAtMs()), Long.toString(claims.expiresAtMs())
         };
+        String[] values;
+        if (claims.protocolVersion() == LEGACY_PROTOCOL_VERSION) {
+            values = common;
+        } else if (claims.protocolVersion() == PROTOCOL_VERSION) {
+            values = Arrays.copyOf(common, V3_FIELD_COUNT);
+            values[14] = claims.proxyBootId().toString();
+            values[15] = Long.toUnsignedString(claims.sequence());
+        } else {
+            throw new IllegalArgumentException("unsupported OniForward protocol version");
+        }
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         output.writeBytes(MAGIC);
         output.write(ENCODING_VERSION);
-        output.write(FIELD_COUNT);
+        output.write(values.length);
         for (int index = 0; index < values.length; index++) {
             byte[] bytes = values[index].getBytes(StandardCharsets.UTF_8);
             if (bytes.length == 0 || bytes.length > 65_535) throw new IllegalArgumentException("invalid OniForward field length");
@@ -175,11 +197,12 @@ public final class OniForward {
     private static Result decode(byte[] payload) {
         if (payload.length < 6 || !Arrays.equals(Arrays.copyOf(payload, 4), MAGIC)) return failure("invalid payload magic");
         if (Byte.toUnsignedInt(payload[4]) != ENCODING_VERSION) return failure("unsupported encoding version");
-        if (Byte.toUnsignedInt(payload[5]) != FIELD_COUNT) return failure("missing or extra fields");
-        String[] values = new String[FIELD_COUNT];
+        int fieldCount = Byte.toUnsignedInt(payload[5]);
+        if (fieldCount != V2_FIELD_COUNT && fieldCount != V3_FIELD_COUNT) return failure("missing or extra fields");
+        String[] values = new String[fieldCount];
         int offset = 6;
         try {
-            for (int expected = 1; expected <= FIELD_COUNT; expected++) {
+            for (int expected = 1; expected <= fieldCount; expected++) {
                 if (offset + 3 > payload.length) return failure("truncated field header");
                 int id = Byte.toUnsignedInt(payload[offset++]);
                 if (id != expected) return failure(id < expected ? "duplicate or unordered field" : "missing or unordered field");
@@ -193,7 +216,12 @@ public final class OniForward {
             Claims claims = new Claims(
                     Integer.parseInt(values[0]), values[1], values[2], values[3], values[4], values[5], values[6],
                     values[7], values[8], parseUuid(values[9]), values[10], Integer.parseInt(values[11]),
-                    Long.parseLong(values[12]), Long.parseLong(values[13]));
+                    Long.parseLong(values[12]), Long.parseLong(values[13]),
+                    fieldCount == V3_FIELD_COUNT ? parseUuid(values[14]) : null,
+                    fieldCount == V3_FIELD_COUNT ? Long.parseUnsignedLong(values[15]) : 0);
+            if ((claims.protocolVersion() == LEGACY_PROTOCOL_VERSION) != (fieldCount == V2_FIELD_COUNT)) {
+                return failure("protocol field set is invalid");
+            }
             return new Result(claims, "");
         } catch (IllegalArgumentException exception) {
             return failure("claim encoding is invalid");
