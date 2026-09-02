@@ -1,5 +1,8 @@
 name: Release
 on:
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
     inputs:
       version: {description: OniBridge version, required: true}
@@ -7,7 +10,42 @@ on:
 permissions:
   contents: write
 jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      bds_version: ${{ steps.release.outputs.bds_version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: release
+        name: Resolve and validate release coordinates
+        shell: bash
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+          REQUESTED_BDS_VERSION: ${{ inputs.bds_version }}
+        run: |
+          version="$REQUESTED_VERSION"
+          if [ -z "$version" ]; then
+            version="${GITHUB_REF_NAME#v}"
+          fi
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid release version: $version" >&2
+            exit 2
+          fi
+
+          bds_version="$REQUESTED_BDS_VERSION"
+          if [ -z "$bds_version" ]; then
+            bds_version=$(python3 -c 'import json; data=json.load(open("OniBridge/bds.lock.json", encoding="utf-8")); versions={item["version"] for item in data["platforms"].values()}; assert len(versions) == 1, "locked platform versions differ"; print(versions.pop())')
+          fi
+          if [[ ! "$bds_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+            echo "Invalid BDS version: $bds_version" >&2
+            exit 2
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "bds_version=$bds_version" >> "$GITHUB_OUTPUT"
   validate-lock:
+    needs: prepare
     environment: bds-profile-generation
     runs-on: ubuntu-24.04
     env:
@@ -16,23 +54,23 @@ jobs:
       - uses: actions/checkout@v4
       - run: python -m pip install -e OniBridge/tools/bdsctl -e OniBridge/tools/sdkgen
       - name: Validate checked profiles for prerelease
-        if: ${{ contains(inputs.version, '-') }}
+        if: ${{ contains(needs.prepare.outputs.version, '-') }}
         run: >-
           python tools/profile_pipeline.py validate-checked
           --lock OniBridge/bds.lock.json --allow-candidate
       - name: Validate production-only checked profiles for stable release
-        if: ${{ !contains(inputs.version, '-') }}
+        if: ${{ !contains(needs.prepare.outputs.version, '-') }}
         run: >-
           python tools/profile_pipeline.py validate-checked
           --lock OniBridge/bds.lock.json
       - name: Fetch official BDS archives for stable release
-        if: ${{ !contains(inputs.version, '-') }}
+        if: ${{ !contains(needs.prepare.outputs.version, '-') }}
         run: python -m bdsctl fetch --lock OniBridge/bds.lock.json
       - name: Verify official BDS archives for stable release
-        if: ${{ !contains(inputs.version, '-') }}
+        if: ${{ !contains(needs.prepare.outputs.version, '-') }}
         run: python -m bdsctl verify --lock OniBridge/bds.lock.json
       - name: Validate exact production-only profiles for stable release
-        if: ${{ !contains(inputs.version, '-') }}
+        if: ${{ !contains(needs.prepare.outputs.version, '-') }}
         run: sh scripts/validate-release-profiles.sh
       - if: always()
         run: python -m bdsctl clean && rm -rf .cache/bds build/bds-analysis
@@ -58,17 +96,15 @@ jobs:
           path: OniLink/build/forge
           if-no-files-found: error
   native:
-    needs: validate-lock
+    needs: [prepare, validate-lock]
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-22.04
             platform: linux-x86_64
-            adapter: OniBridge/generated/bds/${{ inputs.bds_version }}/linux-x86_64/adapter.cpp
           - os: windows-2022
             platform: windows-x86_64
-            adapter: OniBridge/generated/bds/${{ inputs.bds_version }}/windows-x86_64/adapter.cpp
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -80,8 +116,8 @@ jobs:
         if: runner.os == 'Linux'
         shell: bash
         env:
-          ONIBRIDGE_RELEASE_VERSION: ${{ inputs.version }}
-          ONIBRIDGE_ADAPTER: ${{ matrix.adapter }}
+          ONIBRIDGE_RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+          ONIBRIDGE_ADAPTER: OniBridge/generated/bds/${{ needs.prepare.outputs.bds_version }}/${{ matrix.platform }}/adapter.cpp
         run: >-
           cmake -S OniBridge -B OniBridge/build/release
           -DCMAKE_CXX_COMPILER=clang++-18
@@ -93,8 +129,8 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         env:
-          ONIBRIDGE_RELEASE_VERSION: ${{ inputs.version }}
-          ONIBRIDGE_ADAPTER: ${{ matrix.adapter }}
+          ONIBRIDGE_RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+          ONIBRIDGE_ADAPTER: OniBridge/generated/bds/${{ needs.prepare.outputs.bds_version }}/${{ matrix.platform }}/adapter.cpp
         run: >-
           cmake -S OniBridge -B OniBridge/build/release
           "-DONIBRIDGE_VERSION=${ONIBRIDGE_RELEASE_VERSION}"
@@ -121,7 +157,7 @@ jobs:
           path: artifact
           if-no-files-found: error
   package:
-    needs: [validate-lock, java, native]
+    needs: [prepare, validate-lock, java, native]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -143,30 +179,30 @@ jobs:
           path: OniBridge/build/windows-release
       - name: Assemble checked release
         env:
-          ONIBRIDGE_RELEASE_VERSION: ${{ inputs.version }}
-          ONIBRIDGE_BDS_VERSION: ${{ inputs.bds_version }}
+          ONIBRIDGE_RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+          ONIBRIDGE_BDS_VERSION: ${{ needs.prepare.outputs.bds_version }}
         run: python tools/package_release.py --version "$ONIBRIDGE_RELEASE_VERSION" --bds-version "$ONIBRIDGE_BDS_VERSION"
       - uses: actions/upload-artifact@v4
         with:
-          name: onilink-${{ inputs.version }}-bds-${{ inputs.bds_version }}
+          name: onilink-${{ needs.prepare.outputs.version }}-bds-${{ needs.prepare.outputs.bds_version }}
           path: dist
           if-no-files-found: error
       - name: Publish GitHub prerelease
-        if: ${{ contains(inputs.version, '-') }}
+        if: ${{ contains(needs.prepare.outputs.version, '-') }}
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: v${{ inputs.version }}
+          RELEASE_TAG: v${{ needs.prepare.outputs.version }}
         run: >-
           gh release create "$RELEASE_TAG" dist/*
-          --title "OniLink ${{ inputs.version }}"
-          --notes-file "docs/releases/v${{ inputs.version }}.md"
+          --title "OniLink ${{ needs.prepare.outputs.version }}"
+          --notes-file "docs/releases/v${{ needs.prepare.outputs.version }}.md"
           --prerelease
       - name: Publish GitHub release
-        if: ${{ !contains(inputs.version, '-') }}
+        if: ${{ !contains(needs.prepare.outputs.version, '-') }}
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: v${{ inputs.version }}
+          RELEASE_TAG: v${{ needs.prepare.outputs.version }}
         run: >-
           gh release create "$RELEASE_TAG" dist/*
-          --title "OniLink ${{ inputs.version }}"
-          --notes-file "docs/releases/v${{ inputs.version }}.md"
+          --title "OniLink ${{ needs.prepare.outputs.version }}"
+          --notes-file "docs/releases/v${{ needs.prepare.outputs.version }}.md"

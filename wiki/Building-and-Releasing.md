@@ -12,6 +12,19 @@ The script builds/tests OniLink, compiles/tests native OniBridge with the commit
 
 The same process runs in [Linux Release Artifacts](https://github.com/TheNINJALLO/OniLink/actions/workflows/linux-artifacts.yml) on Ubuntu 22.04.
 
+## Publish through a version tag
+
+Push an annotated `v*` tag through the normal Git credential manager. GitHub Actions resolves the
+locked BDS version, runs the complete Java/native/package gate, and publishes with its internal
+workflow credential, so no personal API token or CLI device login is required:
+
+```bash
+git tag -a v0.3.0-beta.9 -m "OniLink 0.3.0-beta.9"
+git push origin v0.3.0-beta.9
+```
+
+Do not move or reuse a release tag after publication.
+
 ## Release contents
 
 A release bundle includes only project-owned runtime/configuration files:

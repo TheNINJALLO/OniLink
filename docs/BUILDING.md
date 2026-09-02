@@ -43,3 +43,20 @@ ctest --test-dir OniBridge/build/windows-release -C Release --output-on-failure
 On Linux, use the equivalent Linux adapter with the `linux-release` build directory and pass the profile-specific adapter on the configure command. ASan/UBSan presets exercise the shared core without loading BDS. Normal CI uses generated fixtures and does not download BDS.
 
 The release `.so` is built natively by the Ubuntu 22.04 GitHub workflow with LLVM 18, libc++ 18, and libc++abi 18 packages built for Jammy. The workflow runs CTest and `tools/check_linux_abi.py` before packaging. The ABI check rejects imports newer than `GLIBC_2.35`, any `libstdc++.so` dependency, and unresolved `std::__cxx11` or `GLIBCXX` symbols. It accepts runtime-neutral plugins as well as plugins with direct or host-resolved libc++ references. This proves a native Linux build and synthetic harness execution; it does not replace live BDS/Endstone acceptance or human profile review.
+
+## Publishing without a personal API token
+
+The release workflow accepts either a manual workflow dispatch or an annotated version tag. The
+tag route uses the existing Git credential manager for the push and GitHub's short-lived internal
+workflow credential for publication; it does not require a personal token or GitHub CLI device
+login:
+
+```bash
+git tag -a v0.3.0-beta.9 -m "OniLink 0.3.0-beta.9"
+git push origin v0.3.0-beta.9
+```
+
+The workflow removes the leading `v`, reads the exact BDS version from `OniBridge/bds.lock.json`,
+validates both values, builds the JAR and exact Linux/Windows native plugins, runs CTest and the
+Linux ABI gates, assembles checksummed packages, and creates the matching prerelease or stable
+release. Do not move or reuse an existing release tag.
