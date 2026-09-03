@@ -35,7 +35,7 @@ checksum-valid changes.
 | `beta` | Newest published release including prereleases |
 | `pinned` | Stays on the exact `ONILINK_VERSION` |
 
-To test BDS `1.26.45.1`, use the `beta` channel or pin `v0.3.0-beta.9`, then separately replace the
+To test BDS `1.26.45.1`, use the `beta` channel or pin `v0.3.0-beta.10`, then separately replace the
 backend's Endstone runtime with `0.11.10` and OniBridge with the exact BDS 1.26.45.1 artifact. The
 OniLink egg updates the proxy JAR only; it cannot safely replace files inside a different BDS
 container.
@@ -78,6 +78,13 @@ allocations only for tenant listeners hosted in the same container.
 
 Secret variables are admin-only. Do not make them user-viewable, paste them into `config.properties`,
 or include them in exported eggs.
+
+The egg stores enable/disable choices as the literal strings `true` and `false`, matching the values
+OniLink writes in its properties file. It validates those strings directly so it can be assigned to
+an existing server without rejecting its saved values. The default OniForward secret may remain
+blank when every configured backend uses its own named secret environment variable, such as
+`ONIBRIDGE_SURVIVAL_SECRET`. Forwarding still fails closed if the environment variable selected by a
+backend has no value.
 
 ## Configure the default route
 

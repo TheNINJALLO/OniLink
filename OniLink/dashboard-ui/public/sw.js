@@ -1,4 +1,4 @@
-const SHELL_CACHE = "onilink-shell-v0.3.0-beta.9";
+const SHELL_CACHE = "onilink-shell-v0.3.0-beta.10";
 const SHELL = [
   "/",
   "/offline.html",

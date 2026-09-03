@@ -276,10 +276,23 @@ printf '%s\\n' \"$*\" > \"$JAVA_LOG\"
         ):
             self.assertIn(required, variables)
 
-        self.assertEqual("v0.3.0-beta.9", variables["ONILINK_VERSION"]["default_value"])
+        self.assertEqual("v0.3.0-beta.10", variables["ONILINK_VERSION"]["default_value"])
         self.assertEqual("beta", variables["ONILINK_UPDATE_CHANNEL"]["default_value"])
         self.assertEqual("true", variables["DASHBOARD_ENABLED"]["default_value"])
         self.assertEqual("false", variables["ALLOWLIST_ENABLED"]["default_value"])
+        for name in (
+            "DASHBOARD_ENABLED",
+            "ALLOWLIST_ENABLED",
+            "CONTROL_ENABLED",
+            "CONTROL_ALLOW_PRIVATE",
+            "CONTROL_TLS_ENABLED",
+            "PACKET_RULES_ENABLED",
+            "VIRTUALIZATION_ENABLED",
+            "PROTOCOL_LAB_ENABLED",
+        ):
+            variable = variables[name]
+            self.assertIn(variable["default_value"], ("true", "false"))
+            self.assertEqual("required|string|in:true,false", variable["rules"])
         for name in (
             "ONILINK_DASHBOARD_SETUP_CODE",
             "ONIBRIDGE_FORWARDING_SECRET",
@@ -289,6 +302,10 @@ printf '%s\\n' \"$*\" > \"$JAVA_LOG\"
             self.assertFalse(variable["user_viewable"])
             self.assertFalse(variable["user_editable"])
             self.assertEqual("", variable["default_value"])
+
+        self.assertTrue(
+            variables["ONIBRIDGE_FORWARDING_SECRET"]["rules"].startswith("nullable|")
+        )
 
 
 if __name__ == "__main__":

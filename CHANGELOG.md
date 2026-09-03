@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Fixed the Pterodactyl egg rejecting its own literal `true`/`false` startup defaults. All eight
+  feature switches now validate the exact strings written to `config.properties`.
+- Made the default OniForward secret variable optional at egg-assignment time for installations
+  where every backend uses its own admin-only named secret environment variable. Forwarding still
+  fails closed when a configured secret source is missing.
 - Added OniForward v3 clock-independent freshness for separately hosted OniLink and OniBridge
   systems. Every Login carries a signed persisted monotonic proxy boot ID and one-time increasing
   sequence;

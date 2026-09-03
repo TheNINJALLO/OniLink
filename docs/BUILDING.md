@@ -52,8 +52,8 @@ workflow credential for publication; it does not require a personal token or Git
 login:
 
 ```bash
-git tag -a v0.3.0-beta.9 -m "OniLink 0.3.0-beta.9"
-git push origin v0.3.0-beta.9
+git tag -a v0.3.0-beta.10 -m "OniLink 0.3.0-beta.10"
+git push origin v0.3.0-beta.10
 ```
 
 The workflow removes the leading `v`, reads the exact BDS version from `OniBridge/bds.lock.json`,

@@ -36,7 +36,7 @@
             "name": "OniLink bootstrap release tag",
             "description": "Exact public GitHub release used during create/reinstall and when the update channel is pinned.",
             "env_variable": "ONILINK_VERSION",
-            "default_value": "v0.3.0-beta.9",
+            "default_value": "v0.3.0-beta.10",
             "user_viewable": true,
             "user_editable": true,
             "rules": "required|string|max:64|regex:/^[A-Za-z0-9][A-Za-z0-9._-]*$/",
@@ -79,7 +79,7 @@
             "default_value": "true",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "required|boolean",
+            "rules": "required|string|in:true,false",
             "field_type": "text"
         },
         {
@@ -99,7 +99,7 @@
             "default_value": "false",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "required|boolean",
+            "rules": "required|string|in:true,false",
             "field_type": "text"
         },
         {
@@ -149,7 +149,7 @@
             "default_value": "false",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "required|boolean",
+            "rules": "required|string|in:true,false",
             "field_type": "text"
         },
         {
@@ -219,7 +219,7 @@
             "default_value": "false",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "required|boolean",
+            "rules": "required|string|in:true,false",
             "field_type": "text"
         },
         {
@@ -229,7 +229,7 @@
             "default_value": "false",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "required|boolean",
+            "rules": "required|string|in:true,false",
             "field_type": "text"
         },
         {
@@ -259,7 +259,7 @@
             "default_value": "false",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "required|boolean",
+            "rules": "required|string|in:true,false",
             "field_type": "text"
         },
         {
@@ -269,7 +269,7 @@
             "default_value": "false",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "required|boolean",
+            "rules": "required|string|in:true,false",
             "field_type": "text"
         },
         {
@@ -279,7 +279,7 @@
             "default_value": "false",
             "user_viewable": false,
             "user_editable": false,
-            "rules": "required|boolean",
+            "rules": "required|string|in:true,false",
             "field_type": "text"
         },
         {
@@ -319,7 +319,7 @@
             "default_value": "",
             "user_viewable": false,
             "user_editable": false,
-            "rules": "required|string|min:43|max:512|regex:/^[A-Za-z0-9+\\/]+={0,2}$/",
+            "rules": "nullable|string|min:43|max:512|regex:/^[A-Za-z0-9+\\/]+={0,2}$/",
             "field_type": "text"
         },
         {
