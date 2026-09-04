@@ -189,6 +189,7 @@ class CurlTransport:
                 "--fail",
                 "--silent",
                 "--show-error",
+                "--http1.1",
                 "--retry",
                 "8",
                 "--retry-all-errors",

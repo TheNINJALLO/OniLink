@@ -194,6 +194,7 @@ class TransportTests(unittest.TestCase):
 
         self.assertEqual(b"locked archive", response.body)
         self.assertEqual("application/zip", response.content_type)
+        self.assertIn("--http1.1", captured["command"])
         self.assertIn("--continue-at", captured["command"])
         self.assertEqual(
             "0", captured["command"][captured["command"].index("--max-redirs") + 1]
