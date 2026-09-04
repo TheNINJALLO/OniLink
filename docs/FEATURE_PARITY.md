@@ -50,7 +50,11 @@ Statuses use the required vocabulary. This audit document is updated as implemen
 
 ## Binary evidence update
 
-The user supplied the official Linux and Windows BDS 1.26.44.3 archives after the EULA gate. Both were imported, hashed, inspected, and used for independent ABI/call-site profiles. The Linux profile is production-approved after its human review, native harness, and operator-approved live matrix; the Windows profile remains a candidate. Both synthetic hook harnesses pass on their native CI platforms.
+The user supplied the official Linux and Windows BDS archives after the EULA gate. Both 1.26.44.3
+and current 1.26.45.1 targets were imported, hashed, inspected, and used for independent
+ABI/call-site profiles. Both Linux profiles are production-approved after their human review,
+native harness, and operator live acceptance; both Windows profiles remain candidates. Synthetic
+hook harnesses pass on their native CI platforms.
 
 ## Implementation evidence update
 
@@ -58,7 +62,7 @@ The earlier rows preserve the design decision made during the mandatory pre-impl
 
 | Area | Status | Evidence or exact reason |
 | --- | --- | --- |
-| Official metadata and secure BDS acquisition | implemented and integration-tested | 26 Python tests pass; the official stable 1.26.44.3 Linux/Windows archives were imported into the isolated cache and `bdsctl verify` rechecked their hashes, formats, architectures, required files, and paired lock. |
+| Official metadata and secure BDS acquisition | implemented and integration-tested | 28 Python tests pass; the official stable 1.26.45.1 Linux/Windows archives are locked independently and stable release CI reacquires and verifies their hashes, formats, architectures, required files, and paired version. |
 | ELF/PE fixture inspection and candidate profile gates | implemented and unit-tested | 17 Python tests pass for formats, architecture, sections, signatures, stale hashes, ABI separation, patch length, evidence, size and offsets. |
 | OniForward Java signer/verifier and backend JWT insertion | implemented and unit-tested | The Java 21 suite passes the fixed cross-language vector and backend-login integration tests. |
 | OniForward C++ verifier, replay cache, CIDR matcher and identity registry | implemented and unit-tested | The Windows C++20 native unit test passes under MSVC; Linux compilation also succeeds. |

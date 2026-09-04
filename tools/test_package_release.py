@@ -10,6 +10,20 @@ import package_release
 
 
 class PackageReleaseTests(unittest.TestCase):
+    def test_platform_specific_production_readiness_is_explicit(self) -> None:
+        compatibility = [
+            {"platform": "linux-x86_64", "profile_status": "production"},
+            {"platform": "windows-x86_64", "profile_status": "candidate"},
+        ]
+        production_ready, status, production, candidates = (
+            package_release.classify_profile_readiness(compatibility)
+        )
+
+        self.assertTrue(production_ready)
+        self.assertEqual("production-with-candidate-platforms", status)
+        self.assertEqual(["linux-x86_64"], production)
+        self.assertEqual(["windows-x86_64"], candidates)
+
     def test_benign_archive_is_accepted(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             archive = Path(directory) / "profiles.zip"

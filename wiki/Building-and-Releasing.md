@@ -19,8 +19,8 @@ locked BDS version, runs the complete Java/native/package gate, and publishes wi
 workflow credential, so no personal API token or CLI device login is required:
 
 ```bash
-git tag -a v0.3.0-beta.10 -m "OniLink 0.3.0-beta.10"
-git push origin v0.3.0-beta.10
+git tag -a v0.3.0 -m "OniLink 0.3.0"
+git push origin v0.3.0
 ```
 
 Do not move or reuse a release tag after publication.

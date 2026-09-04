@@ -25,9 +25,10 @@ OniBridge is the C++20 Endstone validator for `OniForward`. It restores the veri
 
 An exact BDS profile and generated native login adapter are mandatory. Candidate profiles require the explicit acceptance-test-only `allow_unreviewed_profile` switch. Production promotion requires every documented review, harness, lifecycle, and live acceptance gate.
 
-BDS `1.26.45.1` uses Endstone `0.11.10` and its matching platform-specific candidate adapter.
-The production-approved Linux BDS `1.26.44.3` profile remains available with Endstone `0.11.9`;
-neither plugin may be reused, renamed, or mixed with the other executable.
+BDS `1.26.45.1` uses Endstone `0.11.10`. Its Linux adapter is production-approved from native CI
+and operator live acceptance; its Windows adapter remains candidate-only. The historical
+production-approved Linux BDS `1.26.44.3` profile remains available with Endstone `0.11.9`;
+no plugin may be reused, renamed, or mixed with a different executable.
 
 The plugin intentionally shuts BDS down when its configuration, secret, adapter, runtime, or hook evidence is absent or mismatched.
 

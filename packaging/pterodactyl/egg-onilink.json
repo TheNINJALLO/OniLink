@@ -4,10 +4,10 @@
         "version": "PTDL_v2",
         "update_url": "https://raw.githubusercontent.com/TheNINJALLO/OniLink/main/packaging/pterodactyl/egg-onilink.json"
     },
-    "exported_at": "2026-08-21T00:00:00-04:00",
+    "exported_at": "2026-09-04T00:00:00-04:00",
     "name": "OniLink Bedrock Edge System",
     "author": "TheNINJALLO@users.noreply.github.com",
-    "description": "OniLink is a standalone Java 21 Bedrock edge system with fail-closed OniForward identity forwarding, tenant-aware operations modules, an installable dashboard PWA, and native OniBridge control. This 0.3 beta egg verifies its bootstrap release and atomically follows the selected stable, beta, or pinned channel.",
+    "description": "OniLink is a standalone Java 21 Bedrock edge system with fail-closed OniForward identity forwarding, tenant-aware operations modules, an installable dashboard PWA, and native OniBridge control. This stable 0.3 egg verifies its bootstrap release and atomically follows the selected stable, beta, or pinned channel.",
     "features": [
         "java_version",
         "pid_limit"
@@ -36,7 +36,7 @@
             "name": "OniLink bootstrap release tag",
             "description": "Exact public GitHub release used during create/reinstall and when the update channel is pinned.",
             "env_variable": "ONILINK_VERSION",
-            "default_value": "v0.3.0-beta.10",
+            "default_value": "v0.3.0",
             "user_viewable": true,
             "user_editable": true,
             "rules": "required|string|max:64|regex:/^[A-Za-z0-9][A-Za-z0-9._-]*$/",
@@ -46,7 +46,7 @@
             "name": "Automatic update channel",
             "description": "beta installs the newest published release including prereleases; stable ignores prereleases; pinned stays on the exact OniLink bootstrap release tag.",
             "env_variable": "ONILINK_UPDATE_CHANNEL",
-            "default_value": "beta",
+            "default_value": "stable",
             "user_viewable": true,
             "user_editable": true,
             "rules": "required|string|in:stable,beta,pinned",

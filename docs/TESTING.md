@@ -14,13 +14,26 @@ Current completed results:
 | OniBridge Linux CTest | 2 passed on GitHub Ubuntu 22.04 | native unit + synthetic executable hook harness |
 | Linux ABI policy | Maximum imported symbol version `GLIBC_2.35` | automated ELF `readelf` release gate |
 | Linux release package | Native ELF64 x86-64 build, ABI report, and checksum-verified release bundle | build/package evidence |
-| Linux BDS production acceptance | Exact hook and complete live acceptance matrix approved for BDS 1.26.44.3 + Endstone 0.11.9 | operator approval |
+| Linux BDS production acceptance | Exact hook and deployed path approved for BDS 1.26.45.1 + Endstone 0.11.10 | operator approval |
 
 The acquisition suite covers official metadata, stable/preview separation, redirects, timeout/size/partial failures, malformed/HTML/unsafe ZIPs, required files, architectures, hashes, version mismatch, and EULA gating. SDK tests cover ELF/PE structure, signatures, boundaries, ABI separation, stale profiles, and layout gates. Token suites cover shared Java/C++ vectors, signature/context/time/key rotation, replay, IPv4/IPv6/mapped CIDRs, malformed inputs, compact client-data JWT extraction, and identity registry behavior.
 
 The hook harness uses executable synthetic code rather than a mocked method name. It checks the direct call replacement, original destination, correct XUID substitution, rejection without a verified login, prior-call chaining, double-install prevention, safe rollback, and final identity registration.
 
-The repository operator approved the complete Linux acceptance result for the exact BDS `1.26.44.3` + Endstone `0.11.9` target, including the human-review and live-test gates. The Linux profile is therefore production-approved. Windows has proven plugin load/hook lifecycle offline but no live client join and remains a candidate.
+The repository operator approved the deployed Linux result for the exact BDS `1.26.45.1` + Endstone
+`0.11.10` target on 2026-09-04, including the human-review and live-test gates. The current Linux
+profile is therefore production-approved. The historical Linux 1.26.44.3 profile also retains its
+approval. Windows has native build/harness evidence but no 1.26.45.1 live client test and remains a
+candidate.
+
+## Stable 0.3.0 acceptance recorded on 2026-09-04
+
+The operator confirmed the complete deployed system works after the beta 10 egg correction and
+OniForward v3 rollout. The stable gate binds that acceptance only to Linux BDS `1.26.45.1`, its
+exact executable hash, Endstone `0.11.10`, and profile
+`bds-1.26.45.1-linux-x86_64-8ba803f23d681816`. It does not promote the separately generated Windows
+profile. Release CI must still rebuild Java and both native artifacts, run their suites, enforce the
+Linux ABI ceiling, reacquire and verify the official locked BDS archives, and package checksums.
 
 ## Clock-independent OniForward v3 verification performed on 2026-09-01
 
@@ -93,8 +106,9 @@ Ubuntu 22.04 runner. Both native CTest targets passed, the packaged shared objec
 The sanitized artifact contains only OniLink/OniBridge outputs, examples, metadata, and checksums;
 it contains no BDS archive, executable, or other Mojang-owned server payload.
 
-The new BDS 1.26.45.1 native profiles remain candidates. Static executable validation and the
-synthetic hook harness are prerequisites, not substitutes for the real startup/login/XUID/
+The Linux BDS 1.26.45.1 native profile subsequently passed operator live acceptance and is promoted
+in stable 0.3.0. The Windows profile remains a candidate because static executable validation and
+the synthetic hook harness are prerequisites, not substitutes for its own real startup/login/XUID/
 disconnect/shutdown matrix documented in [Compatibility](COMPATIBILITY.md).
 
 ## 1.26.50 preview beta verification performed on 2026-08-26

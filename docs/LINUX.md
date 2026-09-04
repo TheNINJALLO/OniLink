@@ -7,17 +7,18 @@
 | Operating system | Ubuntu 22.04 or newer |
 | Architecture/ABI | x86-64, System V AMD64 |
 | Minimum glibc | `2.35` |
-| Locked BDS | `1.26.44.3` |
-| BDS executable SHA-256 | `06effdd00067f1ae0951ee7a732398dde721728e6b18ea149b138b8e2aececa7` |
-| Endstone | `0.11.9` |
+| Locked BDS | `1.26.45.1` |
+| BDS executable SHA-256 | `8ba803f23d681816495c7ac83bdba4b9cd7165a3bee5aedd18fa0c8c3d408ec2` |
+| Endstone | `0.11.10` |
 | Compiler/runtime | LLVM 18, C++20, libc++ 18 |
-| Profile ID | `bds-1.26.44.3-linux-x86_64-06effdd00067f1ae` |
+| Profile ID | `bds-1.26.45.1-linux-x86_64-8ba803f23d681816` |
 
 ## Build evidence
 
 The release `.so` is built natively on GitHub's Ubuntu 22.04 runner by `.github/workflows/linux-artifacts.yml`. That workflow builds both Java components, compiles and links the profile-specific native plugin, runs the native unit suite and synthetic executable hook harness, enforces a maximum `GLIBC_2.35` symbol requirement, and uploads the exact release bundle.
 
-The `v0.2.0` library is ELF64 little-endian x86-64. Verify its SHA-256 against the release's `SHA256SUMS`; the final value is also recorded in the [v0.2.0 release notes](releases/v0.2.0.md).
+The `v0.3.0` library is ELF64 little-endian x86-64. Verify its SHA-256 against the release's
+`SHA256SUMS`; the final value is also recorded in the [v0.3.0 release notes](releases/v0.3.0.md).
 
 The Linux compatibility manifest records `GLIBC_2.35` as both the highest required symbol version and the enforced maximum.
 

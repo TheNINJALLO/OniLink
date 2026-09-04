@@ -13,28 +13,32 @@ import package_linux
 class PackageLinuxTests(unittest.TestCase):
     def test_checked_linux_profile_is_production_consistent(self) -> None:
         root = Path(__file__).resolve().parents[1]
-        profile = json.loads(
-            (root / "OniBridge/profiles/1.26.44.3/linux-x86_64.json").read_text(
-                encoding="utf-8"
-            )
-        )
-        generated = json.loads(
-            (
-                root / "OniBridge/generated/bds/1.26.44.3/linux-x86_64/profile.json"
-            ).read_text(encoding="utf-8")
-        )
+        for bds_version in ("1.26.44.3", "1.26.45.1"):
+            with self.subTest(bds_version=bds_version):
+                profile = json.loads(
+                    (
+                        root / f"OniBridge/profiles/{bds_version}/linux-x86_64.json"
+                    ).read_text(encoding="utf-8")
+                )
+                generated = json.loads(
+                    (
+                        root
+                        / f"OniBridge/generated/bds/{bds_version}/linux-x86_64/profile.json"
+                    ).read_text(encoding="utf-8")
+                )
 
-        self.assertEqual(profile, generated)
-        self.assertEqual("production", profile["validation_status"])
-        self.assertEqual([], profile["release_blockers"])
-        self.assertTrue(all(profile["evidence"].values()))
-        self.assertEqual("approved", profile["human_review_status"])
-        self.assertEqual("passed", profile["live_test_status"])
+                self.assertEqual(profile, generated)
+                self.assertEqual("production", profile["validation_status"])
+                self.assertEqual([], profile["release_blockers"])
+                self.assertTrue(all(profile["evidence"].values()))
+                self.assertEqual("approved", profile["human_review_status"])
+                self.assertEqual("passed", profile["live_test_status"])
 
-        adapter = (
-            root / "OniBridge/generated/bds/1.26.44.3/linux-x86_64/adapter.cpp"
-        ).read_text(encoding="utf-8")
-        self.assertIn("constexpr bool kProductionProfile = true;", adapter)
+                adapter = (
+                    root
+                    / f"OniBridge/generated/bds/{bds_version}/linux-x86_64/adapter.cpp"
+                ).read_text(encoding="utf-8")
+                self.assertIn("constexpr bool kProductionProfile = true;", adapter)
 
         for path in (
             root / "OniBridge/onibridge.example.toml",

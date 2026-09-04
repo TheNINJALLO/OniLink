@@ -89,8 +89,9 @@ public final class ForgeService {
                         "backendVersion", backend.getMinecraftVersion(),
                         "status", status,
                         "evidence", List.copyOf(evidence),
-                        "liveAcceptance", same && backend.getProtocolVersion() == CanonicalProtocol.V1_26_40.protocolVersion()
-                                ? "linux-bds-1.26.44.3" : "not-recorded",
+                        "liveAcceptance", (same || path.isPresent())
+                                && backend.getProtocolVersion() == CanonicalProtocol.V1_26_45.protocolVersion()
+                                ? "linux-bds-1.26.45.1" : "not-recorded",
                         "limitations", same ? List.of() : path.isPresent()
                                 ? List.of("packet semantics remain test-gated", "unknown packets fail closed")
                                 : List.of("no directed translator path")));

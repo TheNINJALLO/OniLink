@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.3.0 - 2026-09-04
+
 - Fixed the Pterodactyl egg rejecting its own literal `true`/`false` startup defaults. All eight
   feature switches now validate the exact strings written to `config.properties`.
 - Made the default OniForward secret variable optional at egg-assignment time for installations
@@ -26,7 +28,8 @@
 - Added routes for `1.26.40`-`1.26.44` clients and `1.26.50` Preview clients to a `1.26.45`
   backend without changing codecs for other live player sessions.
 - Pinned OniBridge to Endstone `0.11.10` and added exact BDS `1.26.45.1` Linux/Windows profile
-  generation. New native profiles remain candidates until platform-specific live acceptance.
+  generation. The Linux profile is production-approved after operator live acceptance; Windows
+  remains candidate-only until its separate live gate passes.
 - Documented Endstone's IPv6 default change, drop-cancellation fix, binary-symbol changes, and
   exact upstream artifact hashes.
 

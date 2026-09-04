@@ -1,17 +1,16 @@
 # Complete installation guide
 
-This guide installs stable OniLink `v0.2.0` in front of one native BDS + Endstone backend, then
+This guide installs stable OniLink `v0.3.0` in front of one native BDS + Endstone backend, then
 shows how to add more BDS servers safely. For a shorter first pass, use [Quick start](QUICKSTART.md).
 
 > [!IMPORTANT]
-> The included Linux native profile is production-approved only for the exact BDS `1.26.44.3`
-> executable and Endstone `0.11.9`. Keep `allow_unreviewed_profile=false`. A nearby BDS or Endstone
+> The included Linux native profile is production-approved only for the exact BDS `1.26.45.1`
+> executable and Endstone `0.11.10`. Keep `allow_unreviewed_profile=false`. A nearby BDS or Endstone
 > version is a different binary target and must not reuse this plugin/profile pair.
 
 > [!NOTE]
-> Beta 10 testers upgrading to BDS `1.26.45.1` must also install Endstone `0.11.10` and the exact
-> beta 10 profile-specific OniBridge artifact. Follow the
-> [beta 10 upgrade notes](releases/v0.3.0-beta.10.md); the new profile is not production-approved yet.
+> The Windows BDS `1.26.45.1` artifact remains candidate-only until its independent live acceptance
+> gate passes. Do not set `allow_unreviewed_profile=true` on a production Windows backend.
 
 ## 1. Plan the deployment
 
@@ -53,7 +52,7 @@ Download the stable release from GitHub:
 
 ```bash
 mkdir -p onilink-release
-gh release download v0.2.0 \
+gh release download v0.3.0 \
   --repo TheNINJALLO/OniLink \
   --dir onilink-release
 cd onilink-release
@@ -65,9 +64,10 @@ At minimum, the Linux route uses:
 ```text
 OniLink.jar
 onilink.properties.example
-onibridge-0.2.0-bds-1.26.44.3-linux-x86_64.so
+onibridge-0.3.0-bds-1.26.45.1-linux-x86_64.so
 onibridge.example.toml
-onibridge-profile-1.26.44.3-linux-x86_64.json
+onibridge-profiles-1.26.45.1.zip
+compatibility-manifest.json
 SHA256SUMS
 ```
 
@@ -167,16 +167,13 @@ material.
 
 ## 5. Install Endstone and OniBridge
 
-Install the exact supported BDS and Endstone versions. With BDS stopped, place both native files in
+Install the exact supported BDS and Endstone versions. With BDS stopped, place the native plugin in
 the Endstone plugin directory:
 
 ```bash
 install -m 0644 \
-  onibridge-0.2.0-bds-1.26.44.3-linux-x86_64.so \
-  /srv/bds/plugins/onibridge-0.2.0-bds-1.26.44.3-linux-x86_64.so
-install -m 0644 \
-  onibridge-profile-1.26.44.3-linux-x86_64.json \
-  /srv/bds/plugins/onibridge-profile-1.26.44.3-linux-x86_64.json
+  onibridge-0.3.0-bds-1.26.45.1-linux-x86_64.so \
+  /srv/bds/plugins/onibridge-0.3.0-bds-1.26.45.1-linux-x86_64.so
 ```
 
 Start once if needed to create the OniBridge data directory, then stop BDS before editing. The
@@ -196,7 +193,7 @@ shutdown_on_hook_failure = true
 reject_direct_joins = true
 
 [forwarding]
-protocol = 2
+protocol = 3
 active_key_id = "key-2026-01"
 active_secret_env = "ONIBRIDGE_SURVIVAL_SECRET"
 active_secret_file = ""
@@ -220,7 +217,7 @@ command_namespace = "onibridge"
 interfere_with_backend_commands = false
 
 [compatibility]
-required_profile = "bds-1.26.44.3-linux-x86_64-06effdd00067f1ae"
+required_profile = "bds-1.26.45.1-linux-x86_64-8ba803f23d681816"
 allow_unreviewed_profile = false
 allow_unknown_bds = false
 allow_unknown_endstone = false
@@ -229,8 +226,9 @@ allow_unknown_endstone = false
 enabled = false
 ```
 
-The stable `v0.2.0` profile above uses legacy protocol 2. For beta 9 or newer, update both runtime
-components and set `protocol = 3` as described in the [beta 9 upgrade](releases/v0.3.0-beta.9.md).
+Protocol 3 uses a signed persisted proxy boot ID and one-time sequence, so separately hosted systems
+do not depend on synchronized wall clocks. Keep `proxy_clock_offset_ms = 0`; it exists only for
+legacy protocol 2 migration.
 
 If the release profile reports a different exact `profile_id`, use that value. Do not guess or copy
 an ID from another BDS build.

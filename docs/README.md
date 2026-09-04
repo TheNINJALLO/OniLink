@@ -7,12 +7,11 @@
 Use this page as the canonical map for operators, testers, and contributors. The [GitHub Wiki](https://github.com/TheNINJALLO/OniLink/wiki) provides a shorter task-oriented copy of the operator guidance.
 
 > [!IMPORTANT]
-> `v0.2.0` is the current stable release. It includes detailed token-redacted packet evidence, verified shared-codec mappings from real traffic, and review flags for translator gaps. Full captures include sensitive player and network data. The exact Linux BDS `1.26.44.3` + Endstone `0.11.9` profile remains production-approved; monitoring does not relax any compatibility gate.
-
-> `v0.3.0-beta.10` is the current preview beta. It adds per-session 1.26.45/2169 support, pins
-> Endstone 0.11.10, adds exact BDS 1.26.45.1 Linux/Windows profile candidates, and supports a
-> clock-independent, persisted one-time forwarding sequence for separately hosted systems. The existing
-> Linux 1.26.44.3 profile remains the production-approved default until the new live gate passes.
+> `v0.3.0` is the current stable release. It includes detailed token-redacted packet evidence,
+> per-session protocol selection, and clock-independent OniForward v3 authentication. The exact Linux
+> BDS `1.26.45.1` + Endstone `0.11.10` profile is production-approved from native CI and operator live
+> acceptance. The Windows profile remains candidate-only until its separate live gate passes. Full
+> captures include sensitive player and network data; monitoring does not relax compatibility gates.
 
 ## Start here
 
@@ -23,7 +22,7 @@ Use this page as the canonical map for operators, testers, and contributors. The
 | Install the current Linux release | [Quick start](QUICKSTART.md) |
 | Install and configure the complete network | [Installation](INSTALLATION.md) |
 | Add another BDS server automatically | [Adding a BDS backend](ADDING_BACKEND.md) |
-| Review the current beta and upgrade steps | [v0.3.0-beta.10 release notes](releases/v0.3.0-beta.10.md) |
+| Review the current release and upgrade steps | [v0.3.0 release notes](releases/v0.3.0.md) |
 | Inspect live cross-version packet mappings | [Packet monitor](PACKET_MONITOR.md) |
 | Test a 1.26.50 client against a 1.26.45 backend | [1.26.50 cross-version preview](CROSS_VERSION_1_26_50.md) |
 | Configure typed per-player and BDS actions | [OniControl](ONICONTROL.md) |
@@ -79,12 +78,12 @@ Use this page as the canonical map for operators, testers, and contributors. The
 | Item | Current value |
 | --- | --- |
 | Product identity | Standalone OniLink system |
-| Application release | `v0.2.0` stable; `v0.3.0-beta.10` current preview beta |
-| Locked BDS | `1.26.45.1` candidate; `1.26.44.3` Linux production-approved |
-| Endstone | `0.11.10` for BDS 1.26.45.1; `0.11.9` for BDS 1.26.44.3 |
+| Application release | `v0.3.0` stable |
+| Locked BDS | `1.26.45.1`; Linux production-approved, Windows candidate-only |
+| Endstone | `0.11.10` |
 | Public proxy runtime | Java 21 |
 | Native plugin | C++20, exact-profile build |
 | Linux release CI | Ubuntu 22.04, LLVM/libc++ 18, maximum `GLIBC_2.35` import |
-| Linux native profile status | 1.26.45.1 candidate; 1.26.44.3 production-approved |
+| Linux native profile status | BDS 1.26.45.1 production-approved |
 
 When a value changes, update this page, the root README, the compatibility table, the Wiki, and the release manifest together.

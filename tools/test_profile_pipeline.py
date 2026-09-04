@@ -96,6 +96,27 @@ class CheckedProfileTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "candidate releases are not allowed"):
             validate_checked(self.lock, allow_candidate=False, root=self.root)
 
+    def test_stable_application_can_require_linux_and_retain_windows_candidate(
+        self,
+    ) -> None:
+        validate_checked(
+            self.lock,
+            allow_candidate=True,
+            root=self.root,
+            required_production_platforms=("linux-x86_64",),
+        )
+
+    def test_required_production_platform_cannot_be_a_candidate(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError, "required production platform windows-x86_64"
+        ):
+            validate_checked(
+                self.lock,
+                allow_candidate=True,
+                root=self.root,
+                required_production_platforms=("windows-x86_64",),
+            )
+
     def test_rejects_profile_that_no_longer_matches_the_lock(self) -> None:
         self.lock["platforms"]["linux-x86_64"]["executable_sha256"] = "c" * 64
         with self.assertRaisesRegex(ValueError, "profile identity does not match"):

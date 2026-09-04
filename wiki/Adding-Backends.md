@@ -12,7 +12,7 @@ matched setup ZIP without hand-editing both sides.
 
 ## Dashboard setup
 
-1. Prepare the new BDS `1.26.44.3` + Endstone `0.11.9` server and install the current OniBridge `.so` in `plugins/`.
+1. Prepare the new BDS `1.26.45.1` + Endstone `0.11.10` server and install the current OniBridge `.so` in `plugins/`.
 2. Sign in to OniLink as an admin or owner.
 3. Open **Add Backend** in the main navigation. The same wizard is linked from **Backends** and **Configuration**.
 4. Enter:
@@ -94,7 +94,7 @@ active_secret_env = ""
 active_secret_file = "creative.key"
 
 [compatibility]
-required_profile = "bds-1.26.44.3-linux-x86_64-06effdd00067f1ae"
+required_profile = "bds-1.26.45.1-linux-x86_64-8ba803f23d681816"
 allow_unreviewed_profile = false
 ```
 

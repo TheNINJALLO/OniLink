@@ -125,11 +125,22 @@ def generate(lock: dict, cache: Path) -> None:
         shutil.copy2(output / "profile.json", profile)
 
 
-def validate(lock: dict, cache: Path, allow_candidate: bool) -> None:
+def validate(
+    lock: dict,
+    cache: Path,
+    allow_candidate: bool,
+    required_production_platforms: tuple[str, ...] = (),
+) -> None:
+    unknown = set(required_production_platforms) - set(lock["platforms"])
+    if unknown:
+        raise ValueError(f"unknown required production platforms: {sorted(unknown)}")
     for platform, artifact in lock["platforms"].items():
         profile = Path("OniBridge/profiles") / artifact["version"] / f"{platform}.json"
         if not profile.is_file():
             raise ValueError(f"compatibility profile is missing: {profile}")
+        status = read(profile).get("validation_status")
+        if platform in required_production_platforms and status != "production":
+            raise ValueError(f"required production platform {platform} is {status!r}")
         command = [
             sys.executable,
             "-m",
@@ -143,7 +154,12 @@ def validate(lock: dict, cache: Path, allow_candidate: bool) -> None:
         run(command)
 
 
-def validate_checked(lock: dict, allow_candidate: bool, root: Path = Path(".")) -> None:
+def validate_checked(
+    lock: dict,
+    allow_candidate: bool,
+    root: Path = Path("."),
+    required_production_platforms: tuple[str, ...] = (),
+) -> None:
     """Validate checked profile evidence without downloading proprietary BDS archives.
 
     Exact executable inspection remains part of profile generation. This gate proves that an app
@@ -160,6 +176,9 @@ def validate_checked(lock: dict, allow_candidate: bool, root: Path = Path(".")) 
         raise ValueError(
             "BDS lock must contain exactly the Linux and Windows x86-64 platforms"
         )
+    unknown = set(required_production_platforms) - set(platforms)
+    if unknown:
+        raise ValueError(f"unknown required production platforms: {sorted(unknown)}")
 
     for platform, artifact in platforms.items():
         if not isinstance(artifact, dict):
@@ -211,6 +230,8 @@ def validate_checked(lock: dict, allow_candidate: bool, root: Path = Path(".")) 
             )
 
         status = profile.get("validation_status")
+        if platform in required_production_platforms and status != "production":
+            raise ValueError(f"required production platform {platform} is {status!r}")
         if status != "production" and not allow_candidate:
             raise ValueError(
                 f"{platform} profile is {status!r}; candidate releases are not allowed"
@@ -265,14 +286,24 @@ def main() -> int:
     parser.add_argument("--lock", type=Path, required=True)
     parser.add_argument("--cache", type=Path, default=Path(".cache"))
     parser.add_argument("--allow-candidate", action="store_true")
+    parser.add_argument("--require-production-platform", action="append", default=[])
     args = parser.parse_args()
     lock = read(args.lock)
     if args.command == "generate":
         generate(lock, args.cache)
     elif args.command == "validate":
-        validate(lock, args.cache, args.allow_candidate)
+        validate(
+            lock,
+            args.cache,
+            args.allow_candidate,
+            tuple(args.require_production_platform),
+        )
     else:
-        validate_checked(lock, args.allow_candidate)
+        validate_checked(
+            lock,
+            args.allow_candidate,
+            required_production_platforms=tuple(args.require_production_platform),
+        )
     return 0
 
 

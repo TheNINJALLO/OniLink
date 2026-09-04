@@ -10,8 +10,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version 0.2.0" src="https://img.shields.io/badge/Release-v0.2.0-52b7a8?style=flat-square">
-  <img alt="Beta 0.3.0 beta 10" src="https://img.shields.io/badge/Beta-v0.3.0--beta.10-ffb347?style=flat-square">
+  <img alt="Version 0.3.0" src="https://img.shields.io/badge/Release-v0.3.0-52b7a8?style=flat-square">
   <img alt="Endstone 0.11.10" src="https://img.shields.io/badge/Endstone-0.11.10-52b7a8?style=flat-square">
   <img alt="BDS 1.26.45.1" src="https://img.shields.io/badge/BDS-1.26.45.1-63b8ff?style=flat-square">
   <img alt="Java 21" src="https://img.shields.io/badge/Java-21-ED8B00?style=flat-square&amp;logo=openjdk&amp;logoColor=white">
@@ -32,13 +31,15 @@
 <!-- onilink-professional-header:end -->
 
 > [!IMPORTANT]
-> `v0.2.0` is the current stable release. The Linux BDS `1.26.44.3` + Endstone `0.11.9` profile is production-approved and remains fail closed. Full packet captures can include chat, XUIDs, endpoints, decoded fields, and incoming bytes; restrict dashboard access and inspect exports before sharing them.
+> `v0.3.0` is the current stable release. Its exact Linux BDS `1.26.45.1` + Endstone `0.11.10`
+> profile is production-approved from native CI and operator live acceptance. The separately built
+> Windows profile remains candidate-only until its own live gate passes. Full packet captures can
+> include chat, XUIDs, endpoints, decoded fields, and incoming bytes; restrict dashboard access and
+> inspect exports before sharing them.
 
-> `v0.3.0-beta.10` is the current preview beta. One running OniLink instance negotiates
-> 1.26.44/2168, 1.26.45/2169, and 1.26.50/2192 independently for each player. Beta 9 pins
-> Endstone 0.11.10, adds exact BDS 1.26.45.1 native profile candidates, and replaces fragile
-> cross-provider clock offsets with signed, persisted one-time forwarding sequences. Keep using the
-> production-approved 1.26.44.3 profile until the new platform-specific live gates pass.
+One running OniLink instance negotiates 1.26.44/2168, 1.26.45/2169, and 1.26.50/2192 independently
+for each player. OniForward v3 uses signed, persisted one-time sequences, so separately hosted
+OniLink and OniBridge systems do not depend on synchronized wall clocks.
 
 ## The product family
 
@@ -75,15 +76,15 @@ incorrectly scoped, or incorrectly sourced claims fail closed.
 
 ## Quick start
 
-1. Download [`v0.2.0`](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.2.0) and verify every file with `SHA256SUMS`.
-2. Use the exact BDS `1.26.44.3` Linux executable and Endstone `0.11.9` for the production-approved native profile.
+1. Download [`v0.3.0`](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.3.0) and verify every file with `SHA256SUMS`.
+2. Use the exact BDS `1.26.45.1` Linux executable and Endstone `0.11.10` for the production-approved native profile.
 3. Generate a unique secret for the backend: `openssl rand -base64 32`.
 4. Configure the same backend name, bridge ID, key ID, and secret source in OniLink and OniBridge.
 5. Keep BDS private and restrict `trusted_proxy_cidrs` to the address BDS actually sees for OniLink.
 6. Start the backend, start OniLink, and complete the [acceptance checklist](docs/TESTING.md).
 
 ```bash
-gh release download v0.2.0 \
+gh release download v0.3.0 \
   --repo TheNINJALLO/OniLink \
   --dir onilink-release
 ```
@@ -124,16 +125,16 @@ verified.
 
 | Target | Status |
 | --- | --- |
-| Linux x86-64, BDS `1.26.44.3`, Endstone `0.11.9` | Production-approved exact profile |
-| Windows x86-64, BDS `1.26.44.3`, Endstone `0.11.9` | Candidate; live client acceptance remains |
-| Linux/Windows x86-64, BDS `1.26.45.1`, Endstone `0.11.10` | New exact candidates; live acceptance required |
-| Bedrock `1.26.50` client (protocol `2192`) -> BDS `1.26.45.1` | Beta cross-version route; live acceptance remains |
+| Linux x86-64, BDS `1.26.45.1`, Endstone `0.11.10` | Production-approved exact profile |
+| Windows x86-64, BDS `1.26.45.1`, Endstone `0.11.10` | Candidate; Windows live acceptance remains |
+| Linux x86-64, BDS `1.26.44.3`, Endstone `0.11.9` | Historical production-approved profile |
+| Bedrock `1.26.50` client (protocol `2192`) -> BDS `1.26.45.1` | Stable per-session cross-version route |
 
-Use `onibridge-0.2.0-bds-1.26.44.3-linux-x86_64.so` only with the exact approved target. Unknown
+Use `onibridge-0.3.0-bds-1.26.45.1-linux-x86_64.so` only with the exact approved target. Unknown
 executables, layouts, hook bytes, profiles, and Endstone builds remain blocked. Exact hashes and
 remaining gates are in [Compatibility](docs/COMPATIBILITY.md).
 
-The current preview beta accepts protocol `2192` clients and translates them to protocol `2169` or
+The stable release accepts protocol `2192` clients and translates them to protocol `2169` or
 an older supported backend protocol. Leave backend detection on `auto`; OniLink recognizes BDS
 `1.26.45.x` as protocol 2169 and `1.26.44.x` as the protocol-2168 hotfix dialect. See the
 [1.26.50 cross-version guide](docs/CROSS_VERSION_1_26_50.md) before testing a Preview client.

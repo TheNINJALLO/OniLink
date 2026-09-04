@@ -15,7 +15,7 @@ OniLink is a standalone Bedrock edge system. The supported runtime family has tw
 - **OniBridge** restores the verified XUID before BDS selects native player storage.
 
 > [!IMPORTANT]
-> `v0.2.0` is the current stable release. The exact Linux BDS `1.26.44.3` + Endstone `0.11.9`
+> `v0.3.0` is the current stable release. The exact Linux BDS `1.26.45.1` + Endstone `0.11.10`
 > profile is production-approved and remains fail closed.
 
 ## Start by goal
@@ -41,12 +41,11 @@ OniLink is a standalone Bedrock edge system. The supported runtime family has tw
 
 | Item | Value |
 | --- | --- |
-| Application | [`v0.2.0`](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.2.0) (stable) |
-| Preview | `v0.3.0-beta.10` |
-| BDS | `1.26.44.3` stable profile; `1.26.45.1` candidate profiles |
-| Endstone | `0.11.9` stable profile; `0.11.10` candidate profiles |
-| Linux profile | 1.26.44.3 production-approved; 1.26.45.1 candidate |
-| Windows profile | Candidate |
+| Application | [`v0.3.0`](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.3.0) (stable) |
+| BDS | `1.26.45.1` |
+| Endstone | `0.11.10` |
+| Linux profile | Production-approved |
+| Windows profile | Candidate; Windows live acceptance remains |
 
 The repository [documentation hub](https://github.com/TheNINJALLO/OniLink/blob/main/docs/README.md)
 is canonical for engineering detail. This Wiki focuses on operator tasks.

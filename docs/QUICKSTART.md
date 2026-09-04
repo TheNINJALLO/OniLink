@@ -1,6 +1,6 @@
 # Quick start: Linux release
 
-This guide brings up stable OniLink `v0.2.0` in front of one BDS `1.26.44.3` + Endstone `0.11.9` backend. The included exact Linux native profile is production-approved and fails closed on every mismatched runtime detail.
+This guide brings up stable OniLink `v0.3.0` in front of one BDS `1.26.45.1` + Endstone `0.11.10` backend. The included exact Linux native profile is production-approved and fails closed on every mismatched runtime detail.
 
 For service setup, firewalls, secret files, full configuration references, Pterodactyl, key rotation, and rollback, use the [complete installation guide](INSTALLATION.md). Ready-to-copy configurations are in the [single-BDS example](../examples/single-bds/README.md).
 
@@ -8,18 +8,18 @@ For service setup, firewalls, secret files, full configuration references, Ptero
 
 You need:
 
-- A Linux x86-64 backend running your own licensed BDS `1.26.44.3` installation.
-- Endstone `0.11.9` on that backend.
+- A Linux x86-64 backend running your own licensed BDS `1.26.45.1` installation.
+- Endstone `0.11.10` on that backend.
 - Java 21 for OniLink.
 - A private or firewalled UDP path from OniLink to BDS.
-- The [current stable release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.2.0).
+- The [current stable release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.3.0).
 
 Do not expose the backend's Bedrock listener publicly. Players connect to OniLink; only OniLink connects to the backend.
 
 ## 2. Download and verify the release
 
 ```bash
-gh release download v0.2.0 \
+gh release download v0.3.0 \
   --repo TheNINJALLO/OniLink \
   --dir onilink-release
 cd onilink-release
@@ -52,7 +52,7 @@ Store the result in your secret manager or panel environment as `ONIBRIDGE_FORWA
 ## 4. Install OniBridge
 
 1. Stop BDS.
-2. Copy `onibridge-0.2.0-bds-1.26.44.3-linux-x86_64.so` into the Endstone `plugins/` directory.
+2. Copy `onibridge-0.3.0-bds-1.26.45.1-linux-x86_64.so` into the Endstone `plugins/` directory.
 3. Start BDS once. OniBridge creates `plugins/onibridge/onibridge.toml` and shuts the server down because it is not configured yet.
 4. Edit the generated file:
 
@@ -64,26 +64,27 @@ shutdown_on_hook_failure = true
 reject_direct_joins = true
 
 [forwarding]
-protocol = 2
+protocol = 3
 active_key_id = "key-1"
 active_secret_env = "ONIBRIDGE_FORWARDING_SECRET"
 
 [compatibility]
-required_profile = "bds-1.26.44.3-linux-x86_64-06effdd00067f1ae"
+required_profile = "bds-1.26.45.1-linux-x86_64-8ba803f23d681816"
 allow_unreviewed_profile = false
 allow_unknown_bds = false
 allow_unknown_endstone = false
 ```
 
-This stable `v0.2.0` example uses legacy protocol 2. Beta 9 and newer operators should follow the
-[current beta upgrade steps](releases/v0.3.0-beta.10.md) and set `protocol = 3` on the updated backend.
+Protocol 3 uses a signed persisted proxy boot ID and one-time sequence, so separately hosted systems
+do not require wall-clock offset tuning. Keep `proxy_clock_offset_ms = 0`; that setting only applies
+to legacy protocol 2 migration.
 
 Replace `10.0.0.10/32` with the exact OniLink source address observed by the backend. Keep `allow_unreviewed_profile=false`; the exact released profile is production-approved.
 
 5. Start BDS with `ONIBRIDGE_FORWARDING_SECRET` present in its environment.
 6. Confirm the console reports an active exact profile. A shutdown or critical hook message is a failed test—do not bypass it.
 
-Keep `onibridge-profile-1.26.44.3-linux-x86_64.json` and `linux-compatibility-manifest.json` with your test evidence; they document the exact profile but are not a substitute for the embedded runtime checks.
+Keep `onibridge-profiles-1.26.45.1.zip` and `compatibility-manifest.json` with your test evidence; they document the exact profile but are not a substitute for the embedded runtime checks.
 
 ## 5. Configure OniLink
 

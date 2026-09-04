@@ -8,7 +8,7 @@ This guide adds a second, third, or later BDS + Endstone server to an existing O
 ## What you need before starting
 
 - An OniLink dashboard account with the `admin` or `owner` role.
-- A BDS `1.26.44.3` + Endstone `0.11.9` server.
+- A BDS `1.26.45.1` + Endstone `0.11.10` server.
 - The matching Linux OniBridge `.so` already in the backend's `plugins/` directory.
 - The destination BDS server's IP/domain and UDP port, which the OniLink container can reach.
 - OniLink's public or egress IP, without its player port. The dashboard shows the existing proxy
@@ -104,7 +104,7 @@ the layout is exactly:
 ```text
 /home/container/
 └── plugins/
-    ├── onibridge-0.2.0-bds-1.26.44.3-linux-x86_64.so
+    ├── onibridge-0.3.0-bds-1.26.45.1-linux-x86_64.so
     └── onibridge/
         ├── creative.key
         └── onibridge.toml
@@ -225,7 +225,7 @@ active_secret_env = ""
 active_secret_file = "creative.key"
 
 [compatibility]
-required_profile = "bds-1.26.44.3-linux-x86_64-06effdd00067f1ae"
+required_profile = "bds-1.26.45.1-linux-x86_64-8ba803f23d681816"
 allow_unreviewed_profile = false
 ```
 

@@ -102,7 +102,7 @@ class DashboardConfigFileTest {
         assertTrue(toml.contains("active_key_id = \"key-1\""));
         assertTrue(toml.contains("active_secret_file = \"creative.key\""));
         assertTrue(toml.contains(
-                "required_profile = \"bds-1.26.44.3-linux-x86_64-06effdd00067f1ae\""));
+                "required_profile = \"bds-1.26.45.1-linux-x86_64-8ba803f23d681816\""));
         assertTrue(toml.contains("allow_unreviewed_profile = false"));
         assertTrue(toml.contains("proxy_clock_offset_ms = 0"));
         assertEquals("198.51.100.20:25571", result.get("backendEndpoint"));

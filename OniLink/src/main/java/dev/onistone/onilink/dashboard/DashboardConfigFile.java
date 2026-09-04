@@ -35,7 +35,7 @@ import java.util.zip.ZipOutputStream;
 final class DashboardConfigFile {
     static final String REDACTED = "<managed-outside-dashboard>";
     private static final long MAX_CONFIG_BYTES = 1_048_576;
-    private static final String LINUX_PROFILE = "bds-1.26.44.3-linux-x86_64-06effdd00067f1ae";
+    private static final String LINUX_PROFILE = "bds-1.26.45.1-linux-x86_64-8ba803f23d681816";
     private static final Pattern BACKEND_NAME = Pattern.compile("[a-z][a-z0-9_-]{0,31}");
     private static final Pattern IDENTIFIER = Pattern.compile("[A-Za-z0-9._-]{1,64}");
     private static final Pattern HOST = Pattern.compile("[A-Za-z0-9._:-]{1,253}");

@@ -3,7 +3,7 @@
 This walkthrough installs the Linux native bridge for one BDS backend. The complete operator manual, including backups, systemd, Pterodactyl, rotation, rollback, and multi-backend examples, is in the [installation guide](https://github.com/TheNINJALLO/OniLink/blob/main/docs/INSTALLATION.md).
 
 > [!WARNING]
-> The native library shipped with `v0.2.0` is production-approved only for BDS `1.26.44.3` Linux x86-64 with Endstone `0.11.9`; a nearby version is not compatible. The exact profile reports `production_ready=true` and every mismatch still fails closed.
+> The native library shipped with `v0.3.0` is production-approved only for BDS `1.26.45.1` Linux x86-64 with Endstone `0.11.10`; a nearby version is not compatible. The exact profile reports `production_ready=true` and every mismatch still fails closed.
 
 ## Example network
 
@@ -32,7 +32,7 @@ sha256sum bedrock_server
 The SHA-256 must be:
 
 ```text
-06effdd00067f1ae0951ee7a732398dde721728e6b18ea149b138b8e2aececa7
+8ba803f23d681816495c7ac83bdba4b9cd7165a3bee5aedd18fa0c8c3d408ec2
 ```
 
 ## 2. Install the plugin
@@ -41,8 +41,8 @@ Copy the release artifact into Endstone's plugin directory:
 
 ```bash
 install -m 0755 \
-  onibridge-0.2.0-bds-1.26.44.3-linux-x86_64.so \
-  /srv/bds/plugins/onibridge-0.2.0-bds-1.26.44.3-linux-x86_64.so
+  onibridge-0.3.0-bds-1.26.45.1-linux-x86_64.so \
+  /srv/bds/plugins/onibridge-0.3.0-bds-1.26.45.1-linux-x86_64.so
 ```
 
 Start BDS once. OniBridge creates `plugins/onibridge/onibridge.toml` and intentionally stops because no forwarding secret has been configured yet. This first shutdown is expected.
@@ -99,7 +99,7 @@ command_namespace = "onibridge"
 interfere_with_backend_commands = false
 
 [compatibility]
-required_profile = "bds-1.26.44.3-linux-x86_64-06effdd00067f1ae"
+required_profile = "bds-1.26.45.1-linux-x86_64-8ba803f23d681816"
 allow_unreviewed_profile = false
 allow_unknown_bds = false
 allow_unknown_endstone = false

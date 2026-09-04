@@ -1,7 +1,7 @@
 # Installation Guide
 
-Stable `v0.2.0` supports OniLink plus native OniBridge for BDS/Endstone. Use the exact Linux BDS
-`1.26.44.3` + Endstone `0.11.9` target for the production-approved profile.
+Stable `v0.3.0` supports OniLink plus native OniBridge for BDS/Endstone. Use the exact Linux BDS
+`1.26.45.1` + Endstone `0.11.10` target for the production-approved profile.
 
 ## Address plan
 
@@ -13,11 +13,12 @@ Stable `v0.2.0` supports OniLink plus native OniBridge for BDS/Endstone. Use the
 
 ## Installation sequence
 
-1. Download `v0.2.0` and verify `sha256sum -c SHA256SUMS`.
+1. Download `v0.3.0` and verify `sha256sum -c SHA256SUMS`.
 2. Generate a unique secret with `openssl rand -base64 32`.
 3. Install `OniLink.jar` and copy `onilink.properties.example` to `config.properties`.
 4. Configure the listener and one backend route using [[Configuration]].
-5. Put the matching `.so` and profile JSON in the Endstone `plugins/` directory.
+5. Put the matching `.so` in the Endstone `plugins/` directory; retain the profile ZIP and manifest
+   as deployment evidence.
 6. Configure `plugins/onibridge/onibridge.toml` with matching backend, bridge, key, secret source,
    and the actual proxy source CIDR.
 7. Keep all compatibility bypasses disabled and firewall BDS to OniLink.

@@ -45,7 +45,7 @@ import java.util.zip.ZipOutputStream;
 final class DashboardTenantHosting implements AutoCloseable {
     private static final int STORAGE_VERSION = 1;
     private static final String DEFAULT_BDS_PROFILE =
-            "bds-1.26.44.3-linux-x86_64-06effdd00067f1ae";
+            "bds-1.26.45.1-linux-x86_64-8ba803f23d681816";
     private static final Pattern SLUG = Pattern.compile("[a-z][a-z0-9-]{1,31}");
     private static final Pattern PUBLIC_HOST = Pattern.compile("[A-Za-z0-9._:-]{1,253}");
     private static final Set<PosixFilePermission> OWNER_ONLY = EnumSet.of(

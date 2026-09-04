@@ -1,17 +1,18 @@
 # Compatibility
 
 The current exact stable pair, BDS `1.26.45.1`, was resolved at
-`2026-09-01T03:02:09.667783Z`. Its Linux and Windows profiles are candidates. The historical Linux
-BDS `1.26.44.3` profile remains production-approved; its Windows counterpart remains a candidate.
+`2026-09-01T03:02:09.667783Z`. Its Linux profile is production-approved from native CI and operator
+live acceptance; its separately generated Windows profile remains a candidate. The historical Linux
+BDS `1.26.44.3` profile also remains production-approved; its Windows counterpart remains a candidate.
 Runtime selection verifies BDS path, executable SHA-256, size, architecture, exact call bytes,
 call destination, profile ID, and the profile's exact Endstone version before installing the hook.
 
 | BDS | Executable SHA-256 | OS/ABI | Endstone | Artifact | Review | Harness | Live | Commands |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1.26.44.3 | `06effdd00067f1ae0951ee7a732398dde721728e6b18ea149b138b8e2aececa7` | Linux x86-64/System V, glibc 2.35+ | 0.11.9 (`a73f76d3725b471a6d83783166edc004804faa1b`) | `onibridge-0.3.0-beta.4-bds-1.26.44.3-linux-x86_64.so` | production-approved | passed on GitHub Ubuntu 22.04 with ABI ceiling check | complete matrix operator-approved | operator-approved |
-| 1.26.44.3 | `2d6518ddd25211aa51155fc015cd0393b29b2af74551a378b16f9a724ed771bd` | Windows x86-64/Microsoft x64 | 0.11.9 (`a73f76d3725b471a6d83783166edc004804faa1b`) | `onibridge-0.3.0-beta.4-bds-1.26.44.3-windows-x86_64.dll` | candidate; human review required | passed under MSVC | server/plugin/hook/unload lifecycle passed offline; no joins | source/unit only; live fixtures not run |
-| 1.26.45.1 | `8ba803f23d681816495c7ac83bdba4b9cd7165a3bee5aedd18fa0c8c3d408ec2` | Linux x86-64/System V, glibc 2.35+ | 0.11.10 (`8f84d6f5b556916597ed5b6b71329b2ed3ca8fc8`) | `onibridge-0.3.0-beta.10-bds-1.26.45.1-linux-x86_64.so` | candidate; static validation passed, human review required | beta.9 exact Linux release build passed CTest and GLIBC/libc++ gates; beta.10 rebuild pending | not run | source/unit only; live fixtures not run |
-| 1.26.45.1 | `92d09c7b74ac6a9805bafc166d8e0a13ac9e5db73dbbb0819e5a14093699d44f` | Windows x86-64/Microsoft x64 | 0.11.10 (`8f84d6f5b556916597ed5b6b71329b2ed3ca8fc8`) | `onibridge-0.3.0-beta.10-bds-1.26.45.1-windows-x86_64.dll` | candidate; static validation passed, human review required | beta.9 exact plugin passed MSVC build and CTest; beta.10 rebuild pending | not run | source/unit only; live fixtures not run |
+| 1.26.44.3 | `06effdd00067f1ae0951ee7a732398dde721728e6b18ea149b138b8e2aececa7` | Linux x86-64/System V, glibc 2.35+ | 0.11.9 (`a73f76d3725b471a6d83783166edc004804faa1b`) | `onibridge-0.2.0-bds-1.26.44.3-linux-x86_64.so` | production-approved | passed on GitHub Ubuntu 22.04 with ABI ceiling check | complete matrix operator-approved | operator-approved |
+| 1.26.44.3 | `2d6518ddd25211aa51155fc015cd0393b29b2af74551a378b16f9a724ed771bd` | Windows x86-64/Microsoft x64 | 0.11.9 (`a73f76d3725b471a6d83783166edc004804faa1b`) | `onibridge-0.2.0-bds-1.26.44.3-windows-x86_64.dll` | candidate; human review required | passed under MSVC | server/plugin/hook/unload lifecycle passed offline; no joins | source/unit only; live fixtures not run |
+| 1.26.45.1 | `8ba803f23d681816495c7ac83bdba4b9cd7165a3bee5aedd18fa0c8c3d408ec2` | Linux x86-64/System V, glibc 2.35+ | 0.11.10 (`8f84d6f5b556916597ed5b6b71329b2ed3ca8fc8`) | `onibridge-0.3.0-bds-1.26.45.1-linux-x86_64.so` | production-approved | exact Linux release build passed CTest and GLIBC/libc++ gates | complete deployed path operator-approved | unit suite plus operator deployment acceptance |
+| 1.26.45.1 | `92d09c7b74ac6a9805bafc166d8e0a13ac9e5db73dbbb0819e5a14093699d44f` | Windows x86-64/Microsoft x64 | 0.11.10 (`8f84d6f5b556916597ed5b6b71329b2ed3ca8fc8`) | `onibridge-0.3.0-bds-1.26.45.1-windows-x86_64.dll` | candidate; human/live review required | exact plugin passes MSVC build and CTest | not run | source/unit only; live fixtures not run |
 
 Profile IDs:
 
@@ -20,9 +21,12 @@ Profile IDs:
 - `bds-1.26.45.1-linux-x86_64-8ba803f23d681816`
 - `bds-1.26.45.1-windows-x86_64-92d09c7b74ac6a98`
 
-The Linux 1.26.44.3 production artifact fails closed on every runtime mismatch and requires
-`allow_unreviewed_profile=false`. Both 1.26.45.1 profiles require the explicit candidate-test
-override and are not promoted by the older Linux approval.
+Both Linux production artifacts fail closed on every runtime mismatch and require
+`allow_unreviewed_profile=false`. Only the Windows 1.26.45.1 profile requires the explicit
+candidate-test override; Linux approval does not promote or weaken the separate Windows profile.
+
+The stable manifest therefore reports `production_ready=true`, lists `linux-x86_64` in
+`production_ready_platforms`, and lists `windows-x86_64` in `candidate_platforms`.
 
 For application releases, CI validates the checked lock against both profile copies, generated ABI
 facts, the adapter's embedded profile ID/executable hash/size/review flag, and any recorded runtime

@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "status": "complete-live-acceptance-passed",
+  "tested_at_utc": "2026-09-04T13:24:56Z",
+  "platform": "linux-x86_64",
+  "bds_version": "1.26.45.1",
+  "bds_executable_sha256": "8ba803f23d681816495c7ac83bdba4b9cd7165a3bee5aedd18fa0c8c3d408ec2",
+  "endstone_version": "0.11.10",
+  "operator_approved": true,
+  "server_started": true,
+  "plugin_loaded": true,
+  "hook_installed": true,
+  "oniforward_v3_tested": true,
+  "cross_host_clock_independence_tested": true,
+  "client_join_tested": true,
+  "verified_identity_tested": true,
+  "disconnect_rejoin_tested": true,
+  "pterodactyl_update_tested": true
+}

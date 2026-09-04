@@ -1,7 +1,7 @@
 # Pterodactyl Setup
 
 Import `egg-onilink.json` from the stable
-[`v0.2.0` release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.2.0). Create one OniLink
+[`v0.3.0` release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.3.0). Create one OniLink
 server and keep every BDS/Endstone backend in its own existing Pterodactyl server.
 
 ## Allocations

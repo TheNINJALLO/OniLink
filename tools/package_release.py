@@ -94,6 +94,35 @@ def profile_paths(version: str) -> dict[str, Path]:
     }
 
 
+def classify_profile_readiness(
+    compatibility: list[dict],
+) -> tuple[bool, str, list[str], list[str]]:
+    production_platforms = sorted(
+        row["platform"]
+        for row in compatibility
+        if row["profile_status"] == "production"
+    )
+    candidate_platforms = sorted(
+        row["platform"]
+        for row in compatibility
+        if row["profile_status"] != "production"
+    )
+    production_ready = bool(production_platforms)
+    release_status = (
+        "production"
+        if production_ready and not candidate_platforms
+        else "production-with-candidate-platforms"
+        if production_ready
+        else "candidate-awaiting-validation"
+    )
+    return (
+        production_ready,
+        release_status,
+        production_platforms,
+        candidate_platforms,
+    )
+
+
 def create_profile_bundle(version: str, destination: Path) -> None:
     profiles = profile_paths(version)
     missing = [str(path) for path in profiles.values() if not path.is_file()]
@@ -209,13 +238,18 @@ def main() -> int:
         if platform == "linux-x86_64":
             row["native_runtime"] = linux_native_abi
         compatibility.append(row)
-    production = all(row["profile_status"] == "production" for row in compatibility)
+    (
+        production,
+        release_status,
+        production_platforms,
+        candidate_platforms,
+    ) = classify_profile_readiness(compatibility)
     manifest = {
         "schema": 1,
-        "release_status": "production"
-        if production
-        else "candidate-awaiting-validation",
+        "release_status": release_status,
         "production_ready": production,
+        "production_ready_platforms": production_platforms,
+        "candidate_platforms": candidate_platforms,
         "onibridge_version": args.version,
         "bds_version": args.bds_version,
         "bds_lock_resolved_at_utc": lock.get("resolved_at_utc"),

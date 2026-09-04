@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | Linux BDS `1.26.44.3` + Endstone `0.11.9` | Native Ubuntu 22.04 build, maximum `GLIBC_2.35` import, C++ unit tests, synthetic hook harness, human review, operator-approved live matrix | Production-approved; no remaining profile gate |
 | Windows BDS `1.26.44.3` + Endstone `0.11.9` | Native tests and offline plugin/hook lifecycle | Live client/storage matrix |
-| Linux BDS `1.26.45.1` + Endstone `0.11.10` | Exact archive/executable lock, generated profile, native build, and hook harness | Human review and live client/storage matrix |
+| Linux BDS `1.26.45.1` + Endstone `0.11.10` | Exact archive/executable lock, generated profile, native build/harness, human review, and operator live acceptance | Production-approved; no remaining profile gate |
 | Windows BDS `1.26.45.1` + Endstone `0.11.10` | Exact archive/executable lock, generated profile, native build, and hook harness | Human review and live client/storage matrix |
 
 ## Required live matrix

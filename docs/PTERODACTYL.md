@@ -6,7 +6,7 @@ player allocation is public; backend allocations must be private or firewalled t
 ## Import the egg
 
 Download `egg-onilink.json` from the stable
-[`v0.2.0` release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.2.0), then open:
+[`v0.3.0` release](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.3.0), then open:
 
 ```text
 Admin Panel → Nests → Import Egg
@@ -31,14 +31,13 @@ checksum-valid changes.
 
 | Channel | Behavior |
 | --- | --- |
-| `stable` | Newest published non-prerelease; default for `v0.2.0` |
+| `stable` | Newest published non-prerelease; default for `v0.3.0` |
 | `beta` | Newest published release including prereleases |
 | `pinned` | Stays on the exact `ONILINK_VERSION` |
 
-To test BDS `1.26.45.1`, use the `beta` channel or pin `v0.3.0-beta.10`, then separately replace the
-backend's Endstone runtime with `0.11.10` and OniBridge with the exact BDS 1.26.45.1 artifact. The
-OniLink egg updates the proxy JAR only; it cannot safely replace files inside a different BDS
-container.
+Stable `v0.3.0` targets BDS `1.26.45.1` with Endstone `0.11.10` and the exact matching OniBridge
+artifact. The OniLink egg updates the proxy JAR only; it cannot safely replace files inside a
+different BDS container. Update the backend runtime and native plugin separately.
 
 If an update fails, the existing JAR starts and the log explains the failure. A successful update
 keeps previous runtime files for rollback. To add the updater to an older egg, back up the server,
@@ -65,7 +64,7 @@ allocations only for tenant listeners hosted in the same container.
 
 | Variable | Example | Guidance |
 | --- | --- | --- |
-| `ONILINK_VERSION` | `v0.2.0` | Bootstrap/pinned release tag |
+| `ONILINK_VERSION` | `v0.3.0` | Bootstrap/pinned release tag |
 | `ONILINK_UPDATE_CHANNEL` | `stable` | Normal production channel |
 | `SERVER_JARFILE` | `OniLink.jar` | Leave at default |
 | `CONFIG_FILE` | `config.properties` | Leave at default unless deliberately renamed |
@@ -126,7 +125,8 @@ upgrade to discover new settings.
 
 ## Configure the BDS/Endstone server
 
-Place the release `.so` and matching profile JSON in the backend's Endstone `plugins/` directory.
+Place the exact release `.so` in the backend's Endstone `plugins/` directory. The profile is embedded
+in the plugin; keep the release profile ZIP and compatibility manifest as deployment evidence.
 OniBridge's configuration is normally:
 
 ```text
@@ -167,7 +167,7 @@ command_namespace = "onibridge"
 interfere_with_backend_commands = false
 
 [compatibility]
-required_profile = "bds-1.26.44.3-linux-x86_64-06effdd00067f1ae"
+required_profile = "bds-1.26.45.1-linux-x86_64-8ba803f23d681816"
 allow_unreviewed_profile = false
 allow_unknown_bds = false
 allow_unknown_endstone = false

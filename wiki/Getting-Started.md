@@ -6,16 +6,15 @@ to validate a fresh signed `OniForward` claim before accepting identity data.
 ## Prerequisites
 
 - Java 21 for OniLink.
-- Exact BDS `1.26.44.3` and Endstone `0.11.9` for the approved Linux profile.
+- Exact BDS `1.26.45.1` and Endstone `0.11.10` for the approved Linux profile.
 - A private UDP route between proxy and backend.
 - One unique 32-byte-or-stronger Base64 secret per backend.
-- Current backups. Stable v0.2 requires synchronized clocks; beta 9 and newer use clock-independent
-  forwarding sequences.
+- Current backups. Stable v0.3 uses clock-independent forwarding sequences.
 
 ## Download
 
 ```bash
-gh release download v0.2.0 \
+gh release download v0.3.0 \
   --repo TheNINJALLO/OniLink \
   --dir onilink-release
 cd onilink-release

@@ -21,7 +21,7 @@ namespace {
 constexpr char kProfileId[] = "bds-1.26.45.1-linux-x86_64-8ba803f23d681816";
 constexpr char kExecutableHash[] = "8ba803f23d681816495c7ac83bdba4b9cd7165a3bee5aedd18fa0c8c3d408ec2";
 constexpr std::uint64_t kExecutableSize = 243724200ULL;
-constexpr bool kProductionProfile = false;
+constexpr bool kProductionProfile = true;
 constexpr std::array<std::byte, 5> kExpectedCall{std::byte{0xe8}, std::byte{0x55}, std::byte{0x07}, std::byte{0x00}, std::byte{0x00}};
 AuthenticationCallSiteAdapter adapter;
 

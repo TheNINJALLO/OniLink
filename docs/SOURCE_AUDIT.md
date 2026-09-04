@@ -157,4 +157,8 @@ It does not expose private BDS functions as public API and is not evidence for a
 - Endstone: source tests and exact runtime paths establish public API behavior; no live BDS result is inferred from source tests.
 - Native example: compilation structure and loader ABI only.
 
-The user-provided official Linux and Windows BDS 1.26.44.3 archives were imported after explicit EULA gating and their executable hashes/layouts were analyzed independently. Production profile approval, live Linux BDS, live Windows BDS, storage persistence, and live command compatibility remain unvalidated.
+The user-provided official Linux and Windows BDS 1.26.44.3 archives were imported after explicit
+EULA gating and their executable hashes/layouts were analyzed independently. Those gates were
+unvalidated at the time of this source audit; subsequent Linux acceptance and current BDS
+1.26.45.1 evidence are recorded in [Compatibility](COMPATIBILITY.md) and [Testing](TESTING.md).
+Windows live acceptance remains separate and incomplete.
