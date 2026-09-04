@@ -4,7 +4,7 @@ Current completed results:
 
 | Suite | Result | Evidence category |
 | --- | --- | --- |
-| `bdsctl` | 30 passed | unit test |
+| `bdsctl` | 28 passed | unit test |
 | `sdkgen` | 17 passed | unit test |
 | packaging, egg, ABI, and checked-profile Python suite | 28 passed, 3 skipped | unit/platform fixture |
 | OniLink Java 21 | 483 passed, 0 failed, 0 skipped | unit/integration fixture |
@@ -32,8 +32,9 @@ The operator confirmed the complete deployed system works after the beta 10 egg 
 OniForward v3 rollout. The stable gate binds that acceptance only to Linux BDS `1.26.45.1`, its
 exact executable hash, Endstone `0.11.10`, and profile
 `bds-1.26.45.1-linux-x86_64-8ba803f23d681816`. It does not promote the separately generated Windows
-profile. Release CI must still rebuild Java and both native artifacts, run their suites, enforce the
-Linux ABI ceiling, reacquire and verify the official locked BDS archives, and package checksums.
+profile. Release CI must still verify the immutable checked lock/profile/adapter parity, rebuild
+Java and both native artifacts, run their suites, enforce the Linux ABI ceiling, and package
+checksums. Exact proprietary archive acquisition stays in the dedicated profile-generation audit.
 
 ## Clock-independent OniForward v3 verification performed on 2026-09-01
 

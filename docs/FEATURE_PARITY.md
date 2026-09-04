@@ -62,7 +62,7 @@ The earlier rows preserve the design decision made during the mandatory pre-impl
 
 | Area | Status | Evidence or exact reason |
 | --- | --- | --- |
-| Official metadata and secure BDS acquisition | implemented and integration-tested | 28 Python tests pass; the official stable 1.26.45.1 Linux/Windows archives are locked independently and stable release CI reacquires and verifies their hashes, formats, architectures, required files, and paired version. |
+| Official metadata and secure BDS acquisition | implemented and integration-tested | 28 Python tests pass; the official stable 1.26.45.1 Linux/Windows archives were independently acquired and verified by the profile-generation audit, which recorded their hashes, formats, architectures, required files, and paired version. |
 | ELF/PE fixture inspection and candidate profile gates | implemented and unit-tested | 17 Python tests pass for formats, architecture, sections, signatures, stale hashes, ABI separation, patch length, evidence, size and offsets. |
 | OniForward Java signer/verifier and backend JWT insertion | implemented and unit-tested | The Java 21 suite passes the fixed cross-language vector and backend-login integration tests. |
 | OniForward C++ verifier, replay cache, CIDR matcher and identity registry | implemented and unit-tested | The Windows C++20 native unit test passes under MSVC; Linux compilation also succeeds. |

@@ -32,8 +32,9 @@ For application releases, CI validates the checked lock against both profile cop
 facts, the adapter's embedded profile ID/executable hash/size/review flag, and any recorded runtime
 evidence. Profile generation resolves official metadata, sends the Minecraft download-page headers
 required by the official host, and compares both archives with independently reviewed SHA-256
-values before inspection. Stable release jobs reacquire and verify the official archives and exact
-executables. OniBridge repeats the executable hash, size, architecture, profile,
+values before inspection. Public release jobs verify immutable lock/profile/adapter parity and
+freshly rebuild both native artifacts; proprietary archive reacquisition remains in the dedicated
+profile-generation audit. OniBridge repeats the executable hash, size, architecture, profile,
 and call-site checks at plugin startup, so release metadata cannot authorize a different server
 binary.
 

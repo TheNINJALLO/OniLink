@@ -9,7 +9,6 @@ from .errors import BdsCtlError
 from .metadata import resolve
 from .model import DOWNLOAD_TYPES, LockFile, read_lock, write_lock
 from .store import acquire, artifact_root, clean_partials, import_local, verify_artifact
-from .transport import CurlTransport
 
 
 def selected_platforms(value: str) -> tuple[str, ...]:
@@ -54,10 +53,6 @@ def create_parser() -> argparse.ArgumentParser:
     for name in ("fetch", "inspect", "verify"):
         command = sub.add_parser(name)
         command.add_argument("--lock", type=Path, default=Path("bds.lock.json"))
-        if name == "fetch":
-            command.add_argument(
-                "--transport", choices=("urllib", "curl"), default="urllib"
-            )
     clean = sub.add_parser(
         "clean", help="remove incomplete transfers and extraction staging directories"
     )
@@ -102,13 +97,7 @@ def run(args: argparse.Namespace) -> int:
         return 0
     lock: LockFile = read_lock(args.lock)
     if args.command == "fetch":
-        transport = CurlTransport() if args.transport == "curl" else None
-        acquire(
-            lock,
-            args.cache,
-            transport=transport,
-            require_existing_hashes=True,
-        )
+        acquire(lock, args.cache, require_existing_hashes=True)
         emit({"status": "available", "platforms": sorted(lock.platforms)})
         return 0
     if args.command in {"inspect", "verify"}:

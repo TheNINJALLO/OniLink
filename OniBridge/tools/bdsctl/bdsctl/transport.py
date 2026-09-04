@@ -2,11 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from http.client import IncompleteRead, RemoteDisconnected
-from pathlib import Path
 import socket
 import ssl
-import subprocess
-import tempfile
 import time
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
@@ -167,90 +164,3 @@ class HttpTransport:
             if attempt + 1 < self.retries:
                 time.sleep(0.25 * (2**attempt))
         raise ValidationError(f"download failed after transient retries: {last_error}")
-
-
-class CurlTransport:
-    """Disk-backed curl transport for hosted runners with unreliable urllib transfers.
-
-    Redirects stay disabled so curl cannot retrieve bytes from a host that has not passed the
-    allowlist. The caller still validates the locked archive and executable hashes after download.
-    """
-
-    def __init__(self, executable: str = "curl", total_timeout: int = 1_200):
-        self.executable = executable
-        self.total_timeout = total_timeout
-
-    def get_bytes(self, url: str, max_size: int) -> Response:
-        validate_url(url)
-        with tempfile.TemporaryDirectory(prefix="bdsctl-curl-") as directory:
-            destination = Path(directory) / "download.partial"
-            command = [
-                self.executable,
-                "--fail",
-                "--silent",
-                "--show-error",
-                "--http1.1",
-                "--retry",
-                "8",
-                "--retry-all-errors",
-                "--retry-delay",
-                "2",
-                "--retry-max-time",
-                str(self.total_timeout),
-                "--connect-timeout",
-                "60",
-                "--max-time",
-                str(self.total_timeout),
-                "--speed-limit",
-                "1024",
-                "--speed-time",
-                "120",
-                "--continue-at",
-                "-",
-                "--max-filesize",
-                str(max_size),
-                "--proto",
-                "=https",
-                "--max-redirs",
-                "0",
-                "--user-agent",
-                USER_AGENT,
-                "--header",
-                "Accept: application/json, application/zip, application/octet-stream;q=0.9, */*;q=0.8",
-                "--header",
-                "Accept-Encoding: identity",
-                "--header",
-                f"Referer: {DOWNLOAD_REFERER}",
-                "--output",
-                str(destination),
-                "--write-out",
-                "%{content_type}\n%{url_effective}",
-                url,
-            ]
-            try:
-                completed = subprocess.run(
-                    command,
-                    check=False,
-                    capture_output=True,
-                    text=True,
-                    timeout=self.total_timeout + 30,
-                )
-            except (OSError, subprocess.TimeoutExpired) as exc:
-                raise ValidationError(f"curl download failed: {exc}") from exc
-            if completed.returncode != 0:
-                detail = completed.stderr.strip().splitlines()
-                message = detail[-1] if detail else f"exit code {completed.returncode}"
-                raise ValidationError(f"curl download failed: {message[:300]}")
-            metadata = completed.stdout.splitlines()
-            if len(metadata) < 2:
-                raise ValidationError("curl did not report download metadata")
-            content_type, final_url = metadata[-2:]
-            validate_url(final_url)
-            if final_url != url:
-                raise SecurityError("curl download unexpectedly changed URL")
-            if not destination.is_file():
-                raise ValidationError("curl produced no download file")
-            size = destination.stat().st_size
-            if size <= 0 or size > max_size:
-                raise ValidationError(f"response exceeds {max_size} byte limit")
-            return Response(destination.read_bytes(), content_type, final_url)
