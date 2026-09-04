@@ -4,6 +4,8 @@
 
 ## 0.3.0 - 2026-09-04
 
+- Added a bounded, resumable, redirect-free curl transport for stable GitHub runners while retaining
+  the locked archive, safe ZIP, executable hash, architecture, and exact-profile verification gates.
 - Fixed the Pterodactyl egg rejecting its own literal `true`/`false` startup defaults. All eight
   feature switches now validate the exact strings written to `config.properties`.
 - Made the default OniForward secret variable optional at egg-assignment time for installations

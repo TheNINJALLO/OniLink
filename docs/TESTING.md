@@ -4,7 +4,7 @@ Current completed results:
 
 | Suite | Result | Evidence category |
 | --- | --- | --- |
-| `bdsctl` | 28 passed | unit test |
+| `bdsctl` | 30 passed | unit test |
 | `sdkgen` | 17 passed | unit test |
 | packaging, egg, ABI, and checked-profile Python suite | 28 passed, 3 skipped | unit/platform fixture |
 | OniLink Java 21 | 483 passed, 0 failed, 0 skipped | unit/integration fixture |

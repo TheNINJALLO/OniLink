@@ -66,7 +66,9 @@ jobs:
           --require-production-platform linux-x86_64
       - name: Fetch official BDS archives for stable release
         if: ${{ !contains(needs.prepare.outputs.version, '-') }}
-        run: python -m bdsctl fetch --lock OniBridge/bds.lock.json
+        run: >-
+          python -m bdsctl fetch --lock OniBridge/bds.lock.json
+          --transport curl
       - name: Verify official BDS archives for stable release
         if: ${{ !contains(needs.prepare.outputs.version, '-') }}
         run: python -m bdsctl verify --lock OniBridge/bds.lock.json

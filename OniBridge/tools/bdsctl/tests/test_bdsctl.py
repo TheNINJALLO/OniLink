@@ -23,7 +23,7 @@ from bdsctl.errors import MetadataError, SecurityError, ValidationError
 from bdsctl.metadata import parse_metadata
 from bdsctl.model import Artifact, LockFile
 from bdsctl.store import acquire, import_local, require_eula, verify_artifact
-from bdsctl.transport import HttpTransport, Response, validate_url
+from bdsctl.transport import CurlTransport, HttpTransport, Response, validate_url
 
 
 LINUX_URL = "https://www.minecraft.net/bedrockdedicatedserver/bin-linux/bedrock-server-1.21.100.1.zip"
@@ -171,6 +171,56 @@ class MetadataTests(unittest.TestCase):
 
 
 class TransportTests(unittest.TestCase):
+    def test_curl_transport_is_resumable_bounded_and_redirect_free(self):
+        captured = {}
+
+        def run(command, **options):
+            captured["command"] = command
+            captured["options"] = options
+            destination = Path(command[command.index("--output") + 1])
+            destination.write_bytes(b"locked archive")
+            return type(
+                "Completed",
+                (),
+                {
+                    "returncode": 0,
+                    "stdout": f"application/zip\n{LINUX_URL}",
+                    "stderr": "",
+                },
+            )()
+
+        with patch("bdsctl.transport.subprocess.run", side_effect=run):
+            response = CurlTransport(total_timeout=90).get_bytes(LINUX_URL, 100)
+
+        self.assertEqual(b"locked archive", response.body)
+        self.assertEqual("application/zip", response.content_type)
+        self.assertIn("--continue-at", captured["command"])
+        self.assertEqual(
+            "0", captured["command"][captured["command"].index("--max-redirs") + 1]
+        )
+        self.assertEqual(
+            "100", captured["command"][captured["command"].index("--max-filesize") + 1]
+        )
+        self.assertTrue(captured["options"]["capture_output"])
+
+    def test_curl_transport_rejects_an_unexpected_effective_url(self):
+        def run(command, **_):
+            destination = Path(command[command.index("--output") + 1])
+            destination.write_bytes(b"archive")
+            return type(
+                "Completed",
+                (),
+                {
+                    "returncode": 0,
+                    "stdout": "application/zip\nhttps://minecraft.net/other.zip",
+                    "stderr": "",
+                },
+            )()
+
+        with patch("bdsctl.transport.subprocess.run", side_effect=run):
+            with self.assertRaisesRegex(SecurityError, "unexpectedly changed URL"):
+                CurlTransport().get_bytes(LINUX_URL, 100)
+
     def test_official_download_headers_are_browser_compatible(self):
         class CapturingOpener:
             request = None
