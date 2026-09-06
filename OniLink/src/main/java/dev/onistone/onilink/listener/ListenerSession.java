@@ -16,6 +16,13 @@ public final class ListenerSession extends BedrockServerSession {
     private ProxyConnection proxyConnection;
     private BedrockPacketWrapper currentInboundPacket;
     private boolean throttled = true;
+    private dev.onistone.onilink.protocol.ProtocolRegistry protocolSnapshot;
+
+    public dev.onistone.onilink.protocol.ProtocolRegistry protocolSnapshot() { return protocolSnapshot; }
+    public void pinProtocols(dev.onistone.onilink.protocol.ProtocolRegistry registry) {
+        if (protocolSnapshot != null) throw new IllegalStateException("session protocols are already pinned");
+        protocolSnapshot = java.util.Objects.requireNonNull(registry);
+    }
 
     public ListenerSession(BedrockPeer peer, int subClientId, Consumer<ListenerSession> closeListener) {
         super(peer, subClientId);

@@ -140,6 +140,25 @@ class ProtocolRegistryTest {
     }
 
     @Test
+    void hotfixDialectIsLimitedToTheReleaseThatActuallyUsesIt() {
+        ProtocolRegistry registry = ProtocolRegistry.createDefault();
+        for (String version : new String[]{"1.26.45.1", "26.45", "1.26.50", "1.27.0"}) {
+            assertSame(Bedrock_v2168.CODEC,
+                    registry.findBinding(2169, 2168, version).orElseThrow().backendCodec());
+        }
+        assertSame(Bedrock_v2168_hotfix4.CODEC,
+                registry.findBinding(2169, 2168, "26.44").orElseThrow().backendCodec());
+    }
+
+    @Test
+    void unknownEqualProtocolsDoNotInventAnIdentityRoute() {
+        ProtocolRegistry registry = ProtocolRegistry.createDefault();
+        assertTrue(registry.findPath(999999, 999999).isEmpty());
+        assertTrue(registry.findPath(2169, 999999).isEmpty());
+        assertTrue(registry.findPath(999999, 2169).isEmpty());
+    }
+
+    @Test
     void chainsNewestClientDownToOlderBackends() {
         ProtocolRegistry registry = ProtocolRegistry.createDefault();
 

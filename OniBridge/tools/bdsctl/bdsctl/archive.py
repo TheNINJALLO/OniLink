@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import hashlib
-import os
 from pathlib import Path, PurePosixPath
 import shutil
 import stat
@@ -34,6 +33,14 @@ def sha256_file(path: Path) -> str:
 def safe_member_name(name: str) -> PurePosixPath:
     if "\\" in name or "\x00" in name:
         raise SecurityError(f"unsafe ZIP member name {name!r}")
+    # Check before PurePosixPath normalizes empty and dot components. Reject Windows stream
+    # and alias names even when the archive is being checked on a Linux build host.
+    parts = name.removesuffix("/").split("/")
+    if any(
+        not part or part in {".", ".."} or ":" in part or part.endswith((".", " "))
+        for part in parts
+    ):
+        raise SecurityError(f"unsafe ZIP member path {name!r}")
     path = PurePosixPath(name)
     if path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
         raise SecurityError(f"unsafe ZIP member path {name!r}")
@@ -50,9 +57,20 @@ def validate_zip(path: Path, platform: str) -> tuple[list[zipfile.ZipInfo], str]
                 raise ValidationError("BDS ZIP is empty")
             normalized: list[tuple[str, int]] = []
             basenames: set[str] = set()
+            destinations: set[str] = set()
             extracted_size = 0
             for info in infos:
                 member = safe_member_name(info.filename)
+                key = (
+                    member.as_posix().casefold()
+                    if platform == "windows-x86_64"
+                    else member.as_posix()
+                )
+                if key in destinations:
+                    raise SecurityError(
+                        f"duplicate ZIP member destination: {info.filename}"
+                    )
+                destinations.add(key)
                 mode = info.external_attr >> 16
                 if stat.S_ISLNK(mode):
                     raise SecurityError(
@@ -90,14 +108,20 @@ def validate_zip(path: Path, platform: str) -> tuple[list[zipfile.ZipInfo], str]
 
 
 def inspect_executable(path: Path, platform: str) -> ExecutableInfo:
-    data = path.read_bytes()[:4096]
+    with path.open("rb") as source:
+        return inspect_executable_header(source.read(4096), platform)
+
+
+def inspect_executable_header(data: bytes, platform: str) -> ExecutableInfo:
+    if platform not in {"linux-x86_64", "windows-x86_64"}:
+        raise ValidationError(f"unsupported platform {platform!r}")
     if platform == "linux-x86_64":
         if len(data) < 20 or data[:4] != b"\x7fELF":
             raise ValidationError("Linux executable is not ELF")
         if data[4] != 2:
             raise ValidationError("Linux executable is not ELF64")
         byte_order = "little" if data[5] == 1 else "big" if data[5] == 2 else None
-        if byte_order is None or int.from_bytes(data[18:20], byte_order) != 62:
+        if byte_order != "little" or int.from_bytes(data[18:20], byte_order) != 62:
             raise ValidationError("Linux executable is not x86_64")
         return ExecutableInfo("ELF64", "x86_64")
     if len(data) < 64 or data[:2] != b"MZ":

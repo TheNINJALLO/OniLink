@@ -11,6 +11,9 @@ public final class ForgeCli {
     private ForgeCli() {}
 
     public static void main(String[] args) throws Exception {
+        if (args.length != 0 && args.length != 1 && args.length != 3) {
+            throw new IllegalArgumentException("Usage: ForgeCli [output-directory [from-release to-release]]");
+        }
         Path output = args.length == 0 ? Path.of("build", "forge") : Path.of(args[0]);
         Files.createDirectories(output);
         ForgeService forge = new ForgeService();
@@ -18,5 +21,9 @@ public final class ForgeCli {
                 ControlJson.encode(forge.matrix()) + "\n", StandardCharsets.UTF_8);
         Files.writeString(output.resolve("compatibility-matrix.md"),
                 forge.matrixMarkdown(), StandardCharsets.UTF_8);
+        if (args.length == 3) {
+            Files.writeString(output.resolve("protocol-diff.json"),
+                    ControlJson.encode(forge.diff(args[1], args[2])) + "\n", StandardCharsets.UTF_8);
+        }
     }
 }

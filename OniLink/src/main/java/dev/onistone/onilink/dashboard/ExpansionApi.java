@@ -37,6 +37,8 @@ final class ExpansionApi {
         Map<String, String> query = OniLinkDashboard.query(exchange);
         PlatformDatabase.Scope scope = scope(principal, query);
 
+        if (path.startsWith("/api/update-center")) return operations(exchange, path, principal, scope, query);
+
         if ("/api/modules".equals(path)) {
             require(principal, DashboardAccounts.Role.VIEWER);
             if ("GET".equals(exchange.getRequestMethod())) {
@@ -93,6 +95,40 @@ final class ExpansionApi {
         if (path.startsWith("/api/packs/")) return packs(exchange, path, principal, scope);
         if (path.startsWith("/api/notifications/")) return notifications(exchange, path, principal, scope);
         throw new OniLinkDashboard.HttpFailure(404, "Not found");
+    }
+
+    private boolean operations(HttpExchange exchange, String path, DashboardAccounts.Principal principal,
+                               PlatformDatabase.Scope scope, Map<String, String> query) throws IOException {
+        // Uploads and code/process activation are provider-owner operations, including when targeting a tenant.
+        require(principal, DashboardAccounts.Role.OWNER);
+        if (path.equals("/api/update-center")) {
+            OniLinkDashboard.requireMethod(exchange, "GET");
+            send(exchange, runtime.withScope(scope, () -> runtime.operations().status(scope)));
+        } else if (path.equals("/api/update-center/upload")) {
+            OniLinkDashboard.requireMutation(exchange, "POST");
+            if (!"application/octet-stream".equalsIgnoreCase(exchange.getRequestHeaders().getFirst("Content-Type")))
+                throw new IllegalArgumentException("upload requires application/octet-stream");
+            var result = runtime.operations().artifacts.upload(scope, required(query, "kind"), required(query, "version"),
+                    required(query, "platform"), exchange.getRequestBody());
+            mutationAudit(exchange, principal, scope, "operations.artifact.upload", Map.of("artifact", result.get("id"), "kind", result.get("kind")));
+            send(exchange, result);
+        } else if (path.equals("/api/update-center/action")) {
+            OniLinkDashboard.requireMutation(exchange, "POST");
+            var form = form(exchange);
+            var mutationScope = scope(principal, form);
+            String operation = required(form, "operation");
+            var input = json(form.get("input"));
+            if (java.util.Set.of("update.deploy", "update.rollback", "update.recover", "protocol.activate", "packs.activate", "cluster.policy").contains(operation)
+                    && !"true".equals(form.get("confirmed"))) throw new IllegalArgumentException("review and confirmation are required for activation");
+            var result = runtime.withScope(mutationScope, () -> {
+                try { return runtime.operations().action(mutationScope, operation, input, principal.username()); }
+                catch (IllegalArgumentException | IllegalStateException | SecurityException failure) { throw failure; }
+                catch (Exception failure) { throw new IllegalStateException("operation failed: " + failure.getMessage(), failure); }
+            });
+            mutationAudit(exchange, principal, mutationScope, "operations." + operation, Map.of());
+            send(exchange, result);
+        } else throw new OniLinkDashboard.HttpFailure(404, "Not found");
+        return true;
     }
 
     private boolean flow(
@@ -631,7 +667,7 @@ final class ExpansionApi {
     }
 
     private static boolean isExpansionPath(String path) {
-        return path.equals("/api/modules") || path.startsWith("/api/platform/")
+        return path.startsWith("/api/update-center") || path.equals("/api/modules") || path.startsWith("/api/platform/")
                 || path.startsWith("/api/flow/") || path.startsWith("/api/continuity/")
                 || path.startsWith("/api/security/quarantine") || path.startsWith("/api/journeys")
                 || path.startsWith("/api/protocols/") || path.startsWith("/api/compatibility/")

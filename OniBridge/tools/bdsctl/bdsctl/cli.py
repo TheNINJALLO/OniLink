@@ -9,6 +9,7 @@ from .errors import BdsCtlError
 from .metadata import resolve
 from .model import DOWNLOAD_TYPES, LockFile, read_lock, write_lock
 from .store import acquire, artifact_root, clean_partials, import_local, verify_artifact
+from .verification import verify_local
 
 
 def selected_platforms(value: str) -> tuple[str, ...]:
@@ -18,6 +19,9 @@ def selected_platforms(value: str) -> tuple[str, ...]:
 
 
 def add_resolution_options(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--expect-version", help="refuse metadata for a different BDS version"
+    )
     parser.add_argument("--channel", choices=tuple(DOWNLOAD_TYPES), default="stable")
     parser.add_argument(
         "--platform", choices=("linux", "windows", "both"), default="both"
@@ -50,6 +54,21 @@ def create_parser() -> argparse.ArgumentParser:
     import_parser.add_argument("--linux", type=Path, required=True)
     import_parser.add_argument("--windows", type=Path, required=True)
     import_parser.add_argument("--output", type=Path, default=Path("bds.lock.json"))
+    import_parser.add_argument(
+        "--lock",
+        type=Path,
+        help="import offline against an existing complete hash lock",
+    )
+    import_parser.add_argument("--expect-version")
+    local = sub.add_parser(
+        "verify-local",
+        help="verify local archives offline without extracting or starting BDS",
+    )
+    local.add_argument("--lock", type=Path, required=True)
+    local.add_argument("--linux", type=Path, required=True)
+    local.add_argument("--windows", type=Path, required=True)
+    local.add_argument("--expect-version")
+    local.add_argument("--output", type=Path, help="write a verification report")
     for name in ("fetch", "inspect", "verify"):
         command = sub.add_parser(name)
         command.add_argument("--lock", type=Path, default=Path("bds.lock.json"))
@@ -66,21 +85,48 @@ def emit(value: object) -> None:
     print(json.dumps(value, indent=2, sort_keys=True))
 
 
+def check_version(lock: LockFile, expected: str | None) -> LockFile:
+    if expected and any(
+        artifact.version != expected for artifact in lock.platforms.values()
+    ):
+        raise ValueError(f"expected BDS {expected} on every requested platform")
+    return lock
+
+
 def run(args: argparse.Namespace) -> int:
     if args.command == "resolve":
-        lock = resolve(args.channel, selected_platforms(args.platform))
+        lock = check_version(
+            resolve(args.channel, selected_platforms(args.platform)),
+            args.expect_version,
+        )
         if args.output:
             write_lock(args.output, lock)
         emit(lock.to_dict())
         return 0
     if args.command == "lock":
-        lock = resolve(args.channel, selected_platforms(args.platform))
+        lock = check_version(
+            resolve(args.channel, selected_platforms(args.platform)),
+            args.expect_version,
+        )
         acquire(lock, args.cache)
         write_lock(args.output, lock)
         emit(lock.to_dict())
         return 0
     if args.command == "import-local":
-        lock = resolve(args.channel, ("linux-x86_64", "windows-x86_64"))
+        if args.lock:
+            lock = read_lock(args.lock)
+            if lock.channel != args.channel:
+                raise ValueError("import channel does not match the lock")
+            if any(
+                not a.archive_sha256 or not a.executable_sha256
+                for a in lock.platforms.values()
+            ):
+                raise ValueError(
+                    "offline import requires archive and executable hashes"
+                )
+        else:
+            lock = resolve(args.channel, ("linux-x86_64", "windows-x86_64"))
+        check_version(lock, args.expect_version)
         import_local(
             lock,
             args.cache,
@@ -94,6 +140,23 @@ def run(args: argparse.Namespace) -> int:
         return 0
     if args.command == "clean":
         emit({"removed_partial_entries": clean_partials(args.cache)})
+        return 0
+    if args.command == "verify-local":
+        lock = check_version(read_lock(args.lock), args.expect_version)
+        results = verify_local(
+            lock, {"linux-x86_64": args.linux, "windows-x86_64": args.windows}
+        )
+        report = {
+            "lock": str(args.lock),
+            "artifacts": results,
+            "nativeLiveTested": False,
+        }
+        if args.output:
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            args.output.write_text(
+                json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
+        emit(report)
         return 0
     lock: LockFile = read_lock(args.lock)
     if args.command == "fetch":

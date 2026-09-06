@@ -105,7 +105,8 @@ public final class PacketMonitor {
         }
     }
 
-    private final ProtocolRegistry registry;
+    private volatile ProtocolRegistry registry;
+    public void installRegistry(ProtocolRegistry registry) { this.registry = java.util.Objects.requireNonNull(registry); }
     private final int capacity;
     private final int movementSampleRate;
     private final long captureBudgetBytes;

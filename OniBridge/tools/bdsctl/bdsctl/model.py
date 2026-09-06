@@ -4,6 +4,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 import json
+import re
 from typing import Any
 
 
@@ -40,8 +41,40 @@ class Artifact:
     package_file_list_hash: str | None = None
     download_time_utc: str | None = None
 
+    def validate(self, platform: str) -> None:
+        if platform not in PLATFORMS:
+            raise ValueError(f"unsupported platform {platform!r}")
+        if not isinstance(self.version, str) or not re.fullmatch(
+            r"\d+\.\d+\.\d+(?:\.\d+)?", self.version
+        ):
+            raise ValueError("artifact version must be a three- or four-part version")
+        if (
+            not isinstance(self.original_filename, str)
+            or self.original_filename in {"", ".", ".."}
+            or any(c in self.original_filename for c in "/\\:\x00")
+            or self.original_filename.endswith((".", " "))
+        ):
+            raise ValueError("artifact filename must be a plain filename")
+        expected = (
+            "bedrock_server" if platform == "linux-x86_64" else "bedrock_server.exe"
+        )
+        if self.executable != expected:
+            raise ValueError(f"{platform} executable must be {expected!r}")
+        for name in ("archive_sha256", "executable_sha256", "package_file_list_hash"):
+            value = getattr(self, name)
+            if value is not None and (
+                not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{64}", value)
+            ):
+                raise ValueError(f"invalid {name}")
+        for name in ("archive_size", "executable_size"):
+            value = getattr(self, name)
+            if value is not None and (type(value) is not int or value <= 0):
+                raise ValueError(f"invalid {name}")
+
     @classmethod
     def from_dict(cls, value: dict[str, Any]) -> "Artifact":
+        if not isinstance(value, dict):
+            raise ValueError("artifact must be an object")
         allowed = set(cls.__dataclass_fields__)
         unknown = set(value) - allowed
         if unknown:
@@ -72,7 +105,7 @@ class LockFile:
         }
         if set(value) != expected:
             raise ValueError(f"lock keys must be exactly {sorted(expected)}")
-        if value["schema"] != 1:
+        if type(value["schema"]) is not int or value["schema"] != 1:
             raise ValueError(f"unsupported lock schema {value['schema']!r}")
         if value["channel"] not in DOWNLOAD_TYPES:
             raise ValueError(f"unsupported channel {value['channel']!r}")
@@ -84,13 +117,17 @@ class LockFile:
             raise ValueError(f"unsupported platforms: {sorted(unknown)}")
         artifacts = {name: Artifact.from_dict(item) for name, item in platforms.items()}
         for name, artifact in artifacts.items():
+            artifact.validate(name)
             wanted = DOWNLOAD_TYPES[value["channel"]][name]
             if artifact.download_type != wanted:
                 raise ValueError(
                     f"{name} uses {artifact.download_type!r}; expected {wanted!r} for {value['channel']}"
                 )
         paired = len({artifact.version for artifact in artifacts.values()}) == 1
-        if bool(value["paired_version"]) != paired:
+        if (
+            type(value["paired_version"]) is not bool
+            or value["paired_version"] != paired
+        ):
             raise ValueError("paired_version does not match the platform versions")
         return cls(
             schema=1,

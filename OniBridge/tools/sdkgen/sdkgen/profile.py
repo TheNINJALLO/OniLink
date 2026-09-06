@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
 from pathlib import Path
@@ -8,7 +8,7 @@ import re
 from typing import Any
 
 from . import __version__
-from .binary import BinaryError, Image, load_image
+from .binary import Image, load_image
 
 
 PROFILE_SCHEMA = 1

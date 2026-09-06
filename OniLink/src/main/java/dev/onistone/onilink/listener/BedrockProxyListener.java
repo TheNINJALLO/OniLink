@@ -54,7 +54,27 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public final class BedrockProxyListener {
     private final ProxyConfig config;
-    private final ProtocolRegistry protocolRegistry;
+    private volatile ProtocolRegistry protocolRegistry;
+
+    public ProtocolRegistry protocolRegistry() { return protocolRegistry; }
+    public boolean mayJoin(String xuid, String backend) {
+        return connectedPlayers.findByXuid(xuid).map(c -> permissions.mayJoinBackend(xuid,
+                c.clientLogin().authData().displayName(), backend)).orElse(false);
+    }
+    public boolean serverMenu(String xuid, List<String> backends) {
+        return connectedPlayers.findByXuid(xuid).map(c -> {
+            dev.onistone.onilink.modules.connect.NetworkMenus.show(c, backends, selected ->
+                    dev.onistone.onilink.modules.connect.NetworkCommandGateway.submit(
+                            dev.onistone.onilink.platform.persistence.PlatformDatabase.Scope.of(tenantId, proxyId),
+                            xuid, List.of("join", selected), line -> BackendSwitcher.sendMessage(c, line)));
+            return true;
+        }).orElse(false);
+    }
+    public void installProtocols(ProtocolRegistry registry) {
+        protocolRegistry = java.util.Objects.requireNonNull(registry);
+        packetMonitor.installRegistry(registry);
+        updateAdvertisement();
+    }
     private final PacketMonitor packetMonitor;
     private final NioEventLoopGroup eventLoopGroup = new NioEventLoopGroup();
     private final ConcurrentHashMap.KeySetView<ListenerSession, Boolean> sessions = ConcurrentHashMap.newKeySet();
@@ -74,6 +94,8 @@ public final class BedrockProxyListener {
     private Channel channel;
     private BackendPaletteStore backendPaletteStore = BackendPaletteStore.disabled();
     private BackendPackCache backendPackCache = BackendPackCache.disabled();
+    private final ProxyResourcePackRegistry activeResourcePacks = ProxyResourcePackRegistry.mutableEmpty();
+    public void installPacks(List<dev.onistone.onilink.resourcepack.ProxyResourcePackEntry> packs) { activeResourcePacks.replaceAll(packs); }
     private final java.util.List<Channel> trustedChannels = new java.util.ArrayList<>();
     private final PluginManager pluginManager;
     private final OniControlRuntime oniControlRuntime;
@@ -211,9 +233,11 @@ public final class BedrockProxyListener {
                 config.backend().name(),
                 config.hubBackendName()
         );
-        ProxyResourcePackRegistry resourcePackRegistry = config.cacheBackendPacks()
+        ProxyResourcePackRegistry loadedPacks = config.cacheBackendPacks()
                 ? ProxyResourcePackRegistry.load(config.resourcePacksDir(), config.backendPackCacheDir())
                 : ProxyResourcePackRegistry.load(config.resourcePacksDir());
+        activeResourcePacks.replaceAll(loadedPacks.packs());
+        ProxyResourcePackRegistry resourcePackRegistry = activeResourcePacks;
         backendPackCache = config.cacheBackendPacks()
                 ? BackendPackCache.of(config.backendPackCacheDir(), resourcePackRegistry)
                 : BackendPackCache.disabled();
@@ -449,6 +473,7 @@ public final class BedrockProxyListener {
                     @Override
                     protected void initSession(org.cloudburstmc.protocol.bedrock.BedrockServerSession session) {
                         ListenerSession listenerSession = (ListenerSession) session;
+                        listenerSession.pinProtocols(protocolRegistry);
                         // Before anything else: RAK_MAX_CONNECTIONS is one pool shared by every
                         // address, so an unthrottled host can hold all of it. Closing the channel
                         // rather than sending a disconnect is deliberate — no codec has been
@@ -475,7 +500,7 @@ public final class BedrockProxyListener {
                         listenerSession.setPacketHandler(new InitialClientPacketHandler(
                                 listenerSession,
                                 new dev.onistone.onilink.network.NetworkSettingsNegotiator(
-                                        new ProtocolNegotiator(protocolRegistry),
+                                        new ProtocolNegotiator(listenerSession.protocolSnapshot()),
                                         config.compressionAlgorithm(),
                                         config.compressionThreshold()
                                 ),

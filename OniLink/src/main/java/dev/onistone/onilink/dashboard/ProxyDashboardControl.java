@@ -24,6 +24,11 @@ import java.util.Optional;
 
 /** Real dashboard view and controls over the running OniLink proxy. */
 final class ProxyDashboardControl implements DashboardControl {
+    @Override public boolean mayJoin(String xuid, String backend) { return listener.mayJoin(xuid, backend); }
+    @Override public boolean serverMenu(String xuid, List<String> backends) { return listener.serverMenu(xuid, backends); }
+    @Override public void installPacks(List<dev.onistone.onilink.resourcepack.ProxyResourcePackEntry> packs) { listener.installPacks(packs); }
+    @Override public dev.onistone.onilink.protocol.ProtocolRegistry protocols() { return listener.protocolRegistry(); }
+    @Override public void installProtocols(dev.onistone.onilink.protocol.ProtocolRegistry registry) { listener.installProtocols(registry); }
     private final ProxyConfig config;
     private final BedrockProxyListener listener;
     private final BackendDirectory backendDirectory;

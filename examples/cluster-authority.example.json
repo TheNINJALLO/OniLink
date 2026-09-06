@@ -1,0 +1,13 @@
+{
+  "node": "authority",
+  "secretEnvironment": "ONILINK_AUTHORITY_KEY",
+  "bindHost": "127.0.0.1",
+  "port": 19191,
+  "peers": [
+    {
+      "node": "edge-one",
+      "secretEnvironment": "ONILINK_EDGE_ONE_KEY",
+      "scopes": [{ "tenant": "provider", "proxy": "main" }]
+    }
+  ]
+}

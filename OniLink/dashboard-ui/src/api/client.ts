@@ -61,6 +61,7 @@ function payloadMessage(payload: unknown, fallback: string): string {
 export interface RequestOptions {
   method?: "GET" | "POST" | "PUT" | "DELETE";
   body?: Record<string, string | number | boolean | null | undefined>;
+  rawBody?: Blob;
   signal?: AbortSignal;
   authenticated?: boolean;
 }
@@ -70,12 +71,17 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   const headers = new Headers();
   const token = getToken();
   if (options.authenticated !== false && token) headers.set("Authorization", `Bearer ${token}`);
-  let body: URLSearchParams | undefined;
+  if (options.body && options.rawBody) throw new TypeError("Choose a form body or a binary upload");
+  let body: URLSearchParams | Blob | undefined;
   if (options.body) {
     body = new URLSearchParams();
     for (const [key, value] of Object.entries(options.body))
       body.set(key, value == null ? "" : String(value));
     headers.set("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8");
+  }
+  if (options.rawBody) {
+    body = options.rawBody;
+    headers.set("Content-Type", "application/octet-stream");
   }
 
   let response: Response;

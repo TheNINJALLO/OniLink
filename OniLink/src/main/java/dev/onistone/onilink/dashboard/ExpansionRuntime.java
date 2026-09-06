@@ -40,7 +40,7 @@ import java.util.function.Supplier;
 /** Owns the isolated expansion modules used by the authenticated HTTP plane. */
 final class ExpansionRuntime implements AutoCloseable {
     private final ExpansionSettings settings;
-    private final ExecutorService workers;
+    private final java.util.concurrent.ThreadPoolExecutor workers;
     private final BoundedEventBus events;
     private final ActionRegistry actions = new ActionRegistry();
     private final PlatformDatabase database;
@@ -57,6 +57,8 @@ final class ExpansionRuntime implements AutoCloseable {
     private final PackScannerService packs;
     private final NotificationService notifications;
     private final SupportCommandGateway.Handler supportCommands;
+    private final OperationsRuntime operations;
+    OperationsRuntime operations() { return operations; }
 
     ExpansionRuntime(
             Path configPath,
@@ -64,17 +66,18 @@ final class ExpansionRuntime implements AutoCloseable {
             Function<PlatformDatabase.Scope, DashboardControl> controlResolver
     ) throws IOException {
         this.settings = ExpansionSettings.load(configPath);
-        this.workers = Executors.newFixedThreadPool(4, runnable -> {
+        this.workers = new java.util.concurrent.ThreadPoolExecutor(4, 4, 0, java.util.concurrent.TimeUnit.SECONDS,
+                new java.util.concurrent.ArrayBlockingQueue<>(256), runnable -> {
             Thread thread = new Thread(runnable, "onilink-platform-worker");
             thread.setDaemon(true);
             return thread;
-        });
+        }, new java.util.concurrent.ThreadPoolExecutor.AbortPolicy());
         this.events = new BoundedEventBus(4_096, workers);
         this.database = new PlatformDatabase(dataDirectory);
         this.proxy = adapter(controlResolver, activeScope);
         this.continuity = new ContinuityService(database, proxy, events,
                 settings.value("continuity.limboBackend", ""),
-                settings.integer("continuity.maxReservations", 10_000, 1, 100_000));
+                settings.integer("continuity.maxReservations", 10_000, 1, 10_000));
         this.quarantine = new QuarantineService(database, proxy, events,
                 settings.value("sentinel.quarantineBackend", ""));
         if (enabled("continuity")) {
@@ -120,6 +123,19 @@ final class ExpansionRuntime implements AutoCloseable {
         this.modules = new ModuleManager(context);
         registerModules();
         modules.startAll();
+        OperationsRuntime operating = null;
+        try {
+            operating = new OperationsRuntime(database, dataDirectory, configPath, settings, proxy,
+                    continuity, packs, events, workers, (scope, task) -> withScope(scope, () -> { task.run(); return null; }));
+            dev.onistone.onilink.plugin.AddonEvents.attach(events);
+            dev.onistone.onilink.platform.events.PlatformEvents.attach(events);
+        } catch (IOException | RuntimeException failure) {
+            if (operating != null) operating.close();
+            SupportCommandGateway.uninstall(supportCommands);
+            flow.close(); notifications.close(); modules.close(); events.close(); workers.shutdownNow(); database.close();
+            throw failure;
+        }
+        this.operations = operating;
     }
 
     private List<String> supportCommand(
@@ -268,6 +284,7 @@ final class ExpansionRuntime implements AutoCloseable {
     <T> T withScope(PlatformDatabase.Scope scope, Supplier<T> operation) {
         PlatformDatabase.Scope previous = activeScope.get();
         activeScope.set(scope);
+        if (operations != null) operations.observe(scope);
         try {
             return operation.get();
         } finally {
@@ -425,6 +442,15 @@ final class ExpansionRuntime implements AutoCloseable {
                 return resolver.apply(scope);
             }
             @Override public List<Map<String, Object>> players() { return control().players(true); }
+            @Override public boolean disconnect(String xuid, String reason) {
+                return control().players(true).stream().filter(p -> xuid.equals(p.get("xuid")))
+                        .findFirst().map(p -> control().disconnect(String.valueOf(p.get("name")), reason).success()).orElse(false);
+            }
+            @Override public boolean mayJoin(String xuid, String backend) { return control().mayJoin(xuid, backend); }
+            @Override public boolean serverMenu(String xuid, List<String> backends) { return control().serverMenu(xuid, backends); }
+            @Override public void installPacks(List<dev.onistone.onilink.resourcepack.ProxyResourcePackEntry> packs) { control().installPacks(packs); }
+            @Override public dev.onistone.onilink.protocol.ProtocolRegistry protocols() { return control().protocols(); }
+            @Override public void installProtocols(dev.onistone.onilink.protocol.ProtocolRegistry registry) { control().installProtocols(registry); }
             @Override public List<Map<String, Object>> backends() { return control().backends(true); }
             @Override public Map<String, Object> backendRegistry() { return control().backendRegistry(); }
             @Override public Map<String, Object> registerBackend(Map<String, String> values) { return control().registerBackend(values); }
@@ -473,12 +499,17 @@ final class ExpansionRuntime implements AutoCloseable {
 
     @Override
     public void close() {
+        operations.close();
+        dev.onistone.onilink.plugin.AddonEvents.detach(events);
+        dev.onistone.onilink.platform.events.PlatformEvents.detach(events);
         SupportCommandGateway.uninstall(supportCommands);
         flow.close();
         notifications.close();
         modules.close();
         events.close();
         workers.shutdownNow();
+        try { workers.awaitTermination(10, java.util.concurrent.TimeUnit.SECONDS); }
+        catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
         database.close();
     }
 }

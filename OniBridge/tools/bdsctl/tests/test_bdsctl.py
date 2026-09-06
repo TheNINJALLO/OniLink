@@ -21,7 +21,9 @@ from bdsctl.archive import (
 )
 from bdsctl.errors import MetadataError, SecurityError, ValidationError
 from bdsctl.metadata import parse_metadata
-from bdsctl.model import Artifact, LockFile
+from bdsctl.model import Artifact, LockFile, write_lock
+from bdsctl.cli import main
+from bdsctl.verification import verify_local
 from bdsctl.store import acquire, import_local, require_eula, verify_artifact
 from bdsctl.transport import HttpTransport, Response, validate_url
 
@@ -292,6 +294,27 @@ class ArchiveTests(unittest.TestCase):
         with self.assertRaises(SecurityError):
             safe_member_name("/outside")
 
+    def test_zip_alias_and_stream_names_are_rejected(self):
+        for name in (
+            "folder/file:stream",
+            "folder./file",
+            "folder/file ",
+            "folder//file",
+            "folder/./file",
+        ):
+            with self.subTest(name=name), self.assertRaises(SecurityError):
+                safe_member_name(name)
+
+    def test_windows_case_collisions_are_rejected_before_extraction(self):
+        source = self.root / "collision.zip"
+        make_zip(
+            source,
+            "windows-x86_64",
+            extra={"SERVER.PROPERTIES": b"conflicting settings"},
+        )
+        with self.assertRaisesRegex(SecurityError, "duplicate ZIP"):
+            validate_zip(source, "windows-x86_64")
+
     def test_symlink_member(self):
         path = self.root / "link.zip"
         with zipfile.ZipFile(path, "w") as archive:
@@ -463,6 +486,192 @@ class AcquisitionTests(unittest.TestCase):
         with patch.dict(os.environ, {"MINECRAFT_EULA_ACCEPTED": "TRUE"}, clear=True):
             with self.assertRaisesRegex(ValidationError, "exactly match"):
                 import_local(lock, self.root / "cache", {})
+
+    def test_acquisition_does_not_rewrite_a_locked_executable_hash(self):
+        source = self.root / "source.zip"
+        make_zip(source, "linux-x86_64")
+        artifact = self.artifact()
+        artifact.archive_sha256 = sha256_file(source)
+        artifact.executable_sha256 = "0" * 64
+        lock = LockFile(1, "stable", "now", True, {"linux-x86_64": artifact})
+        before = lock.to_dict()
+        fake = unittest.mock.Mock()
+        fake.get_bytes.return_value = Response(
+            source.read_bytes(), "application/zip", LINUX_URL
+        )
+        with patch.dict(os.environ, {"MINECRAFT_EULA_ACCEPTED": "TRUE"}):
+            with self.assertRaisesRegex(ValidationError, "executable_sha256 mismatch"):
+                acquire(lock, self.root / "cache", fake, require_existing_hashes=True)
+        self.assertEqual(before, lock.to_dict())
+        self.assertFalse((self.root / "cache/bds/1.21.100.1/linux-x86_64").exists())
+
+    def test_local_import_checks_locked_archive_before_extraction(self):
+        source = self.root / "source.zip"
+        make_zip(source, "linux-x86_64")
+        artifact = self.artifact()
+        artifact.archive_sha256 = "0" * 64
+        lock = LockFile(1, "stable", "now", True, {"linux-x86_64": artifact})
+        with patch.dict(os.environ, {"MINECRAFT_EULA_ACCEPTED": "TRUE"}):
+            with self.assertRaisesRegex(ValidationError, "archive SHA-256 mismatch"):
+                import_local(lock, self.root / "cache", {"linux-x86_64": source})
+        self.assertFalse((self.root / "cache").exists())
+        self.assertEqual("0" * 64, artifact.archive_sha256)
+
+    def test_local_versioned_filename_cannot_be_relabelled_as_current_metadata(self):
+        source = self.root / "bedrock-server-Linux-1.26.44.3.zip"
+        make_zip(source, "linux-x86_64")
+        lock = LockFile(1, "stable", "now", True, {"linux-x86_64": self.artifact()})
+        with patch.dict(os.environ, {"MINECRAFT_EULA_ACCEPTED": "TRUE"}):
+            with self.assertRaisesRegex(ValidationError, "version does not match"):
+                import_local(lock, self.root / "cache", {"linux-x86_64": source})
+        self.assertFalse((self.root / "cache").exists())
+
+    def test_cached_acquisition_fills_a_fresh_metadata_lock(self):
+        source = self.root / "source.zip"
+        make_zip(source, "linux-x86_64")
+        original = LockFile(1, "stable", "now", True, {"linux-x86_64": self.artifact()})
+        fresh = LockFile.from_dict(original.to_dict())
+        with patch.dict(os.environ, {"MINECRAFT_EULA_ACCEPTED": "TRUE"}):
+            import_local(original, self.root / "cache", {"linux-x86_64": source})
+            transport = unittest.mock.Mock()
+            acquire(fresh, self.root / "cache", transport)
+        transport.get_bytes.assert_not_called()
+        self.assertEqual(
+            original.platforms["linux-x86_64"].executable_sha256,
+            fresh.platforms["linux-x86_64"].executable_sha256,
+        )
+        self.assertEqual(
+            sha256_file(source), fresh.platforms["linux-x86_64"].archive_sha256
+        )
+
+    def test_offline_pair_import_can_be_repeated_without_network_or_overwriting(self):
+        linux = self.root / "linux.zip"
+        windows = self.root / "windows.zip"
+        make_zip(linux, "linux-x86_64")
+        make_zip(windows, "windows-x86_64")
+        lock = LockFile(
+            1,
+            "stable",
+            "now",
+            True,
+            {
+                "linux-x86_64": self.artifact(),
+                "windows-x86_64": Artifact(
+                    "serverBedrockWindows",
+                    "1.21.100.1",
+                    "bds.zip",
+                    WINDOWS_URL,
+                    "bedrock_server.exe",
+                ),
+            },
+        )
+        with patch.dict(os.environ, {"MINECRAFT_EULA_ACCEPTED": "TRUE"}):
+            import_local(
+                lock,
+                self.root / "first",
+                {"linux-x86_64": linux, "windows-x86_64": windows},
+            )
+            lock_path = self.root / "lock.json"
+            write_lock(lock_path, lock)
+            command = [
+                "--cache",
+                str(self.root / "offline"),
+                "import-local",
+                "--lock",
+                str(lock_path),
+                "--linux",
+                str(linux),
+                "--windows",
+                str(windows),
+                "--expect-version",
+                "1.21.100.1",
+                "--output",
+                str(self.root / "result.json"),
+            ]
+            with (
+                patch(
+                    "bdsctl.cli.resolve",
+                    side_effect=AssertionError("offline import used network"),
+                ),
+                patch("sys.stdout", new_callable=io.StringIO),
+            ):
+                self.assertEqual(0, main(command))
+                self.assertEqual(0, main(command))
+                make_zip(linux, "linux-x86_64", extra={"new.txt": b"different archive"})
+                with patch("sys.stderr", new_callable=io.StringIO):
+                    self.assertEqual(2, main(command))
+
+    def test_expected_version_refuses_metadata_before_acquisition(self):
+        lock = LockFile(1, "stable", "now", True, {"linux-x86_64": self.artifact()})
+        with (
+            patch("bdsctl.cli.resolve", return_value=lock),
+            patch("bdsctl.cli.acquire") as download,
+            patch("sys.stderr", new_callable=io.StringIO),
+        ):
+            self.assertEqual(2, main(["lock", "--expect-version", "1.26.45.1"]))
+            download.assert_not_called()
+
+    def test_lock_paths_and_types_are_validated_before_filesystem_access(self):
+        lock = LockFile(1, "stable", "now", True, {"linux-x86_64": self.artifact()})
+        for field, value in (
+            ("version", "../../escape"),
+            ("original_filename", "../escape.zip"),
+            ("original_filename", "C:\\escape.zip"),
+            ("executable", "../secret"),
+            ("archive_size", True),
+            ("executable_sha256", "bad"),
+        ):
+            with self.subTest(field=field, value=value):
+                data = lock.to_dict()
+                data["platforms"]["linux-x86_64"][field] = value
+                with self.assertRaises(ValueError):
+                    LockFile.from_dict(data)
+        data = lock.to_dict()
+        data["paired_version"] = "true"
+        with self.assertRaises(ValueError):
+            LockFile.from_dict(data)
+
+    def test_header_inspection_does_not_read_the_entire_executable(self):
+        binary = self.root / "bedrock_server"
+        binary.write_bytes(elf() + bytes(8192))
+        with patch.object(
+            Path, "read_bytes", side_effect=AssertionError("unbounded read")
+        ):
+            self.assertEqual(
+                "ELF64", inspect_executable(binary, "linux-x86_64").file_format
+            )
+
+    def test_verify_checks_locked_sizes(self):
+        source = self.root / "source.zip"
+        make_zip(source, "linux-x86_64")
+        artifact = self.artifact()
+        lock = LockFile(1, "stable", "now", True, {"linux-x86_64": artifact})
+        with patch.dict(os.environ, {"MINECRAFT_EULA_ACCEPTED": "TRUE"}):
+            import_local(lock, self.root / "cache", {"linux-x86_64": source})
+        artifact.executable_size += 1
+        with self.assertRaisesRegex(ValidationError, "executable_size mismatch"):
+            verify_artifact(artifact, "linux-x86_64", self.root / "cache")
+
+    def test_read_only_verification_needs_no_cache_eula_or_server_start(self):
+        source = self.root / "source.zip"
+        make_zip(source, "linux-x86_64")
+        artifact = self.artifact()
+        lock = LockFile(1, "stable", "now", True, {"linux-x86_64": artifact})
+        with patch.dict(os.environ, {"MINECRAFT_EULA_ACCEPTED": "TRUE"}):
+            import_local(lock, self.root / "cache", {"linux-x86_64": source})
+        before = lock.to_dict()
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch(
+                "bdsctl.store.extract_safely", side_effect=AssertionError("extraction")
+            ),
+        ):
+            result = verify_local(lock, {"linux-x86_64": source})
+        self.assertEqual("verified", result[0]["status"])
+        self.assertEqual(before, lock.to_dict())
+        artifact.executable_sha256 = "0" * 64
+        with self.assertRaisesRegex(ValidationError, "executable_sha256 mismatch"):
+            verify_local(lock, {"linux-x86_64": source})
 
 
 if __name__ == "__main__":

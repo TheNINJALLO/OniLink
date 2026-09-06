@@ -168,7 +168,7 @@ public final class InitialClientPacketHandler implements BedrockPacketHandler {
         this.connectedPlayers = connectedPlayers;
         this.playerCountChanged = playerCountChanged;
         this.proxyResourcePackRegistry = proxyResourcePackRegistry != null
-                ? proxyResourcePackRegistry
+                ? proxyResourcePackRegistry.snapshot()
                 : ProxyResourcePackRegistry.empty();
         this.backendPaletteStore = backendPaletteStore != null
                 ? backendPaletteStore
@@ -229,7 +229,8 @@ public final class InitialClientPacketHandler implements BedrockPacketHandler {
                     clientLogin.skinData().getOrDefault("GameVersion", "")
             );
             org.cloudburstmc.protocol.bedrock.codec.BedrockCodec refinedClientCodec =
-                    CanonicalProtocol.clientCodec(session.clientCodec(), clientGameVersion);
+                    session.protocolSnapshot() == null ? CanonicalProtocol.clientCodec(session.clientCodec(), clientGameVersion)
+                            : session.protocolSnapshot().refineCodec(session.clientCodec(), clientGameVersion);
             if (refinedClientCodec != session.clientCodec()) {
                 session.setClientCodec(refinedClientCodec);
                 session.setCodec(refinedClientCodec);
@@ -292,6 +293,12 @@ public final class InitialClientPacketHandler implements BedrockPacketHandler {
             }
             session.setProxyConnection(connection);
             playerCountChanged.run();
+            for (var event : java.util.List.of(dev.onistone.onilink.platform.events.OniEventType.PLAYER_CONNECTED,
+                    dev.onistone.onilink.platform.events.OniEventType.PLAYER_AUTHENTICATED)) {
+                dev.onistone.onilink.platform.events.PlatformEvents.publish(event, connection.journeyTrace().tenantId(),
+                        connection.journeyTrace().proxyId(), java.util.Map.of("xuid", clientLogin.authData().xuid(),
+                                "displayLabel", clientLogin.authData().displayName(), "clientProtocol", session.clientCodec().getMinecraftVersion()));
+            }
             System.out.printf(
                     "Player %s (XUID %s) joined the proxy from %s%s.%n",
                     clientLogin.authData().displayName(),

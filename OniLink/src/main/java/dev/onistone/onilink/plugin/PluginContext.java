@@ -8,6 +8,15 @@ import java.nio.file.Path;
 
 /** Services available to an addon during {@link OniLinkPlugin#onEnable}. */
 public interface PluginContext {
+    int API_VERSION = 1;
+
+    default int apiVersion() { return API_VERSION; }
+
+    default AutoCloseable subscribe(String tenant, String proxy,
+            dev.onistone.onilink.platform.events.OniEventType type,
+            java.util.function.Consumer<dev.onistone.onilink.platform.events.OniEvent> listener) {
+        throw new UnsupportedOperationException("event subscriptions are unavailable");
+    }
 
     /** The addon's writable {@code plugins/<name>/} directory. */
     Path dataFolder();

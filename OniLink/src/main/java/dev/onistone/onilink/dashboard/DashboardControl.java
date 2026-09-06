@@ -5,6 +5,11 @@ import java.util.Map;
 
 /** Runtime boundary used by the HTTP layer and by isolated dashboard integration tests. */
 interface DashboardControl extends AutoCloseable {
+    default boolean mayJoin(String xuid, String backend) { return false; }
+    default boolean serverMenu(String xuid, List<String> backends) { return false; }
+    default void installPacks(List<dev.onistone.onilink.resourcepack.ProxyResourcePackEntry> packs) { throw new UnsupportedOperationException("pack activation unavailable"); }
+    default dev.onistone.onilink.protocol.ProtocolRegistry protocols() { return dev.onistone.onilink.protocol.ProtocolRegistry.createDefault(); }
+    default void installProtocols(dev.onistone.onilink.protocol.ProtocolRegistry registry) { throw new UnsupportedOperationException("protocol activation unavailable"); }
     Map<String, Object> state();
 
     List<Map<String, Object>> players(boolean includeAddresses);

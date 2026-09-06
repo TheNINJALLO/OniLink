@@ -22,6 +22,13 @@ The inventory digest is the SHA-256 of sorted lines containing each tracked file
 
 ## 2026-08-31 Endstone/BDS update audit
 
+The 2026-09-06 follow-up inspected the version registry, translators and codec fixtures, BDS
+acquisition/verification, generated-profile release gate, build tasks, packaging checks, and source
+inventory traversal. It ran the Java, Python, dashboard, and Windows native suites. Fixes and exact
+validation limits are recorded in [Testing](TESTING.md#update-workflow-verification-on-2026-09-06)
+and the [repeatable update workflow](ADDING_BDS_VERSION.md). This is targeted code review plus
+repository-wide automated checks, not a claim that every line or every live gameplay path is verified.
+
 The signed Endstone `v0.11.10` tag was separately inspected at commit
 `8f84d6f5b556916597ed5b6b71329b2ed3ca8fc8` for the BDS `1.26.45.1` update. It was compared
 directly with the previously pinned `v0.11.9` commit. The review covered every changed tracked

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 import os
 from pathlib import Path
 import shutil
@@ -14,6 +15,7 @@ from .archive import (
 )
 from .errors import SecurityError, ValidationError
 from .model import Artifact, LockFile, utc_now
+from .metadata import VERSION_RE
 from .transport import HttpTransport
 
 
@@ -30,7 +32,39 @@ def require_eula(environment: dict[str, str] | None = None) -> None:
 
 
 def artifact_root(cache: Path, artifact: Artifact, platform: str) -> Path:
-    return cache / "bds" / artifact.version / platform
+    artifact.validate(platform)
+    base = (cache / "bds").resolve()
+    root = base / artifact.version / platform
+    if not root.resolve().is_relative_to(base):
+        raise SecurityError("artifact directory escapes the BDS cache")
+    for child in ("archive", "extracted"):
+        if not (root / child).resolve().is_relative_to(root.resolve()):
+            raise SecurityError(f"{child} directory escapes the artifact root")
+    return root
+
+
+INSPECTION_FIELDS = (
+    "archive_sha256",
+    "archive_size",
+    "executable_sha256",
+    "executable_size",
+    "file_format",
+    "architecture",
+    "package_file_list_hash",
+)
+
+
+def _checked_inspection(artifact: Artifact, values: dict) -> Artifact:
+    for name in INSPECTION_FIELDS:
+        expected = getattr(artifact, name)
+        if expected is not None and expected != values[name]:
+            raise ValidationError(f"{name} mismatch for BDS {artifact.version}")
+    return replace(artifact, **{name: values[name] for name in INSPECTION_FIELDS})
+
+
+def _commit_inspection(artifact: Artifact, inspected: Artifact) -> None:
+    for name in (*INSPECTION_FIELDS, "download_time_utc"):
+        setattr(artifact, name, getattr(inspected, name))
 
 
 def _write_json(path: Path, value: object) -> None:
@@ -55,13 +89,19 @@ def _inspect_and_record(
     extract_safely(archive_path, extracted)
     executable = find_required_file(extracted, artifact.executable)
     executable_info = inspect_executable(executable, platform)
-    artifact.archive_sha256 = sha256_file(archive_path)
-    artifact.archive_size = archive_path.stat().st_size
-    artifact.executable_sha256 = sha256_file(executable)
-    artifact.executable_size = executable.stat().st_size
-    artifact.file_format = executable_info.file_format
-    artifact.architecture = executable_info.architecture
-    artifact.package_file_list_hash = file_list_hash
+    original = artifact
+    artifact = _checked_inspection(
+        artifact,
+        {
+            "archive_sha256": sha256_file(archive_path),
+            "archive_size": archive_path.stat().st_size,
+            "executable_sha256": sha256_file(executable),
+            "executable_size": executable.stat().st_size,
+            "file_format": executable_info.file_format,
+            "architecture": executable_info.architecture,
+            "package_file_list_hash": file_list_hash,
+        },
+    )
     artifact.download_time_utc = utc_now()
     _write_json(
         root / "metadata.json",
@@ -88,6 +128,7 @@ def _inspect_and_record(
             "package_file_list_hash": artifact.package_file_list_hash,
         },
     )
+    _commit_inspection(original, artifact)
 
 
 def acquire(
@@ -112,12 +153,13 @@ def acquire(
         extracted = root / "extracted"
         archive_path = archive_dir / artifact.original_filename
         if root.exists() and extracted.exists():
-            verify_artifact(
+            values = verify_artifact(
                 artifact,
                 platform,
                 cache,
                 require_lock_hash=artifact.archive_sha256 is not None,
             )
+            _commit_inspection(artifact, _checked_inspection(artifact, values))
             continue
         if root.exists() and any(root.iterdir()):
             raise SecurityError(
@@ -154,7 +196,7 @@ def import_local(
     sources: dict[str, Path],
     max_size: int = MAX_ARCHIVE_SIZE,
 ) -> None:
-    """Validate and cache user-downloaded archives tied to freshly resolved official metadata."""
+    """Import official archives using resolved metadata or an existing exact hash lock."""
     require_eula()
     if set(sources) != set(lock.platforms):
         raise ValidationError(
@@ -164,6 +206,11 @@ def import_local(
         source = sources[platform].resolve()
         if not source.is_file():
             raise ValidationError(f"local archive is missing for {platform}: {source}")
+        named_version = VERSION_RE.search(source.name)
+        if named_version and named_version.group(1) != artifact.version:
+            raise ValidationError(
+                f"local archive version does not match BDS {artifact.version} for {platform}"
+            )
         if source.stat().st_size <= 0 or source.stat().st_size > max_size:
             raise ValidationError(f"local archive size is invalid for {platform}")
         root = artifact_root(cache, artifact, platform)
@@ -171,6 +218,17 @@ def import_local(
         archive_dir = root / "archive"
         extracted = root / "extracted"
         archive_path = archive_dir / artifact.original_filename
+        source_hash = sha256_file(source)
+        if artifact.archive_sha256 and source_hash != artifact.archive_sha256:
+            raise ValidationError(f"archive SHA-256 mismatch for {platform}")
+        if archive_path.is_file() and extracted.is_dir():
+            values = verify_artifact(artifact, platform, cache, require_lock_hash=False)
+            if source_hash != values["archive_sha256"]:
+                raise SecurityError(
+                    f"local archive differs from cached {platform} archive"
+                )
+            _commit_inspection(artifact, _checked_inspection(artifact, values))
+            continue
         if root.exists() and any(root.iterdir()):
             raise SecurityError(
                 f"refusing to overwrite non-empty artifact directory {root}"
@@ -233,15 +291,20 @@ def verify_artifact(
         and file_list_hash != artifact.package_file_list_hash
     ):
         raise ValidationError(f"package file-list hash mismatch for {platform}")
-    return {
+    values = {
         "platform": platform,
         "version": artifact.version,
         "archive_sha256": archive_hash,
+        "archive_size": archive_path.stat().st_size,
         "executable_sha256": executable_hash,
+        "executable_size": executable.stat().st_size,
         "file_format": info.file_format,
         "architecture": info.architecture,
+        "package_file_list_hash": file_list_hash,
         "status": "verified",
     }
+    _checked_inspection(artifact, values)
+    return values
 
 
 def clean_partials(cache: Path) -> int:

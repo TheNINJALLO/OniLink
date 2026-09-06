@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "dev.onistone"
-version = "0.3.0"
+version = "0.4.0-beta.1"
 
 // OneDrive and antivirus scanners can transiently lock Gradle's class directories on Windows.
 // CI and local release jobs may place disposable intermediates on a local scratch volume while
@@ -35,13 +35,37 @@ application {
     mainClass.set("dev.onistone.onilink.OniLink")
 }
 
-val dashboardDirectory = layout.projectDirectory.dir("dashboard-ui")
+val dashboardSourceDirectory = layout.projectDirectory.dir("dashboard-ui")
+// OneDrive may lock npm's disposable files. Use a local scratch directory when needed.
+val dashboardScratch = providers.environmentVariable("ONILINK_DASHBOARD_BUILD_DIR").orNull
+val dashboardDirectory = dashboardScratch?.let { layout.projectDirectory.dir(it) } ?: dashboardSourceDirectory
 val dashboardDistribution = dashboardDirectory.dir("dist")
 val npmExecutable = if (System.getProperty("os.name").lowercase().contains("windows")) "npm.cmd" else "npm"
+
+val stageDashboard by tasks.registering(Sync::class) {
+    onlyIf { dashboardScratch != null }
+    from(dashboardSourceDirectory) {
+        exclude("node_modules/**", "dist/**", "**/*.tsbuildinfo")
+    }
+    into(dashboardDirectory)
+    preserve {
+        include("node_modules/**", "dist/**", "**/*.tsbuildinfo")
+    }
+    // Avoid recursively snapshotting the npm tree that this task deliberately preserves.
+    doNotTrackState("Synchronizes source files into the optional dashboard scratch directory")
+    doFirst {
+        val source = dashboardSourceDirectory.asFile.canonicalFile.toPath()
+        val target = dashboardDirectory.asFile.canonicalFile.toPath()
+        require(!target.startsWith(source) && !source.startsWith(target)) {
+            "ONILINK_DASHBOARD_BUILD_DIR must be separate from dashboard-ui"
+        }
+    }
+}
 
 val npmInstall by tasks.registering(Exec::class) {
     group = "build"
     description = "Installs the locked dashboard build dependencies."
+    dependsOn(stageDashboard)
     workingDir(dashboardDirectory)
     commandLine(npmExecutable, "ci", "--no-audit", "--no-fund")
     inputs.files(dashboardDirectory.file("package.json"), dashboardDirectory.file("package-lock.json"))
@@ -66,6 +90,7 @@ val dashboardBuild by tasks.registering(Exec::class) {
         dashboardDirectory.file("vite.config.ts")
     )
     inputs.dir(dashboardDirectory.dir("src"))
+    inputs.dir(dashboardDirectory.dir("public"))
     outputs.dir(dashboardDistribution)
 }
 

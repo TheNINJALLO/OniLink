@@ -93,6 +93,9 @@ class OniLinkDashboardTest {
             String viewerToken = createAndLogin(client, base, ownerToken, "test-viewer", "viewer");
             String operatorToken = createAndLogin(client, base, ownerToken, "test-operator", "operator");
             String adminToken = createAndLogin(client, base, ownerToken, "test-admin", "admin");
+            assertEquals(200, get(client, base.resolve("/api/update-center"), ownerToken).statusCode());
+            assertEquals(403, get(client, base.resolve("/api/update-center"), viewerToken).statusCode());
+            assertEquals(403, get(client, base.resolve("/api/update-center"), adminToken).statusCode());
             assertEquals(200, get(client, base.resolve("/api/state"), viewerToken).statusCode());
             assertEquals(200, get(client, base.resolve("/api/packets?limit=100"), viewerToken).statusCode());
             assertEquals(403, get(client, base.resolve("/api/logs?limit=50"), viewerToken).statusCode());

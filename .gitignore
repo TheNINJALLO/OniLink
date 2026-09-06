@@ -8,6 +8,7 @@ dist/
 *.zip
 *.pdb
 *.dmp
+*.pk8
 bedrock_server
 bedrock_server.exe
 __pycache__/

@@ -58,6 +58,7 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
       { route: "allowlist", label: "Allowlist", icon: ListChecks, minimum: "admin" },
       { route: "configuration", label: "Configuration", icon: Settings, minimum: "admin" },
       { route: "operations", label: "Operations", icon: Wrench, minimum: "operator" },
+      { route: "update-center", label: "Update Center", icon: ServerCog, minimum: "owner" },
     ],
   },
   {

@@ -78,6 +78,7 @@ public final class ClientRelayPacketHandler implements BedrockPacketHandler {
 
     @Override
     public PacketSignal handlePacket(BedrockPacket packet) {
+        if (dev.onistone.onilink.modules.connect.NetworkMenus.consume(connection, packet)) return PacketSignal.HANDLED;
         long traceSequence = -1;
         if (connection.isPacketTraceActive()) {
             traceSequence = connection.nextServerboundTraceSequence();

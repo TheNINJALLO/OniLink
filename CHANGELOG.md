@@ -1,6 +1,30 @@
 # Changelog
 
-## Unreleased
+## 0.4.0-beta.1 - 2026-09-06
+
+- Added the owner Update Center with streamed artifact verification, exact-version acceptance
+  evidence, codec diffs, resumable transfer reservations and managed Endstone maintenance/rollback.
+  Rollbacks reject overlapping jobs; manually repaired interrupted jobs resume through health checks
+  and confirmed player returns with recorded recovery evidence.
+- Added independently signed protocol packages with dependency and changed-route fixture gates;
+  active connections retain their protocol and resource-pack snapshots.
+- Added validated resource-pack release sets, parties, friends, network chat, server menus,
+  group transfer queues, reserved slots and an authenticated multi-node state/quota authority.
+- Added addon API 1 capabilities, live lifecycle events, dependency ordering and a project generator
+  with a runnable contract check. Failed addon enablement now removes partial contributions.
+- Added bounded operational workers, sampled translation timing/allocation counters and OTLP HTTP
+  export. Fixed presence redaction reuse, duplicate module UUID detection and event-queue rejection.
+
+- Added offline `bdsctl verify-local` for complete Linux/Windows archive sets, repeatable
+  `import-local --lock`, and `--expect-version` to prevent metadata drift during an update.
+- Fixed acquisition overwriting locked executable evidence, incomplete locks after cache reuse,
+  and unsafe lock paths. Reduced executable header inspection from a full binary read to 4 KiB.
+- Limited the protocol-2168 scoreboard hotfix dialect to 1.26.44. Added strict source-to-target
+  join, movement, and scoreboard fixtures for seven routes involving protocol 2169.
+- Added release-name protocol diffs and hotfix dialects to the generated compatibility matrix.
+  Unknown protocol probes no longer grow the translation-path cache.
+- Added `ONILINK_DASHBOARD_BUILD_DIR` for builds affected by OneDrive file locks, tracked dashboard
+  public assets as build inputs, and pruned dependency/cache trees before source inventory traversal.
 
 ## 0.3.0 - 2026-09-04
 

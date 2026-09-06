@@ -7,7 +7,6 @@ import org.cloudburstmc.protocol.bedrock.codec.BedrockPacketDefinition;
 import org.cloudburstmc.protocol.bedrock.packet.BedrockPacket;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -32,6 +31,23 @@ public final class ForgeService {
                 .orElseThrow(() -> new IllegalArgumentException("unknown source protocol"));
         BedrockCodec to = registry.findClientCodec(toProtocol)
                 .orElseThrow(() -> new IllegalArgumentException("unknown target protocol"));
+        return diff(from, to);
+    }
+
+    /** Release names preserve hotfix dialects that a bare protocol number cannot distinguish. */
+    public Map<String, Object> diff(String fromVersion, String toVersion) {
+        return diff(releaseCodec(fromVersion), releaseCodec(toVersion));
+    }
+
+    private BedrockCodec releaseCodec(String version) {
+        String normalized = version == null ? "" : version.trim().startsWith("1.") ? version.trim() : "1." + version.trim();
+        return registry.supportedDialects().stream().filter(codec -> codec.getMinecraftVersion().equals(normalized))
+                .findFirst().orElseThrow(() -> new IllegalArgumentException("unknown release: " + version));
+    }
+
+    private Map<String, Object> diff(BedrockCodec from, BedrockCodec to) {
+        int fromProtocol = from.getProtocolVersion();
+        int toProtocol = to.getProtocolVersion();
         Map<String, Definition> before = definitions(from);
         Map<String, Definition> after = definitions(to);
         List<Map<String, Object>> added = new ArrayList<>();
@@ -72,16 +88,17 @@ public final class ForgeService {
 
     public Map<String, Object> matrix() {
         List<Map<String, Object>> rows = new ArrayList<>();
-        List<BedrockCodec> codecs = registry.supportedCodecs();
+        List<BedrockCodec> codecs = registry.supportedDialects();
         for (BedrockCodec client : codecs) {
             for (BedrockCodec backend : codecs) {
-                boolean same = client.getProtocolVersion() == backend.getProtocolVersion();
+                boolean same = client == backend;
                 var path = registry.findPath(client.getProtocolVersion(), backend.getProtocolVersion());
                 String status = same ? "SUPPORTED" : path.isPresent() ? "SUPPORTED_WITH_LIMITS" : "UNSUPPORTED";
                 List<String> evidence = new ArrayList<>();
                 evidence.add("compiled-codec");
                 if (same) evidence.add("identity-codec");
-                if (path.isPresent() && !same) evidence.add("registered-translator-chain:" + path.get().size());
+                if (path.isPresent() && !same) evidence.add(path.get().isEmpty()
+                        ? "codec-reencode" : "registered-translator-chain:" + path.get().size());
                 rows.add(Map.of(
                         "clientProtocol", client.getProtocolVersion(),
                         "clientVersion", client.getMinecraftVersion(),

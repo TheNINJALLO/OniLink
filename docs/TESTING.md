@@ -4,11 +4,12 @@ Current completed results:
 
 | Suite | Result | Evidence category |
 | --- | --- | --- |
-| `bdsctl` | 28 passed | unit test |
+| `bdsctl` | 40 passed | unit test |
 | `sdkgen` | 17 passed | unit test |
-| packaging, egg, ABI, and checked-profile Python suite | 28 passed, 3 skipped | unit/platform fixture |
-| OniLink Java 21 | 483 passed, 0 failed, 0 skipped | unit/integration fixture |
-| Dashboard UI | 38 passed, 0 failed | component/integration fixture |
+| packaging, egg, ABI, checked-profile, and inventory Python suite | 31 passed, 3 skipped | unit/platform fixture |
+| OniLink Java 21 | 520 passed, 0 failed, 0 skipped | unit/integration fixture |
+| Dashboard UI | 41 passed, 0 failed | component/integration fixture |
+| Generated addon | API 1 lifecycle contract passed; JAR built | generated-project integration check |
 | OniBridge Windows CTest | 2 passed | native unit + synthetic executable hook harness |
 | Windows BDS 1.26.44.3 + Endstone 0.11.9 | server start, DLL load/enable, exact hook install, disable/uninstall, exit 0 | partial live lifecycle; offline mode, no client |
 | OniBridge Linux CTest | 2 passed on GitHub Ubuntu 22.04 | native unit + synthetic executable hook harness |
@@ -17,6 +18,55 @@ Current completed results:
 | Linux BDS production acceptance | Exact hook and deployed path approved for BDS 1.26.45.1 + Endstone 0.11.10 | operator approval |
 
 The acquisition suite covers official metadata, stable/preview separation, redirects, timeout/size/partial failures, malformed/HTML/unsafe ZIPs, required files, architectures, hashes, version mismatch, and EULA gating. SDK tests cover ELF/PE structure, signatures, boundaries, ABI separation, stale profiles, and layout gates. Token suites cover shared Java/C++ vectors, signature/context/time/key rotation, replay, IPv4/IPv6/mapped CIDRs, malformed inputs, compact client-data JWT extraction, and identity registry behavior.
+
+## Expansion verification on 2026-09-06
+
+The final `check standaloneJar` build passed all 520 Java tests. All 41 dashboard tests passed,
+including scoped binary upload and invalidation of a reviewed deployment when its artifact changes.
+ESLint, TypeScript, Prettier, Python lint/format checks and the dashboard production build passed.
+The 88 runnable Python tests and both Windows native CTest targets passed; three Python checks
+remain expected Windows platform skips. The generated addon compiled, ran its API 1 lifecycle
+contract and produced a JAR without downloading dependencies. CI now builds a fresh generated addon.
+
+The new integration fixtures exercise signed protocol activation and session snapshots, pack
+activation/rollback, real HTTP node authentication and metrics export, real child-process manager
+commands, full-directory restoration, confirmed player evacuation/returns, conflicting rollback
+rejection and manual recovery without a completed snapshot. These manager processes are deterministic
+test helpers, not BDS. Protocol fixtures are sanitized/synthetic, not recorded live acceptance.
+
+The Update Center CLI inspected both supplied Windows and Linux BDS 1.26.45.1 archives. Reports under
+`build/audit-expansion/` record their complete archive checks and executable identities. The final
+distribution is `OniLink/dist/OniLink.jar`. Splitting dashboard pages reduced the initial JavaScript
+bundle from 545.90 kB to 488.41 kB (141.23 kB gzip); this is a build-size measurement, not a server
+throughput benchmark.
+
+Endstone remains required. This expansion has not been deployed to a real BDS/Endstone/client system.
+The prior exact-version Linux acceptance below remains historical evidence; it does not certify these
+new workflows. Windows 1.26.45.1 remains a candidate. See [Update Center](UPDATE_CENTER.md) for
+configuration, live acceptance requirements and operational limits.
+
+## Update workflow verification on 2026-09-06
+
+All 502 Java tests passed with no skips, and the standalone JAR built successfully. The dashboard
+passed 38 tests, ESLint, TypeScript, Prettier, and its production build. All 88 runnable Python tests
+passed with three expected Windows platform skips. The exact Windows 1.26.45.1 plugin rebuilt and
+passed both native CTest targets. The checked-profile gate passed with Linux production required.
+
+Both supplied 1.26.45.1 ZIPs passed the new offline verifier against the committed archive/executable
+hashes, sizes, architecture, and file-list hashes. The seven strict translation fixtures exercise
+source encoding/decoding, the registered translator, and target encoding/decoding for critical join
+and movement packets, plus populated scoreboard updates/removals. They cover 1.26.45 with 1.26.30,
+1.26.40, 1.26.44, itself, and 1.26.50 Preview, including the supported older-client upgrade routes.
+
+`build/audit-1.26.45/server-files.json` records file verification;
+`build/audit-1.26.45/protocol/protocol-diff.json` records the 1.26.44 to 1.26.45 scoreboard serializer
+change; the same protocol directory contains the compatibility matrix including both 2168 dialects.
+The source inventory is under `build/audit-1.26.45/source-inventory.txt`. These local artifacts are
+ignored by Git and can be regenerated using the [update workflow](ADDING_BDS_VERSION.md).
+
+This run did not start BDS or perform a live client login. It did not rerun native Linux CI, change
+the existing Linux approval, or promote the Windows profile. Test fixtures and compiled codec diffs
+cannot establish complete gameplay semantics for every item, block, resource pack, or packet payload.
 
 The hook harness uses executable synthetic code rather than a mocked method name. It checks the direct call replacement, original destination, correct XUID substitution, rejection without a verified login, prior-call chaining, double-install prevention, safe rollback, and final identity registration.
 

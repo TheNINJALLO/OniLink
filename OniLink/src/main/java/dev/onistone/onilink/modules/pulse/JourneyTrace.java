@@ -56,13 +56,29 @@ public final class JourneyTrace {
     }
 
     public synchronized void mark(Stage stage) {
-        stages.putIfAbsent(stage, Instant.now());
+        if (stages.putIfAbsent(stage, Instant.now()) != null) return;
+        var type = switch (stage) {
+            case BACKEND_CONNECT_STARTED -> dev.onistone.onilink.platform.events.OniEventType.PLAYER_BACKEND_JOIN_STARTED;
+            case WORLD_JOIN_COMPLETED -> dev.onistone.onilink.platform.events.OniEventType.PLAYER_BACKEND_JOINED;
+            case DISCONNECTED -> dev.onistone.onilink.platform.events.OniEventType.PLAYER_DISCONNECTED;
+            default -> null;
+        };
+        if (type != null) dev.onistone.onilink.platform.events.PlatformEvents.publish(type, tenantId, proxyId,
+                Map.of("xuid", xuid, "backend", backend, "journeyId", journeyId));
     }
 
     public synchronized void transfer(String from, String to, String state) {
         if (transfers.size() >= 64) transfers.removeFirst();
         transfers.add(Map.of("from", from == null ? "" : from, "to", to == null ? "" : to,
                 "state", state, "timestamp", Instant.now().toString()));
+        var type = switch (state) {
+            case "STARTED" -> dev.onistone.onilink.platform.events.OniEventType.PLAYER_BACKEND_TRANSFER_STARTED;
+            case "COMPLETED" -> dev.onistone.onilink.platform.events.OniEventType.PLAYER_BACKEND_TRANSFER_COMPLETED;
+            case "FAILED" -> dev.onistone.onilink.platform.events.OniEventType.PLAYER_BACKEND_TRANSFER_FAILED;
+            default -> null;
+        };
+        if (type != null) dev.onistone.onilink.platform.events.PlatformEvents.publish(type, tenantId, proxyId,
+                Map.of("xuid", xuid, "backend", to == null ? "" : to, "journeyId", journeyId));
     }
 
     public synchronized void failure(String reason) {

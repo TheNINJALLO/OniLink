@@ -27,6 +27,25 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * keep their server; an optional addon throwing during startup must cost those players nothing.</p>
  */
 class PluginManagerTest {
+    @Test
+    void failedEnableRollsBackContributionsAndUnsafeNamesCannotEscapeDataFolder(@org.junit.jupiter.api.io.TempDir Path plugins) throws Exception {
+        writeAddonJar(plugins.resolve("Partial.jar"), "Partial", PartiallyEnabledPlugin.class);
+        writeAddonJar(plugins.resolve("Escape.jar"), "../escape", ContributingPlugin.class);
+        PluginManager manager = new PluginManager(plugins, config());
+        manager.enableAll();
+        assertTrue(manager.isEmpty());
+        assertTrue(manager.protocolUpgrades().isEmpty());
+        assertTrue(manager.trustedListeners().isEmpty());
+        assertTrue(!Files.exists(plugins.getParent().resolve("escape")));
+        manager.disableAll();
+    }
+
+    public static final class PartiallyEnabledPlugin implements OniLinkPlugin {
+        @Override public void onEnable(PluginContext context) {
+            context.addProtocolUpgrade(CanonicalProtocol.V1_26_30, CanonicalProtocol.V1_26_40, dev.onistone.onilink.protocol.IdentityTranslator898.INSTANCE);
+            throw new IllegalStateException("failure after registering a contribution");
+        }
+    }
 
     @Test
     void anAddonIsDiscoveredEnabledAndItsContributionsCollected() throws Exception {

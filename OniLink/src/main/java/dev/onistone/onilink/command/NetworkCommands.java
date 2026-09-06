@@ -61,6 +61,14 @@ public final class NetworkCommands {
         SupportCommandGateway.submit(scope, sender.xuid(), sender.name(), backend, arguments, sender::sendMessage);
     }
 
+    public void network(CommandSender sender, List<String> arguments) {
+        if (sender.isConsole() || sender.connection() == null || sender.xuid().isBlank()) {
+            sender.sendMessage("Network player commands require an authenticated player.");
+            return;
+        }
+        dev.onistone.onilink.modules.connect.NetworkCommandGateway.submit(scope, sender.xuid(), arguments, sender::sendMessage);
+    }
+
     public NetworkCommands(
             ConnectedPlayerRegistry connectedPlayers,
             BackendDirectory backendDirectory,

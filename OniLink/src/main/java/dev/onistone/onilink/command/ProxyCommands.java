@@ -16,7 +16,8 @@ public final class ProxyCommands {
                 new ProxyCommand("alert", "Broadcast a message to every player on the network"),
                 new ProxyCommand("perm", "Grant or revoke proxy permissions"),
                 new ProxyCommand("allowlist", "Manage authenticated XUID access to the proxy"),
-                new ProxyCommand("support", "Create and follow your OniLink support tickets")
+                new ProxyCommand("support", "Create and follow your OniLink support tickets"),
+                new ProxyCommand("network", "Parties, friends, network chat and server queues")
         );
     }
 }

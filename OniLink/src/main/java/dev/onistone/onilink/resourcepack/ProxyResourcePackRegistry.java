@@ -59,6 +59,15 @@ public final class ProxyResourcePackRegistry {
         return new ProxyResourcePackRegistry(Collections.emptyList());
     }
 
+    public synchronized ProxyResourcePackRegistry snapshot() { return new ProxyResourcePackRegistry(packs); }
+
+    public synchronized void replaceAll(List<ProxyResourcePackEntry> entries) {
+        if (this == EMPTY) throw new IllegalStateException("cannot mutate shared empty registry");
+        if (entries.stream().map(ProxyResourcePackEntry::uuid).distinct().count() != entries.size())
+            throw new IllegalArgumentException("duplicate pack UUID");
+        install(entries);
+    }
+
     /**
      * Adds a pack learned at runtime, keeping the newer of the two when the uuid is already known.
      *

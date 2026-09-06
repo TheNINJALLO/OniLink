@@ -54,6 +54,15 @@ release stream, and public identity. Its supported product family has two runtim
 Repository tooling locks official BDS metadata, creates exact native profiles, validates compatibility,
 and packages release files. BDS itself is never redistributed.
 
+[v0.4.0-beta.1](https://github.com/TheNINJALLO/OniLink/releases/tag/v0.4.0-beta.1) is available for
+testing. Its [Update Center](docs/UPDATE_CENTER.md) adds verified uploads, managed Endstone
+maintenance, signed protocol packages, resource-pack releases and player/network services.
+[Protocol packages and addon API 1](docs/PROTOCOL_PACKAGES.md) document independent updates and the SDK.
+Follow the [beta upgrade instructions](docs/releases/v0.4.0-beta.1.md) on a test instance first.
+
+For the next server update, the [BDS update workflow](docs/ADDING_BDS_VERSION.md) provides offline
+file-set verification, repeatable imports, release-specific protocol diffs, and separate native gates.
+
 ## How it works
 
 ```text

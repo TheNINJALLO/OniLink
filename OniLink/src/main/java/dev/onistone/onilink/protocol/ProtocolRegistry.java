@@ -2,7 +2,6 @@ package dev.onistone.onilink.protocol;
 
 import org.cloudburstmc.protocol.bedrock.codec.BedrockCodec;
 import org.cloudburstmc.protocol.bedrock.packet.PlayStatusPacket;
-import org.cloudburstmc.protocol.bedrock.codec.v2168.Bedrock_v2168_hotfix4;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -20,8 +19,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * Maps a connecting client protocol to a backend protocol, chaining adjacent-version translators when
  * the two are several versions apart &mdash; the ViaVersion / endweave model.
  *
- * <p>Translators are stored as a <em>directed</em> graph: every edge goes from a newer protocol to an
- * older one (the only direction the proxy needs, since clients are newer than or equal to backends).
+ * <p>Translators are stored as a <em>directed</em> graph. Downgrade edges support newer clients on older
+ * backends, and explicitly registered upgrade edges support tested older-client routes.
  * {@link #findBinding(int, int)} runs a BFS for the shortest chain of edges from the client protocol
  * down to the backend protocol. A single-hop result returns the raw translator; a multi-hop result is
  * wrapped in a {@link ChainedPacketTranslator}. Equal protocols use {@link IdentityTranslator898}.</p>
@@ -31,14 +30,19 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class ProtocolRegistry {
     private final Map<Integer, BedrockCodec> codecs;
+    private final List<BedrockCodec> dialects;
     private final Map<Integer, List<Edge>> outgoing;
     private final Map<Long, Optional<List<PacketTranslator>>> pathCache = new ConcurrentHashMap<>();
 
     private record Edge(int target, PacketTranslator translator) {
     }
 
-    private ProtocolRegistry(Map<Integer, BedrockCodec> codecs, Map<Integer, List<Edge>> outgoing) {
+    private ProtocolRegistry(Map<Integer, BedrockCodec> codecs, Collection<BedrockCodec> dialects,
+                             Map<Integer, List<Edge>> outgoing) {
         this.codecs = Map.copyOf(codecs);
+        this.dialects = dialects.stream()
+                .sorted(Comparator.comparingInt(BedrockCodec::getProtocolVersion)
+                        .thenComparing(BedrockCodec::getMinecraftVersion)).toList();
         Map<Integer, List<Edge>> copy = new LinkedHashMap<>();
         for (Map.Entry<Integer, List<Edge>> entry : outgoing.entrySet()) {
             copy.put(entry.getKey(), List.copyOf(entry.getValue()));
@@ -50,11 +54,19 @@ public final class ProtocolRegistry {
         return defaultBuilder().build();
     }
 
+    public Builder toBuilder() {
+        Builder builder = new Builder();
+        builder.codecs.putAll(codecs);
+        dialects.forEach(codec -> builder.dialects.put(codec.getMinecraftVersion(), codec));
+        outgoing.forEach((from, edges) -> builder.outgoing.put(from, new ArrayList<>(edges)));
+        return builder;
+    }
+
     /**
      * Everything {@link #createDefault()} registers, still open for more.
      *
-     * <p>Exists so an addon can contribute edges the proxy has no business knowing about. The proxy's
-     * own graph only ever goes newer&rarr;older; an addon adds the upgrade edge its translator needs, and a proxy running without it has no idea that direction exists.</p>
+     * <p>Addons can contribute additional directed routes. Registering one direction does not
+     * imply that the reverse direction is safe.</p>
      */
     public static Builder defaultBuilder() {
         return builder()
@@ -65,13 +77,14 @@ public final class ProtocolRegistry {
                 .codec(CanonicalProtocol.V1_26_20)
                 .codec(CanonicalProtocol.V1_26_30)
                 .codec(CanonicalProtocol.V1_26_40)
+                .codec(CanonicalProtocol.V1_26_44)
                 .codec(CanonicalProtocol.V1_26_45)
                 .codec(CanonicalProtocol.V1_26_50)
                 // Directed adjacent translators (newer -> older). Longer gaps are auto-chained.
                 .edge(CanonicalProtocol.V1_26_50, CanonicalProtocol.V1_26_45, ModernClientTo2168Translator.INSTANCE)
                 .edge(CanonicalProtocol.V1_26_50, CanonicalProtocol.V1_26_40, ModernClientTo2168Translator.INSTANCE)
                 .edge(CanonicalProtocol.V1_26_45, CanonicalProtocol.V1_26_40, IdentityTranslator898.INSTANCE)
-                // Endstone 0.11.10 accepts wire-compatible 2168 clients on a 2169 backend.
+                // Shared packet models; the endpoint codecs handle each release's wire format.
                 .upgradeEdge(CanonicalProtocol.V1_26_40, CanonicalProtocol.V1_26_45, IdentityTranslator898.INSTANCE)
                 .edge(CanonicalProtocol.V1_26_40, CanonicalProtocol.V1_26_30, ModernClientTo1001Translator.INSTANCE)
                 .edge(CanonicalProtocol.V1_26_30, CanonicalProtocol.V1_26_20, ModernClientTo975Translator.INSTANCE)
@@ -124,6 +137,10 @@ public final class ProtocolRegistry {
      * ordered client &rarr; backend. Empty Optional when no path exists.
      */
     public Optional<List<PacketTranslator>> findPath(int clientProtocol, int backendProtocol) {
+        // Unknown probes must not grow a process-lifetime cache of arbitrary integers.
+        if (!codecs.containsKey(clientProtocol) || !codecs.containsKey(backendProtocol)) {
+            return Optional.empty();
+        }
         if (clientProtocol == backendProtocol) {
             return Optional.of(List.of());
         }
@@ -184,13 +201,11 @@ public final class ProtocolRegistry {
             String backendMinecraftVersion
     ) {
         return findBinding(clientProtocolVersion, backendProtocolVersion).map(binding -> {
-            if (backendProtocolVersion != 2168 || !atLeast12644(backendMinecraftVersion)) {
-                return binding;
-            }
+            BedrockCodec backendCodec = refineCodec(binding.backendCodec(), backendMinecraftVersion);
             return new ProtocolBinding(
                     binding.clientCodec(),
-                    Bedrock_v2168_hotfix4.CODEC,
-                    Bedrock_v2168_hotfix4.CODEC,
+                    backendCodec,
+                    backendCodec,
                     binding.translator()
             );
         });
@@ -217,29 +232,24 @@ public final class ProtocolRegistry {
         ));
     }
 
-    private static boolean atLeast12644(String version) {
-        if (version == null || version.isBlank()) {
-            return false;
-        }
-        String[] raw = version.trim().split("\\.");
-        int offset = raw.length > 0 && "1".equals(raw[0]) ? 1 : 0;
-        if (raw.length < offset + 2) {
-            return false;
-        }
-        try {
-            int minor = Integer.parseInt(raw[offset]);
-            int patch = Integer.parseInt(raw[offset + 1]);
-            return minor > 26 || minor == 26 && patch >= 44;
-        } catch (NumberFormatException ignored) {
-            return false;
-        }
-    }
-
     /** All registered codecs in protocol order for diagnostics and compatibility tooling. */
     public List<BedrockCodec> supportedCodecs() {
         return codecs.values().stream()
                 .sorted(Comparator.comparingInt(BedrockCodec::getProtocolVersion))
                 .toList();
+    }
+
+    /** Includes releases with different wire formats but the same protocol number. */
+    public List<BedrockCodec> supportedDialects() {
+        return dialects;
+    }
+
+    public BedrockCodec refineCodec(BedrockCodec current, String release) {
+        if (release == null) return current;
+        String version = release.trim().startsWith("1.") ? release.trim() : "1." + release.trim();
+        return dialects.stream().filter(codec -> codec.getProtocolVersion() == current.getProtocolVersion()
+                        && (codec.getMinecraftVersion().equals(version) || version.startsWith(codec.getMinecraftVersion() + ".")))
+                .max(Comparator.comparingInt(codec -> codec.getMinecraftVersion().length())).orElse(current);
     }
 
     public BedrockCodec advertisedClientCodec() {
@@ -257,14 +267,41 @@ public final class ProtocolRegistry {
 
     public static final class Builder {
         private final Map<Integer, BedrockCodec> codecs = new LinkedHashMap<>();
+        private final Map<String, BedrockCodec> dialects = new LinkedHashMap<>();
         private final Map<Integer, List<Edge>> outgoing = new LinkedHashMap<>();
 
         private Builder() {
         }
 
+        /** Trusted packages add codecs without requiring a proxy enum release. */
+        public Builder codec(BedrockCodec codec) {
+            java.util.Objects.requireNonNull(codec, "codec");
+            if (codec.getProtocolVersion() <= 0) throw new IllegalArgumentException("invalid protocol number");
+            codecs.putIfAbsent(codec.getProtocolVersion(), codec);
+            dialects.put(codec.getMinecraftVersion(), codec);
+            return this;
+        }
+
+        public Builder replaceCodec(BedrockCodec codec) {
+            codec(codec);
+            codecs.put(codec.getProtocolVersion(), codec);
+            return this;
+        }
+
+        public Builder translation(int from, int to, PacketTranslator translator) {
+            if (from == to || !codecs.containsKey(from) || !codecs.containsKey(to))
+                throw new IllegalArgumentException("translation endpoints must be registered and distinct");
+            java.util.Objects.requireNonNull(translator, "translator");
+            var edges = outgoing.computeIfAbsent(from, ignored -> new ArrayList<>());
+            edges.removeIf(edge -> edge.target() == to);
+            edges.add(new Edge(to, translator));
+            return this;
+        }
+
         public Builder codec(CanonicalProtocol protocol) {
             BedrockCodec codec = protocol.codec();
             codecs.putIfAbsent(codec.getProtocolVersion(), codec);
+            dialects.putIfAbsent(codec.getMinecraftVersion(), codec);
             return this;
         }
 
@@ -310,7 +347,7 @@ public final class ProtocolRegistry {
         }
 
         public ProtocolRegistry build() {
-            return new ProtocolRegistry(codecs, outgoing);
+            return new ProtocolRegistry(codecs, dialects.values(), outgoing);
         }
     }
 }

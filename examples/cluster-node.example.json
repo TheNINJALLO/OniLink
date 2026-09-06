@@ -1,0 +1,5 @@
+{
+  "node": "edge-one",
+  "secretEnvironment": "ONILINK_EDGE_ONE_KEY",
+  "coordinator": "https://authority.example.com/exchange"
+}

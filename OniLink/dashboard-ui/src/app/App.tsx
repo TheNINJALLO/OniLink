@@ -1,4 +1,10 @@
 import { AuthPage } from "../auth/AuthPage";
+import { lazy, Suspense } from "react";
+const UpdateCenterPage = lazy(() =>
+  import("../features/updates/UpdateCenterPage").then((module) => ({
+    default: module.UpdateCenterPage,
+  })),
+);
 import { useAuth } from "../auth/AuthProvider";
 import { Loading } from "../components/ui";
 import { AccountPage } from "../features/account/AccountPage";
@@ -12,9 +18,19 @@ import { TenantPortalPage } from "../features/hosting/TenantPortalPage";
 import { OperationsPage } from "../features/operations/OperationsPage";
 import { OverviewPage } from "../features/overview/OverviewPage";
 import { PlayersPage } from "../features/players/PlayersPage";
-import { PacketMonitorPage } from "../features/packets/PacketMonitorPage";
-import { OniControlPage } from "../features/control/OniControlPage";
-import { PlatformPage } from "../features/platform/PlatformPage";
+const PacketMonitorPage = lazy(() =>
+  import("../features/packets/PacketMonitorPage").then((module) => ({
+    default: module.PacketMonitorPage,
+  })),
+);
+const OniControlPage = lazy(() =>
+  import("../features/control/OniControlPage").then((module) => ({
+    default: module.OniControlPage,
+  })),
+);
+const PlatformPage = lazy(() =>
+  import("../features/platform/PlatformPage").then((module) => ({ default: module.PlatformPage })),
+);
 import { useHashRoute } from "../hooks/useHashRoute";
 import { AppShell, ForbiddenPage, visibleNav } from "../layouts/AppShell";
 
@@ -53,6 +69,13 @@ export function App() {
       case "platform":
         page = <PlatformPage />;
         break;
+      case "update-center":
+        page = (
+          <Suspense fallback={<Loading label="Loading Update Center" />}>
+            <UpdateCenterPage />
+          </Suspense>
+        );
+        break;
       case "backends":
         page = <BackendsPage navigate={navigate} />;
         break;
@@ -84,7 +107,7 @@ export function App() {
   }
   return (
     <AppShell route={route} navigate={navigate}>
-      {page}
+      <Suspense fallback={<Loading label="Loading page" />}>{page}</Suspense>
     </AppShell>
   );
 }

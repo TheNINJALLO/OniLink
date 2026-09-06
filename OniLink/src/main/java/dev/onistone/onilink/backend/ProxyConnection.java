@@ -263,6 +263,7 @@ public final class ProxyConnection {
 
     public void setOniControlRuntime(OniControlRuntime oniControlRuntime) {
         this.oniControlRuntime = oniControlRuntime;
+        if (oniControlRuntime != null) journeyTrace.scope(oniControlRuntime.tenantId(), oniControlRuntime.proxyId());
     }
 
     public void observePacket(

@@ -16,7 +16,8 @@ public record ProxySessionProfile(
                 binding.clientCodec(),
                 binding.canonicalCodec(),
                 binding.backendCodec(),
-                binding.translator()
+                dev.onistone.onilink.modules.pulse.RelayMetrics.measure(binding.translator(),
+                        binding.clientCodec().getMinecraftVersion(), binding.backendCodec().getMinecraftVersion())
         );
     }
 

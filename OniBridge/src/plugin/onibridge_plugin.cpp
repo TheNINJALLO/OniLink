@@ -30,7 +30,7 @@
 #include <vector>
 
 #ifndef ONIBRIDGE_VERSION
-#define ONIBRIDGE_VERSION "0.3.0"
+#define ONIBRIDGE_VERSION "0.4.0-beta.1"
 #endif
 #ifndef ONIBRIDGE_BDS_VERSION
 #define ONIBRIDGE_BDS_VERSION "profile-bound"

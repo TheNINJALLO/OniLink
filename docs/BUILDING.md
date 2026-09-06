@@ -25,9 +25,15 @@ python -m unittest test_package_release -v
 cd ../OniLink
 $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 $env:ONILINK_BUILD_DIR = "$env:TEMP\onilink-build"
+$env:ONILINK_DASHBOARD_BUILD_DIR = "$env:TEMP\onilink-dashboard-build"
 .\gradlew.bat test standaloneJar --no-daemon --console=plain
 
 ```
+
+`ONILINK_DASHBOARD_BUILD_DIR` is optional. Gradle synchronizes dashboard source into this disposable
+directory and preserves its npm dependencies and build output between runs. Use a dedicated directory
+outside `dashboard-ui`; unrelated files in the scratch directory may be removed by synchronization.
+This avoids OneDrive locks on `node_modules` while the final JAR stays in `OniLink/dist`.
 
 Profile-bearing native builds must set both the exact generated adapter and the audited Endstone source:
 

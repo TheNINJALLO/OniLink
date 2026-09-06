@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import os
 from pathlib import Path
 
 
@@ -31,6 +32,28 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def source_files(root: Path, output: Path) -> list[Path]:
+    files = []
+    # Prune before descending: filtering rglob results still walks every cached compiler,
+    # Gradle class, and npm dependency on disk (especially expensive on OneDrive).
+    for directory, directories, names in os.walk(root, followlinks=False):
+        directories[:] = [
+            name
+            for name in directories
+            if name not in EXCLUDED_PARTS and not (Path(directory) / name).is_symlink()
+        ]
+        for name in names:
+            path = Path(directory) / name
+            if (
+                name not in EXCLUDED_PARTS
+                and path.suffix.lower() not in EXCLUDED_SUFFIXES
+                and not path.is_symlink()
+                and path.resolve() != output
+            ):
+                files.append(path)
+    return sorted(files)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -44,14 +67,7 @@ def main() -> int:
         else args.output.resolve()
     )
     output.relative_to(root)
-    files = sorted(
-        path
-        for path in root.rglob("*")
-        if path.is_file()
-        and path.resolve() != output
-        and not EXCLUDED_PARTS.intersection(path.relative_to(root).parts)
-        and path.suffix.lower() not in EXCLUDED_SUFFIXES
-    )
+    files = source_files(root, output)
     lines = [
         "OniLink/OniBridge source-file inventory (SHA-256, relative path)",
         "This generated inventory file is itself part of the workspace and is intentionally not self-hashed.",

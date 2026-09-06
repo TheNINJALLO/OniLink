@@ -441,11 +441,13 @@ public final class BackendConnector {
                 connection,
                 previousProfile,
                 disconnectClientOnClose,
-                activation
+                activation,
+                () -> backendDirectory.isEnabled(backendConfig.name())
         );
         final BackendProtocol backendProtocol;
         final ProtocolBinding binding;
         try {
+            if (!backendDirectory.isEnabled(backendConfig.name())) throw new UnsupportedVersionPairException("Backend is disabled for maintenance");
             backendProtocol = backendProtocol(backendConfig, connection);
             binding = resolveBinding(connection, backendConfig, backendProtocol);
             connection.setSessionProfile(ProxySessionProfile.from(binding));
@@ -555,12 +557,17 @@ public final class BackendConnector {
         backend.sendPacketImmediately(request);
     }
 
+    private ProtocolRegistry sessionProtocols(ProxyConnection connection) {
+        ProtocolRegistry snapshot = connection.client().protocolSnapshot();
+        return snapshot == null ? protocolRegistry : snapshot;
+    }
+
     private ProtocolBinding resolveBinding(
             ProxyConnection connection,
             BackendConfig backendConfig,
             BackendProtocol backendProtocol
     ) {
-        return protocolRegistry.findBinding(
+        return sessionProtocols(connection).findBinding(
                         connection.client().clientCodec(),
                         backendProtocol.protocolVersion(),
                         backendProtocol.minecraftVersion())
@@ -604,7 +611,7 @@ public final class BackendConnector {
 
         int protocolVersion = pong.protocolVersion();
         String minecraftVersion = pong.version();
-        if (protocolRegistry.findBackendCodec(protocolVersion).isEmpty()) {
+        if (sessionProtocols(connection).findBackendCodec(protocolVersion).isEmpty()) {
             throw new UnsupportedVersionPairException(
                     "Unsupported backend version "
                             + versionName(minecraftVersion, protocolVersion)
@@ -620,7 +627,7 @@ public final class BackendConnector {
             IOException cause
     ) {
         BedrockCodec clientCodec = connection.client().clientCodec();
-        if (protocolRegistry.findBackendCodec(clientCodec.getProtocolVersion()).isEmpty()) {
+        if (sessionProtocols(connection).findBackendCodec(clientCodec.getProtocolVersion()).isEmpty()) {
             throw new UnsupportedVersionPairException(
                     "Unable to detect backend protocol for " + backendConfig.name() + " at " + backendConfig.address() + ".",
                     cause
@@ -652,7 +659,8 @@ public final class BackendConnector {
             ProxyConnection connection,
             ProxySessionProfile previousProfile,
             boolean disconnectClientOnClose,
-            BackendActivation delegate
+            BackendActivation delegate,
+            java.util.function.BooleanSupplier enabled
     ) {
         return new BackendActivation() {
             @Override
@@ -662,6 +670,10 @@ public final class BackendConnector {
 
             @Override
             public void onStartGame(BackendSession backend) {
+                if (!enabled.getAsBoolean()) {
+                    onFailure(backend, new IllegalStateException("Backend was disabled during its join handshake"));
+                    return;
+                }
                 delegate.onStartGame(backend);
             }
 

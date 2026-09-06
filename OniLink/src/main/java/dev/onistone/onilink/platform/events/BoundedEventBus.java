@@ -61,7 +61,13 @@ public final class BoundedEventBus implements AutoCloseable {
     }
 
     private void scheduleDrain() {
-        if (draining.compareAndSet(false, true)) executor.execute(this::drain);
+        if (draining.compareAndSet(false, true)) {
+            try { executor.execute(this::drain); }
+            catch (java.util.concurrent.RejectedExecutionException busy) {
+                draining.set(false);
+                synchronized (this) { dropped.addAndGet(queue.size()); queue.clear(); }
+            }
+        }
     }
 
     private void drain() {

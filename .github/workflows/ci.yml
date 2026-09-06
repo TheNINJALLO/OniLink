@@ -43,8 +43,7 @@ jobs:
       - run: python -m unittest discover -s tests -v
         working-directory: OniBridge/tools/sdkgen
       - run: >-
-          python -m unittest test_package_release test_package_linux
-          test_pterodactyl_egg test_linux_abi test_profile_pipeline -v
+          python -m unittest discover -s . -p 'test_*.py' -v
         working-directory: tools
   onilink:
     runs-on: ubuntu-24.04
@@ -56,6 +55,13 @@ jobs:
         with: {node-version: "22", cache: npm, cache-dependency-path: OniLink/dashboard-ui/package-lock.json}
       - run: ./gradlew check standaloneJar --no-daemon
         working-directory: OniLink
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: python tools/new_addon.py build/addon-sdk-smoke --name SdkSmoke --package example.smoke
+      - run: ./gradlew check jar --no-daemon
+        working-directory: build/addon-sdk-smoke
+        env:
+          ONILINK_JAR: ${{ github.workspace }}/OniLink/dist/OniLink.jar
       - uses: actions/upload-artifact@v4
         with:
           name: oniforge-compatibility

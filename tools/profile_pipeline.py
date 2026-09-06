@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -22,6 +23,8 @@ REQUIRED_PRODUCTION_EVIDENCE = (
     "calling_convention_validated",
     "control_flow_validated",
     "cross_references_validated",
+    "endstone_chain_compatible",
+    "existing_detour_checked",
     "function_boundary_validated",
     "hook_harness_passed",
     "human_reviewed",
@@ -179,6 +182,17 @@ def validate_checked(
     unknown = set(required_production_platforms) - set(platforms)
     if unknown:
         raise ValueError(f"unknown required production platforms: {sorted(unknown)}")
+
+    versions = []
+    for artifact in platforms.values():
+        version = artifact.get("version") if isinstance(artifact, dict) else None
+        if not isinstance(version, str) or not re.fullmatch(
+            r"\d+\.\d+\.\d+(?:\.\d+)?", version
+        ):
+            raise ValueError("lock version must be a three- or four-part version")
+        versions.append(version)
+    if len(set(versions)) != 1:
+        raise ValueError("paired lock contains different platform versions")
 
     for platform, artifact in platforms.items():
         if not isinstance(artifact, dict):

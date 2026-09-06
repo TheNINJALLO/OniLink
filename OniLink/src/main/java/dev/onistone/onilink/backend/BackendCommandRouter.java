@@ -58,13 +58,18 @@ public final class BackendCommandRouter {
         List<String> arguments = CommandArguments.split(command.originalCommandLine());
         switch (name) {
             case "hub", "lobby" -> selfServiceSwitch(connection, backendDirectory.hubBackend());
-            case "server" -> server(connection, arguments);
+            case "server" -> {
+                if (dev.onistone.onilink.modules.connect.NetworkCommandGateway.available()) {
+                    networkCommands.network(sender, arguments.isEmpty() ? List.of("servers") : List.of("join", arguments.getFirst()));
+                } else server(connection, arguments);
+            }
             case "glist" -> networkCommands.glist(sender);
             case "send" -> networkCommands.send(sender, arguments);
             case "alert" -> networkCommands.alert(sender, CommandArguments.remainder(command.originalCommandLine()));
             case "perm" -> networkCommands.permission(sender, arguments);
             case "allowlist" -> networkCommands.allowlist(sender, arguments);
             case "support" -> networkCommands.support(sender, arguments);
+            case "network" -> networkCommands.network(sender, arguments);
             default -> sender.sendMessage("Unknown proxy command: " + name);
         }
     }

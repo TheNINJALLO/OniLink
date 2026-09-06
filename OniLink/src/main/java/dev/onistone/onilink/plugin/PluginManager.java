@@ -21,8 +21,8 @@ import java.util.jar.JarFile;
  * Finds, enables and shuts down the addons in {@code plugins/}.
  *
  * <p>An addon is any jar with an {@code onilink-plugin.properties} at its root naming a {@code name}
- * and a {@code main}. There is no registry, no versioning and no dependency resolution: drop the jar
- * in, it runs; take it out, it does not. That is the entire contract, and it is what makes
+ * and a {@code main}. API 1 descriptors declare versions, exact dependencies and API permissions.
+ * Existing descriptors retain the legacy trusted API capabilities. This is what makes
  * "{@code java -jar OniLink.jar} with an empty {@code plugins/}" a plain Bedrock proxy rather than a
  * proxy with its Java support switched off.</p>
  *
@@ -43,7 +43,7 @@ public final class PluginManager {
     public record ProtocolUpgrade(CanonicalProtocol older, CanonicalProtocol newer, PacketTranslator translator) {
     }
 
-    private record LoadedPlugin(String name, OniLinkPlugin plugin, URLClassLoader classLoader) {
+    private record LoadedPlugin(String name, String version, OniLinkPlugin plugin, URLClassLoader classLoader, Context context) {
     }
 
     public PluginManager(Path pluginsDirectory, ProxyConfig proxyConfig) {
@@ -85,7 +85,7 @@ public final class PluginManager {
         }
         jars.sort(Path::compareTo);
 
-        for (Path jar : jars) {
+        for (Path jar : order(jars)) {
             try {
                 load(jar);
             } catch (Throwable throwable) {
@@ -97,13 +97,13 @@ public final class PluginManager {
     private void load(Path jar) throws Exception {
         String name;
         String mainClass;
+        Properties descriptor = new Properties();
         try (JarFile jarFile = new JarFile(jar.toFile())) {
             var entry = jarFile.getEntry(DESCRIPTOR);
             if (entry == null) {
                 // Not an addon. Someone's unrelated jar in the folder is not an error.
                 return;
             }
-            Properties descriptor = new Properties();
             try (InputStream input = jarFile.getInputStream(entry)) {
                 descriptor.load(input);
             }
@@ -115,6 +115,14 @@ public final class PluginManager {
                     jar.getFileName(), DESCRIPTOR);
             return;
         }
+        if (!name.matches("[A-Za-z0-9][A-Za-z0-9_-]{0,63}")) throw new IllegalArgumentException("addon name must be a safe directory name");
+        if (plugins.stream().anyMatch(plugin -> plugin.name().equalsIgnoreCase(name))) throw new IllegalArgumentException("duplicate addon name");
+        String api = descriptor.getProperty("api-version", "1");
+        if (!api.equals("1")) throw new IllegalArgumentException("unsupported addon API version " + api);
+        for (var dependency : dependencies(descriptor).entrySet()) {
+            if (plugins.stream().noneMatch(p -> p.name().equals(dependency.getKey()) && p.version().equals(dependency.getValue())))
+                throw new IllegalArgumentException("missing or incompatible addon dependency " + dependency.getKey());
+        }
 
         // Parent is this classloader on purpose: an addon is written against the proxy's API and has
         // to see it. The proxy never sees the addon, which is the direction that matters.
@@ -123,18 +131,76 @@ public final class PluginManager {
                 new URL[]{jar.toUri().toURL()},
                 PluginManager.class.getClassLoader()
         );
+        int upgradeCount = protocolUpgrades.size();
+        int listenerCount = trustedListeners.size();
+        Context context = null;
+        OniLinkPlugin enablingPlugin = null;
+        boolean enabled = false;
+        try {
         Object instance = Class.forName(mainClass, true, classLoader).getDeclaredConstructor().newInstance();
         if (!(instance instanceof OniLinkPlugin plugin)) {
             classLoader.close();
             System.out.printf("Addon %s: %s does not implement OniLinkPlugin; skipped.%n", name, mainClass);
             return;
         }
+        enablingPlugin = plugin;
 
         Path dataFolder = pluginsDirectory.resolve(name);
         Files.createDirectories(dataFolder);
-        plugin.onEnable(new Context(name, dataFolder));
-        plugins.add(new LoadedPlugin(name, plugin, classLoader));
+        if (!dataFolder.toRealPath().startsWith(pluginsDirectory.toRealPath()) || Files.isSymbolicLink(dataFolder)) throw new IOException("addon data folder escapes plugins directory");
+        java.util.Set<String> permissions = descriptor.containsKey("api-version")
+                ? java.util.Arrays.stream(descriptor.getProperty("permissions", "").split(",")).map(String::trim).filter(s -> !s.isBlank()).collect(java.util.stream.Collectors.toSet())
+                : java.util.Set.of("protocol.contribute", "listeners.bind", "events.subscribe");
+        context = new Context(name, dataFolder, permissions);
+        plugin.onEnable(context);
+        plugins.add(new LoadedPlugin(name, descriptor.getProperty("version", "legacy"), plugin, classLoader, context));
+        enabled = true;
         System.out.printf("Enabled addon %s.%n", name);
+        } finally {
+            if (!enabled) {
+                if (enablingPlugin != null) try { enablingPlugin.onDisable(); } catch (Throwable ignored) { }
+                protocolUpgrades.subList(upgradeCount, protocolUpgrades.size()).clear();
+                trustedListeners.subList(listenerCount, trustedListeners.size()).clear();
+                if (context != null) context.close();
+                classLoader.close();
+            }
+        }
+    }
+
+    private List<Path> order(List<Path> jars) {
+        java.util.Map<String, Path> pending = new java.util.LinkedHashMap<>();
+        java.util.Map<String, Properties> descriptors = new java.util.HashMap<>();
+        for (Path path : jars) try (JarFile jar = new JarFile(path.toFile())) {
+            var entry = jar.getJarEntry(DESCRIPTOR);
+            if (entry == null || entry.getSize() > 65536) continue;
+            Properties descriptor = new Properties();
+            try (InputStream input = jar.getInputStream(entry)) { descriptor.load(input); }
+            String name = descriptor.getProperty("name", "");
+            if (pending.putIfAbsent(name, path) != null) throw new IllegalArgumentException("duplicate addon " + name);
+            descriptors.put(name, descriptor);
+        } catch (Exception failure) { System.err.println("Could not inspect addon " + path.getFileName() + ": " + failure.getMessage()); }
+        List<Path> sorted = new ArrayList<>();
+        java.util.Set<String> resolved = new java.util.HashSet<>();
+        while (!pending.isEmpty()) {
+            String next = pending.keySet().stream().filter(name -> {
+                try { return resolved.containsAll(dependencies(descriptors.get(name)).keySet()); }
+                catch (IllegalArgumentException failure) { return false; }
+            }).findFirst().orElse(null);
+            if (next == null) { System.err.println("Skipped addons with missing or cyclic dependencies: " + pending.keySet()); break; }
+            sorted.add(pending.remove(next)); resolved.add(next);
+        }
+        return sorted;
+    }
+
+    private static java.util.Map<String, String> dependencies(Properties descriptor) {
+        java.util.Map<String, String> result = new java.util.LinkedHashMap<>();
+        for (String dependency : descriptor.getProperty("depends", "").split(",")) {
+            if (dependency.isBlank()) continue;
+            String[] pair = dependency.trim().split("@", -1);
+            if (pair.length != 2 || pair[0].isBlank() || pair[1].isBlank()) throw new IllegalArgumentException("dependencies require name@version");
+            result.put(pair[0], pair[1]);
+        }
+        return result;
     }
 
     /** Tells every enabled addon that the listeners are up. */
@@ -162,8 +228,11 @@ public final class PluginManager {
             } catch (IOException ignored) {
                 // as above
             }
+            loaded.context().close();
         }
         plugins.clear();
+        protocolUpgrades.clear();
+        trustedListeners.clear();
     }
 
     public boolean isEmpty() {
@@ -173,11 +242,23 @@ public final class PluginManager {
     private final class Context implements PluginContext {
         private final String name;
         private final Path dataFolder;
+        private final java.util.Set<String> permissions;
+        private final List<AutoCloseable> subscriptions = new ArrayList<>();
 
-        private Context(String name, Path dataFolder) {
+        private Context(String name, Path dataFolder, java.util.Set<String> permissions) {
             this.name = name;
             this.dataFolder = dataFolder;
+            this.permissions = java.util.Set.copyOf(permissions);
         }
+
+        private void require(String permission) { if (!permissions.contains(permission)) throw new SecurityException("addon did not declare " + permission); }
+        @Override public AutoCloseable subscribe(String tenant, String proxy, dev.onistone.onilink.platform.events.OniEventType type,
+                java.util.function.Consumer<dev.onistone.onilink.platform.events.OniEvent> listener) {
+            require("events.subscribe");
+            AutoCloseable subscription = AddonEvents.subscribe(tenant, proxy, type, listener);
+            subscriptions.add(subscription); return subscription;
+        }
+        void close() { subscriptions.forEach(s -> { try { s.close(); } catch (Exception ignored) { } }); subscriptions.clear(); }
 
         @Override
         public Path dataFolder() {
@@ -196,11 +277,13 @@ public final class PluginManager {
 
         @Override
         public void addProtocolUpgrade(CanonicalProtocol older, CanonicalProtocol newer, PacketTranslator translator) {
+            require("protocol.contribute");
             protocolUpgrades.add(new ProtocolUpgrade(older, newer, translator));
         }
 
         @Override
         public void addTrustedListener(TrustedListenerSpec spec) {
+            require("listeners.bind");
             trustedListeners.add(spec);
         }
     }

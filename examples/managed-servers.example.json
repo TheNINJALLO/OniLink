@@ -1,0 +1,16 @@
+{
+  "servers": [
+    {
+      "tenant": "provider",
+      "proxy": "main",
+      "backend": "survival",
+      "runtime": "Endstone",
+      "endstoneVersion": "0.11.10",
+      "eulaAccepted": false,
+      "directory": "/srv/endstone/survival",
+      "startCommand": ["systemctl", "start", "endstone-survival.service"],
+      "stopCommand": ["systemctl", "stop", "endstone-survival.service"],
+      "healthCommand": ["systemctl", "is-active", "--quiet", "endstone-survival.service"]
+    }
+  ]
+}

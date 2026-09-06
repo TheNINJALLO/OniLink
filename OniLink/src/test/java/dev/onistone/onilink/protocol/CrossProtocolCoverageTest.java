@@ -31,7 +31,7 @@ import java.util.List;
 class CrossProtocolCoverageTest {
 
     /** If a player does not spawn, the cause is almost certainly one of these. */
-    private static final List<String> JOIN_CRITICAL = List.of(
+    static final List<String> JOIN_CRITICAL = List.of(
             "StartGamePacket",
             "ResourcePacksInfoPacket",
             "ResourcePackStackPacket",
@@ -110,7 +110,7 @@ class CrossProtocolCoverageTest {
      * pipeline never sees — {@code PlayerAuthInput} did once its {@code ItemUseTransaction} started
      * being written. Accepting every id keeps the stub out of the way of what is under test.
      */
-    private static BedrockCodecHelper helperFor(BedrockCodec codec) {
+    static BedrockCodecHelper helperFor(BedrockCodec codec) {
         BedrockCodecHelper helper = codec.createHelper();
         helper.setBlockDefinitions(new DefinitionRegistry<>() {
             @Override

@@ -53,7 +53,7 @@ public final class ConnectService extends ScopedRecords {
             String xuid = String.valueOf(player.get("xuid"));
             online.add(xuid);
             Map<String, Object> value = new LinkedHashMap<>();
-            value.put("id", revealXuid ? xuid : pseudonym(xuid));
+            value.put("id", xuid);
             value.put("displayLabel", player.getOrDefault("name", "Player"));
             value.put("online", true);
             value.put("proxy", scope.proxyId());
@@ -62,7 +62,6 @@ public final class ConnectService extends ScopedRecords {
             value.put("transferState", Boolean.TRUE.equals(player.get("switching")) ? "TRANSFERRING" : "IDLE");
             value.put("quarantineState", database.get(scope, "quarantine", xuid).isPresent() ? "QUARANTINED" : "NORMAL");
             value.put("lastActivityAt", now.toString());
-            value.put("visibility", revealXuid ? "OPERATOR" : "LIMITED");
             presence.put(scope.tenantId() + '\0' + scope.proxyId() + '\0' + xuid,
                     new Presence(Map.copyOf(value), now.plusSeconds(presenceExpirationSeconds)));
         }
@@ -70,7 +69,14 @@ public final class ConnectService extends ScopedRecords {
         String prefix = scope.tenantId() + '\0' + scope.proxyId() + '\0';
         return presence.entrySet().stream()
                 .filter(entry -> entry.getKey().startsWith(prefix))
-                .map(entry -> entry.getValue().value())
+                .map(entry -> {
+                    Map<String, Object> value = new LinkedHashMap<>(entry.getValue().value());
+                    String xuid = String.valueOf(value.get("id"));
+                    value.put("id", revealXuid ? xuid : pseudonym(xuid));
+                    value.put("online", online.contains(xuid));
+                    value.put("visibility", revealXuid ? "OPERATOR" : "LIMITED");
+                    return Map.copyOf(value);
+                })
                 .sorted(Comparator.comparing(item -> String.valueOf(item.get("displayLabel")), String.CASE_INSENSITIVE_ORDER))
                 .toList();
     }

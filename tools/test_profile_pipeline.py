@@ -122,6 +122,16 @@ class CheckedProfileTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "profile identity does not match"):
             validate_checked(self.lock, allow_candidate=True, root=self.root)
 
+    def test_paired_flag_cannot_hide_different_platform_versions(self) -> None:
+        self.lock["platforms"]["windows-x86_64"]["version"] = "1.2.3.5"
+        with self.assertRaisesRegex(ValueError, "different platform versions"):
+            validate_checked(self.lock, allow_candidate=True, root=self.root)
+
+    def test_version_cannot_escape_the_profile_directory(self) -> None:
+        self.lock["platforms"]["linux-x86_64"]["version"] = "../../outside"
+        with self.assertRaisesRegex(ValueError, "lock version"):
+            validate_checked(self.lock, allow_candidate=True, root=self.root)
+
 
 if __name__ == "__main__":
     unittest.main()

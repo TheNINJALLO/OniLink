@@ -58,6 +58,8 @@ public final class PackScannerService extends ScopedRecords {
         if (fileName == null || !fileName.matches("[A-Za-z0-9][A-Za-z0-9._-]{0,127}\\.(?i:mcpack|zip)")) {
             throw new IllegalArgumentException("candidate filename must end in .mcpack or .zip");
         }
+        if (encoded != null && encoded.length() > ((long) maxArchiveBytes + 2) / 3 * 4)
+            throw new IllegalArgumentException("candidate archive is too large");
         byte[] bytes;
         try {
             bytes = Base64.getDecoder().decode(encoded == null ? "" : encoded);
@@ -193,8 +195,9 @@ public final class PackScannerService extends ScopedRecords {
             String moduleUuid = string(module.get("uuid"));
             if (!uuid(moduleUuid)) finding(findings, "ERROR", "MODULE_UUID", fileName, "manifest.json",
                     "A module UUID is missing or invalid", "Give every module a unique RFC 4122 UUID.");
-            else if (!modules.add(moduleUuid)) finding(findings, "ERROR", "DUPLICATE_MODULE_UUID", fileName,
+            else if (modules.contains(moduleUuid)) finding(findings, "ERROR", "DUPLICATE_MODULE_UUID", fileName,
                     "manifest.json", "A module UUID is duplicated", "Generate a distinct UUID for each module.");
+            else modules.add(moduleUuid);
         }
         List<String> dependencies = new ArrayList<>();
         for (Object raw : array(manifest.get("dependencies"))) {

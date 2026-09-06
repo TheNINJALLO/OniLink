@@ -68,7 +68,7 @@ public final class ExpansionSettings {
         integer("flow.maxParallelBranches", 8, 1, 32);
         integer("flow.maxExecutionSeconds", 3_600, 1, 86_400);
         integer("flow.maxConcurrentExecutions", 32, 1, 256);
-        integer("continuity.maxReservations", 10_000, 1, 100_000);
+        integer("continuity.maxReservations", 10_000, 1, 10_000);
         integer("journeys.maxRecords", 10_000, 10, 100_000);
         integer("journeys.retentionHours", 72, 1, 8_760);
         integer("fleet.maxDynamicBackends", 1_000, 1, 10_000);

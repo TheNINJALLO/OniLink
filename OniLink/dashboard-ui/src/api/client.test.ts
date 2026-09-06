@@ -9,6 +9,19 @@ function response(
 }
 
 describe("typed API client", () => {
+  it("uploads binary archives with the same authenticated session boundary", async () => {
+    setToken("upload-token");
+    const file = new Blob([new Uint8Array([1, 2, 3])]);
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(response({ id: "artifact" }));
+    await request("/api/update-center/upload", { method: "POST", rawBody: file });
+    const init = fetchMock.mock.calls[0]?.[1];
+    expect(init?.body).toBe(file);
+    expect(new Headers(init?.headers).get("content-type")).toBe("application/octet-stream");
+    expect(new Headers(init?.headers).get("authorization")).toBe("Bearer upload-token");
+    await expect(
+      request("/api/update-center/upload", { method: "POST", rawBody: file, body: {} }),
+    ).rejects.toThrow(TypeError);
+  });
   it("uses URL-encoded bodies, bearer authentication, and no-store", async () => {
     setToken("private-token");
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(response({ ok: true }));
