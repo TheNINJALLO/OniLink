@@ -66,7 +66,7 @@ packet IDs, directions, and serializer changes; it does not infer semantic equiv
 
 For a future protocol, add its versioned codec, register it in `CanonicalProtocol` and
 `ProtocolRegistry`, implement the necessary field conversions/drop rules, and add exact wire
-fixtures. The seven current `ReleaseTranslationTest` routes cover join, movement, and populated
+fixtures. The nine current `ReleaseTranslationTest` routes cover join, movement, and populated
 scoreboard packets without silently skipping unencodable packets. Test commands, inventory/chunks,
 resource packs, and gameplay using real clients before making a live compatibility claim.
 

@@ -26,7 +26,9 @@ class ReleaseTranslationTest {
                 binding(registry, CanonicalProtocol.V1_26_45, CanonicalProtocol.V1_26_45),
                 binding(registry, CanonicalProtocol.V1_26_40, CanonicalProtocol.V1_26_45),
                 binding(registry, CanonicalProtocol.V1_26_44, CanonicalProtocol.V1_26_45),
-                binding(registry, CanonicalProtocol.V1_26_50, CanonicalProtocol.V1_26_45)
+                binding(registry, CanonicalProtocol.V1_26_50, CanonicalProtocol.V1_26_45),
+                binding(registry, CanonicalProtocol.V1_26_50, CanonicalProtocol.V1_26_44),
+                binding(registry, CanonicalProtocol.V1_26_50, CanonicalProtocol.V1_26_40)
         );
     }
 

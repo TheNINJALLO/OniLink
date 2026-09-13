@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "targetClient": "1.26.50 / 2192",
+  "sources": {
+    "endweave": {
+      "repository": "EndstoneMC/endweave",
+      "reviewedCommit": "b3bc18a0cb6e56894251554781497ff85a9b672b",
+      "paths": ["CMakeLists.txt", "src/endweave/protocol", "src/endweave/protocols", "src/endweave/_pipeline.cpp"]
+    },
+    "bedrock-protocol": {
+      "repository": "EndstoneMC/bedrock-protocol",
+      "reviewedCommit": "1dc4408fd949bdf1eec11daa6373dff1a986d02a",
+      "fixtureSchemaCommit": "9c93e0c6e711b161df6eb1934270936b48527120",
+      "paths": ["protocol", "include/bedrock", "src/bedrock_protocol", "CMakeLists.txt"]
+    }
+  }
+}

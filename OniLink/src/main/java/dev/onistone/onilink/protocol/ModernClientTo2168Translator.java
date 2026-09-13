@@ -2,6 +2,8 @@ package dev.onistone.onilink.protocol;
 
 import org.cloudburstmc.protocol.bedrock.packet.AvailableCommandsPacket;
 import org.cloudburstmc.protocol.bedrock.packet.BedrockPacket;
+import org.cloudburstmc.protocol.bedrock.packet.ContainerClosePacket;
+import org.cloudburstmc.protocol.bedrock.data.inventory.ContainerType;
 import org.cloudburstmc.protocol.bedrock.packet.ServerboundPackSettingChangePacket;
 import org.cloudburstmc.protocol.bedrock.packet.UnknownPacket;
 
@@ -20,6 +22,9 @@ public final class ModernClientTo2168Translator implements PacketTranslator {
     @Override
     public BedrockPacket translateServerbound(BedrockPacket packet, TranslationContext context) {
         if (is2192OnlyPacket(packet)) {
+            return null;
+        }
+        if (packet instanceof ContainerClosePacket close && close.getType() == ContainerType.DATA_DRIVEN_CONTAINER) {
             return null;
         }
         if (packet instanceof ServerboundPackSettingChangePacket setting

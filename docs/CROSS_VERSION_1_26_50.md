@@ -6,9 +6,68 @@ OniBridge remains the backend authentication component; you do not install Endwe
 
 > [!CAUTION]
 > `1.26.50` has not reached its final release. This implementation follows the current Preview
-> `1.26.50.26` schema. Mojang can still change packet layouts or the protocol number. The Java
-> build and codec regression suite pass, but production status requires a final-release client and
+> `1.26.50.27` schema in the current source tree. Mojang can still change packet layouts or the
+> protocol number. The Java build and codec regression suite pass, but production status requires a final-release client and
 > the live checklist below.
+
+## September 13 source audit
+
+`0.4.0-beta.2` includes additional fixes beyond the `0.3.0` and `0.4.0-beta.1` artifacts.
+Install its updated JAR to use them. They prepare the
+`2192` client route to an existing `2169` or `2168` backend; no BDS or OniBridge upgrade is
+required for that route. This is preview compatibility evidence, not final-client live acceptance.
+
+The audit compared Endweave `0.5.0` and its `bedrock-protocol 0.1.0` dependency with OniLink.
+Independent wire fixtures reproduced six failures before the fixes and now cover:
+
+| Packet area | Verified behavior |
+| --- | --- |
+| Inventory transactions | Populated actions remove the old source markers and retain signed container IDs |
+| Item-use movement input | Reads/writes the new hand byte before the item; drops that field when encoding the older backend |
+| Inventory responses | Retains absent and populated optional filtered item names on both sides |
+| Diagnostics | Reads/writes the optional system-category list with its presence marker |
+| Container close | Recognizes the new data-driven container and drops closes for it on older backends |
+| Boss bars, dimensions, cameras, sounds, entity movement | Matches independently specified target bytes, including new default fields |
+| Sub-chunks | Preserves the chunk payload and every cell of both height maps while adding row lengths |
+
+`Endweave2192ParityTest` builds expected payloads directly from the pinned upstream schema;
+it does not generate expected bytes with the codec under test. `ReleaseTranslationTest` also
+checks join, movement and populated scoreboards across all three `2192` routes: `1.26.40`,
+the `1.26.44` hotfix dialect, and `1.26.45`. The existing codec/translation suite remains enabled.
+
+The new hand field cannot add off-hand behavior to an older BDS build. That backend receives
+the older item-use representation, matching Endweave's downgrade. Protocol `2208` is modeled
+upstream but is outside Endweave's current translation table and OniLink's registered codecs.
+It is explicitly rejected rather than treated as `2192`. Older clients on a `2192` backend
+are outside this audit's route; a new native backend still needs its own OniBridge profile.
+
+## Detect upstream changes before release
+
+The `Protocol upstream watch` GitHub workflow runs daily at 06:43 UTC once this change is
+on the repository's default branch with scheduled Actions enabled. It can also be dispatched
+manually. It checks upstream `main` against `tools/protocol_upstreams.json`, covering the
+translation engine, packet schemas, codec generator/runtime and build dependency pins.
+
+Changed, added or removed files fail the check and produce a comparison report in the job
+summary and `protocol-upstream-review` artifact. Missing history or an unavailable checkout
+also fails. GitHub notification delivery depends on the repository/account Actions settings.
+The check reads source; it never installs or executes upstream code or changes OniLink's registry.
+
+To repeat it locally after fetching current upstream source (the checked-out `HEAD` is compared):
+
+```powershell
+python tools/check_protocol_upstreams.py `
+  --source endweave=.cache/protocol-audit/endweave `
+  --source bedrock-protocol=.cache/protocol-audit/bedrock-protocol `
+  --output build/protocol-upstreams.json
+```
+
+Both checkouts must contain their reviewed commit and the current revision being checked.
+Review a reported diff, update serializers and fixtures where needed, run the tests, and only
+then advance the reviewed commit. A documentation-only change outside the watched paths
+does not require review. The check reports possible drift, not automatic support for future versions.
+The Update Center's [signed protocol packages](PROTOCOL_PACKAGES.md) provide the existing path
+for delivering a later codec fix independently of a full proxy release.
 
 ## What happens automatically
 
@@ -87,5 +146,15 @@ do not alias an unknown protocol to 2192.
 - [EndstoneMC bedrock-protocol](https://github.com/EndstoneMC/bedrock-protocol), reviewed at
   `208db02e15518522ff367b51faa281ecdbf964ee`.
 
-Both references identify `1.26.50.26` as protocol `2192`. The commits are pinned here so a later
-upstream edit cannot silently change what this implementation claims to support.
+Those were the original implementation references for `1.26.50.26` / `2192`.
+The September 13 audit additionally uses:
+
+- [Endweave](https://github.com/EndstoneMC/endweave/tree/b3bc18a0cb6e56894251554781497ff85a9b672b),
+  `b3bc18a0cb6e56894251554781497ff85a9b672b` (Apache-2.0).
+- [bedrock-protocol v0.1.0](https://github.com/EndstoneMC/bedrock-protocol/tree/9c93e0c6e711b161df6eb1934270936b48527120),
+  `9c93e0c6e711b161df6eb1934270936b48527120` (MIT), the schema Endweave pins in its build.
+- [bedrock-protocol main](https://github.com/EndstoneMC/bedrock-protocol/tree/1dc4408fd949bdf1eec11daa6373dff1a986d02a),
+  `1dc4408fd949bdf1eec11daa6373dff1a986d02a`. Its intervening changes add older-version coverage;
+  the audited `2168`/`2169`/`2192` wire layouts are unchanged. This is the watcher baseline.
+
+These are source-derived fixtures and comparisons, not captured final-release client traffic.

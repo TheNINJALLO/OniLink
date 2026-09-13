@@ -10,6 +10,7 @@ import org.cloudburstmc.protocol.bedrock.data.PlayerBlockActionData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.transaction.ItemUseTransaction;
 import org.cloudburstmc.protocol.bedrock.data.inventory.transaction.LegacySetItemSlotData;
 import org.cloudburstmc.protocol.bedrock.packet.PlayerAuthInputPacket;
+import org.cloudburstmc.protocol.bedrock.packet.InventoryTransactionPacket;
 import org.cloudburstmc.protocol.common.util.VarInts;
 
 /** Protocol 2192's PlayerAuthInput layout without redundant constant-true fields. */
@@ -110,6 +111,7 @@ public final class PlayerAuthInputSerializer_v2192 extends PlayerAuthInputSerial
         helper.writeBlockPosition(buffer, transaction.getBlockPosition());
         buffer.writeByte(transaction.getBlockFace());
         VarInts.writeInt(buffer, transaction.getHotbarSlot());
+        buffer.writeByte(transaction.getHandSlot().ordinal());
         helper.writeItem(buffer, transaction.getItemInHand());
         helper.writeVector3f(buffer, transaction.getPlayerPosition());
         helper.writeVector3f(buffer, transaction.getClickPosition());
@@ -133,6 +135,7 @@ public final class PlayerAuthInputSerializer_v2192 extends PlayerAuthInputSerial
         transaction.setBlockPosition(helper.readBlockPosition(buffer));
         transaction.setBlockFace(buffer.readUnsignedByte());
         transaction.setHotbarSlot(VarInts.readInt(buffer));
+        transaction.setHandSlot(InventoryTransactionPacket.HandSlot.values()[buffer.readUnsignedByte()]);
         transaction.setItemInHand(helper.readItem(buffer));
         transaction.setPlayerPosition(helper.readVector3f(buffer));
         transaction.setClickPosition(helper.readVector3f(buffer));

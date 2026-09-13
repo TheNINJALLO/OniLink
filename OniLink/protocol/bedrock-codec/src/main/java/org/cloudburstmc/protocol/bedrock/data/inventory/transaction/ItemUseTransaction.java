@@ -6,6 +6,7 @@ import org.cloudburstmc.math.vector.Vector3f;
 import org.cloudburstmc.math.vector.Vector3i;
 import org.cloudburstmc.protocol.bedrock.data.definitions.BlockDefinition;
 import org.cloudburstmc.protocol.bedrock.data.inventory.ItemData;
+import org.cloudburstmc.protocol.bedrock.packet.InventoryTransactionPacket;
 
 import java.util.List;
 
@@ -19,6 +20,8 @@ public class ItemUseTransaction {
     private Vector3i blockPosition;
     private int blockFace;
     private int hotbarSlot;
+    /** @since v2192 */
+    private InventoryTransactionPacket.HandSlot handSlot = InventoryTransactionPacket.HandSlot.MAIN_HAND;
     private ItemData itemInHand;
     private Vector3f playerPosition;
     private Vector3f clickPosition;

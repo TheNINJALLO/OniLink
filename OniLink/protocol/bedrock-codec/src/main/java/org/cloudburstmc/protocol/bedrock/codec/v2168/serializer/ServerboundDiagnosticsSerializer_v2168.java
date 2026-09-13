@@ -43,10 +43,11 @@ public class ServerboundDiagnosticsSerializer_v2168 extends ServerboundDiagnosti
             buf.writeByte(info.getPercentOfTotal());
         });
 
-        helper.writeArray(buffer, packet.getSystemCategories(), (buf, info) -> {
-            helper.writeString(buf, info.getCategoryName());
-            buf.writeLongLE(info.getSystemIndex());
-        });
+        helper.writeOptional(buffer, categories -> !categories.isEmpty(), packet.getSystemCategories(),
+                (out, categories) -> helper.writeArray(out, categories, (buf, info) -> {
+                    helper.writeString(buf, info.getCategoryName());
+                    buf.writeLongLE(info.getSystemIndex());
+                }));
 
         helper.writeArray(buffer, packet.getWhiskerScopes(), (buf, info) -> {
             helper.writeString(buf, info.getLabel());
@@ -76,10 +77,10 @@ public class ServerboundDiagnosticsSerializer_v2168 extends ServerboundDiagnosti
         helper.readArray(buffer, packet.getSystemDiagnostics(), buf -> new SystemDiagnosticTimingInfo(
                 helper.readString(buf), buf.readLongLE(), buf.readLongLE(), (byte) buf.readUnsignedByte()));
 
-        helper.readArray(buffer, packet.getSystemCategories(), buf ->
-                new SystemCategory(
-                        helper.readString(buf),
-                        buf.readLongLE()));
+        if (buffer.readBoolean()) {
+            helper.readArray(buffer, packet.getSystemCategories(), buf ->
+                    new SystemCategory(helper.readString(buf), buf.readLongLE()));
+        }
 
         helper.readArray(buffer, packet.getWhiskerScopes(), buf ->
                 new WhiskerScopeDataSummary(

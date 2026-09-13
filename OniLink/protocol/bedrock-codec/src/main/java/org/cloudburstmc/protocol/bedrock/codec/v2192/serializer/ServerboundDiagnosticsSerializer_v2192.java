@@ -47,10 +47,12 @@ public final class ServerboundDiagnosticsSerializer_v2192 extends ServerboundDia
             buf.writeLongLE(info.getTimeInNs());
             buf.writeByte(info.getPercentOfTotal());
         });
-        helper.writeArray(buffer, packet.getSystemCategories(), (buf, info) -> {
-            helper.writeString(buf, info.getCategoryName());
-            buf.writeLongLE(info.getSystemIndex());
-        });
+        helper.writeOptional(buffer, categories -> !categories.isEmpty(), packet.getSystemCategories(),
+                (out, categories) -> helper.writeArray(out, categories, (buf, info) -> {
+                    helper.writeString(buf, info.getCategoryName());
+                    buf.writeLongLE(info.getSystemIndex());
+                }));
+
         helper.writeArray(buffer, packet.getWhiskerScopes(), (buf, info) -> {
             helper.writeString(buf, info.getLabel());
             helper.writeString(buf, info.getIndentation());
@@ -84,8 +86,11 @@ public final class ServerboundDiagnosticsSerializer_v2192 extends ServerboundDia
         ));
         helper.readArray(buffer, packet.getSystemDiagnostics(), buf -> new SystemDiagnosticTimingInfo(
                 helper.readString(buf), buf.readLongLE(), buf.readLongLE(), (byte) buf.readUnsignedByte()));
-        helper.readArray(buffer, packet.getSystemCategories(), buf ->
-                new SystemCategory(helper.readString(buf), buf.readLongLE()));
+        if (buffer.readBoolean()) {
+            helper.readArray(buffer, packet.getSystemCategories(), buf ->
+                    new SystemCategory(helper.readString(buf), buf.readLongLE()));
+        }
+
         helper.readArray(buffer, packet.getWhiskerScopes(), buf -> new WhiskerScopeDataSummary(
                 helper.readString(buf), helper.readString(buf), buf.readLongLE(), buf.readLongLE(), buf.readLongLE()));
     }

@@ -4,10 +4,13 @@ import io.netty.buffer.ByteBuf;
 import org.cloudburstmc.protocol.bedrock.codec.BedrockCodecHelper;
 import org.cloudburstmc.protocol.bedrock.codec.v1001.serializer.InventoryTransactionSerializer_v1001;
 import org.cloudburstmc.protocol.bedrock.data.inventory.transaction.InventoryTransactionType;
+import org.cloudburstmc.protocol.bedrock.data.inventory.transaction.InventoryActionData;
 import org.cloudburstmc.protocol.bedrock.data.inventory.transaction.ItemUseTransaction;
 import org.cloudburstmc.protocol.bedrock.data.inventory.transaction.LegacySetItemSlotData;
 import org.cloudburstmc.protocol.bedrock.packet.InventoryTransactionPacket;
 import org.cloudburstmc.protocol.common.util.VarInts;
+
+import java.util.List;
 
 /**
  * Protocol 2192 removes two redundant constant-true fields and identifies which hand performed an
@@ -17,6 +20,17 @@ public final class InventoryTransactionSerializer_v2192 extends InventoryTransac
     public static final InventoryTransactionSerializer_v2192 INSTANCE = new InventoryTransactionSerializer_v2192();
 
     private InventoryTransactionSerializer_v2192() {
+    }
+
+    @Override
+    public void readInventoryActions(ByteBuf buffer, BedrockCodecHelper helper, List<InventoryActionData> actions) {
+        // The inherited serializer has its own 1001 source reader, bypassing the 2192 helper.
+        helper.readInventoryActions(buffer, actions);
+    }
+
+    @Override
+    public void writeInventoryActions(ByteBuf buffer, BedrockCodecHelper helper, List<InventoryActionData> actions) {
+        helper.writeInventoryActions(buffer, actions, false);
     }
 
     @Override

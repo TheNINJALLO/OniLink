@@ -35,7 +35,7 @@ public final class BedrockCodecHelper_v2192 extends BedrockCodecHelper_v2168 {
         int count = buffer.readUnsignedByte();
         int stackNetworkId = buffer.readBoolean() ? VarInts.readInt(buffer) : 0;
         String customName = readString(buffer);
-        String filteredCustomName = readString(buffer);
+        String filteredCustomName = readOptional(buffer, null, this::readString);
         int durabilityCorrection = VarInts.readInt(buffer);
         return new ItemStackResponseSlot(slot, hotbarSlot, count, stackNetworkId,
                 customName, durabilityCorrection, filteredCustomName);
@@ -48,14 +48,14 @@ public final class BedrockCodecHelper_v2192 extends BedrockCodecHelper_v2168 {
         buffer.writeByte(itemEntry.getCount());
         writeOptional(buffer, id -> id > 0, itemEntry.getStackNetworkId(), VarInts::writeInt);
         writeString(buffer, itemEntry.getCustomName());
-        writeString(buffer, itemEntry.getFilteredCustomName());
+        writeOptionalNull(buffer, itemEntry.getFilteredCustomName(), this::writeString);
         VarInts.writeInt(buffer, itemEntry.getDurabilityCorrection());
     }
 
     @Override
     public InventorySource readSource(ByteBuf buffer) {
         InventorySource.Type type = InventorySource.Type.byId(VarInts.readUnsignedInt(buffer));
-        Integer containerId = readOptional(buffer, null, buf -> (int) buf.readUnsignedByte());
+        Integer containerId = readOptional(buffer, null, buf -> (int) buf.readByte());
         InventorySource.Flag flag = readOptional(buffer, null,
                 buf -> InventorySource.Flag.values()[VarInts.readUnsignedInt(buf)]);
 

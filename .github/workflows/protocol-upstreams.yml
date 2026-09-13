@@ -1,0 +1,42 @@
+name: Protocol upstream watch
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "43 6 * * *"
+permissions:
+  contents: read
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: EndstoneMC/endweave
+          ref: main
+          path: .cache/protocol-audit/endweave
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: EndstoneMC/bedrock-protocol
+          ref: main
+          path: .cache/protocol-audit/bedrock-protocol
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - name: Compare with reviewed protocol sources
+        run: >-
+          python tools/check_protocol_upstreams.py
+          --output build/protocol-upstreams.json
+          --summary "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: protocol-upstream-review
+          path: build/protocol-upstreams.json
+          if-no-files-found: warn

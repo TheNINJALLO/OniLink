@@ -59,5 +59,13 @@ implemented after reviewing these Apache-2.0-licensed protocol references:
   https://github.com/EndstoneMC/endweave
   Reviewed develop commit: b5974fd4570d3e627423ed8a71fcb93dc015cb0f
 
+The September 13 protocol-2192 audit additionally reviewed Endweave commit
+b3bc18a0cb6e56894251554781497ff85a9b672b (Apache-2.0) and bedrock-protocol
+v0.1.0 commit 9c93e0c6e711b161df6eb1934270936b48527120 (MIT, Copyright 2026
+The Endstone Project). The resulting Java fixes and independent wire fixtures
+cover inventory sources, embedded hand selection, optional filtered names,
+diagnostics, and container compatibility. The upstream watch baseline also
+reviews bedrock-protocol main at 1dc4408fd949bdf1eec11daa6373dff1a986d02a.
+
 The complete Apache License, Version 2.0 is in LICENSE. Additional nested license
 and notice files remain with the source they cover.

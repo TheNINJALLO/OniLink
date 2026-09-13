@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.0-beta.2 - 2026-09-13
+
+- Audited the 1.26.50 preview / protocol 2192 route against Endweave 0.5.0 and its pinned
+  bedrock-protocol schemas before the final client release.
+- Fixed populated inventory transactions retaining old source markers, signed container IDs,
+  the missing hand field in embedded item-use input, optional filtered item names, and optional
+  diagnostic system-category lists. Unsupported data-driven container closes stop at the proxy.
+- Added independent wire fixtures for these cases and for boss bars, dimensions, cameras, sounds,
+  entity movement and both sub-chunk height maps. Expanded release translation checks to nine
+  routes, including 2192 clients on 1.26.40, 1.26.44 and 1.26.45 backends.
+- Added a daily read-only upstream protocol watch with reviewed commit pins, diff reports and
+  failure on changed or unavailable sources. It does not automatically enable unknown protocols.
+- Retained the existing BDS 1.26.45.1 / Endstone 0.11.10 native profile and OniForward v3.
+  Final-client live acceptance is still required for the 1.26.50 route; protocol 2208 is unsupported.
+
 ## 0.4.0-beta.1 - 2026-09-06
 
 - Added the owner Update Center with streamed artifact verification, exact-version acceptance
